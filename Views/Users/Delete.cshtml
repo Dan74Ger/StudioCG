@@ -1,0 +1,69 @@
+@model StudioCG.Web.Models.User
+@{
+    ViewData["Title"] = "Elimina Utente";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Conferma Eliminazione</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-warning me-2"></i>
+                    <strong>Attenzione!</strong> Questa azione è irreversibile. L'utente e tutti i suoi permessi verranno eliminati definitivamente.
+                </div>
+                
+                <div class="mb-4">
+                    <h6 class="text-muted mb-3">Dati dell'utente da eliminare:</h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <th style="width: 150px;">Nome Utente:</th>
+                            <td><strong>@Model.Username</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Nome Completo:</th>
+                            <td>@Model.NomeCompleto</td>
+                        </tr>
+                        <tr>
+                            <th>Email:</th>
+                            <td>@(Model.Email ?? "-")</td>
+                        </tr>
+                        <tr>
+                            <th>Stato:</th>
+                            <td>
+                                @if (Model.IsActive)
+                                {
+                                    <span class="badge badge-active">Attivo</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-inactive">Inattivo</span>
+                                }
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Ruolo:</th>
+                            <td>@(Model.IsAdmin ? "Amministratore" : "Utente")</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <form asp-action="Delete" method="post">
+                    <input type="hidden" asp-for="Id" />
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash me-2"></i>Conferma Eliminazione
+                        </button>
+                        <a asp-action="Index" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Annulla
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+

@@ -1,0 +1,328 @@
+﻿@using StudioCG.Web.Services
+@inject IPermissionService PermissionService
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Studio CG</title>
+    <link rel="icon" type="image/jpeg" href="~/images/favicon.jpg" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #1a365d;
+            --secondary-color: #2d5a87;
+            --accent-color: #e8af30;
+            --text-light: #f7fafc;
+            --sidebar-width: 260px;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f4f8;
+            min-height: 100vh;
+        }
+        
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: var(--sidebar-width);
+            background: linear-gradient(180deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            box-shadow: 4px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.1);
+        }
+        
+        .sidebar-header img {
+            max-width: 180px;
+            height: auto;
+        }
+        
+        .sidebar-nav {
+            padding: 20px 0;
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+        
+        .nav-item {
+            margin: 5px 15px;
+        }
+        
+        .nav-link {
+            color: var(--text-light) !important;
+            padding: 12px 20px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .nav-link:hover, .nav-link.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: var(--accent-color) !important;
+            transform: translateX(5px);
+        }
+        
+        .nav-link i {
+            width: 24px;
+            text-align: center;
+        }
+
+        .nav-section-title {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 15px 20px 5px;
+            margin-top: 10px;
+        }
+        
+        .main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+        }
+        
+        .top-navbar {
+            background: white;
+            padding: 15px 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin: 0;
+        }
+        
+        .user-dropdown .dropdown-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: white;
+            color: var(--primary-color);
+        }
+        
+        .user-dropdown .dropdown-toggle:hover {
+            background: #f7fafc;
+        }
+        
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        
+        .content-wrapper {
+            padding: 30px;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        }
+        
+        .card-header {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 20px;
+            border-radius: 12px 12px 0 0 !important;
+        }
+        
+        .btn-primary {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-primary:hover {
+            background: var(--secondary-color);
+            border-color: var(--secondary-color);
+        }
+        
+        .table {
+            margin-bottom: 0;
+        }
+        
+        .table th {
+            background: #f7fafc;
+            font-weight: 600;
+            color: var(--primary-color);
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .badge-active {
+            background: #48bb78;
+        }
+        
+        .badge-inactive {
+            background: #fc8181;
+        }
+
+        .sidebar-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .alert {
+            border: none;
+            border-radius: 8px;
+        }
+    </style>
+    @RenderSection("Styles", required: false)
+</head>
+<body>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        var isMainAdmin = User.Identity?.Name?.ToLower() == "admin";
+        var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+        
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <img src="~/images/CONSULTING GRANDE.png" alt="Consulting Group" class="img-fluid" />
+            </div>
+            <nav class="sidebar-nav">
+                <ul class="nav flex-column">
+                    <!-- Dashboard sempre visibile per tutti -->
+                    <li class="nav-item">
+                        <a class="nav-link @(currentController == "Home" ? "active" : "")" asp-controller="Home" asp-action="Index">
+                            <i class="fas fa-home"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+
+                    @if (isMainAdmin)
+                    {
+                        <!-- Menu Admin - Solo per utente "admin" -->
+                        <div class="nav-section-title">Amministrazione</div>
+                        <li class="nav-item">
+                            <a class="nav-link @(currentController == "Users" ? "active" : "")" asp-controller="Users" asp-action="Index">
+                                <i class="fas fa-users"></i>
+                                <span>Gestione Utenti</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link @(currentController == "Permissions" ? "active" : "")" asp-controller="Permissions" asp-action="Pages">
+                                <i class="fas fa-key"></i>
+                                <span>Gestione Pagine</span>
+                            </a>
+                        </li>
+                    }
+                    
+                    @{
+                        <!-- Menu dinamico basato sui permessi (per tutti, esclude Dashboard e pagine admin) -->
+                        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                        if (int.TryParse(userIdClaim, out int userId))
+                        {
+                            var menuItems = await PermissionService.GetUserMenuItemsAsync(userId);
+                            // Filtra: escludi Dashboard (già mostrato) e pagine admin (Users, Permissions)
+                            var filteredItems = menuItems.Where(m => 
+                                !m.PageUrl.Equals("/Home", StringComparison.OrdinalIgnoreCase) &&
+                                !m.PageUrl.Equals("/Users", StringComparison.OrdinalIgnoreCase) &&
+                                !m.PageUrl.Equals("/Permissions", StringComparison.OrdinalIgnoreCase) &&
+                                !m.PageUrl.StartsWith("/Permissions", StringComparison.OrdinalIgnoreCase)
+                            ).ToList();
+                            
+                            if (filteredItems.Any())
+                            {
+                                <div class="nav-section-title">Menu</div>
+                                foreach (var item in filteredItems)
+                                {
+                                    var itemController = item.PageUrl.TrimStart('/').Split('/')[0];
+                                    <li class="nav-item">
+                                        <a class="nav-link @(currentController == itemController ? "active" : "")" href="@item.PageUrl">
+                                            <i class="@(item.Icon ?? "fas fa-circle")"></i>
+                                            <span>@item.PageName</span>
+                                        </a>
+                                    </li>
+                                }
+                            }
+                        }
+                    }
+                </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <small class="text-light opacity-75">© 2024 Consulting Group SRL</small>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="top-navbar">
+                <h1 class="page-title">@ViewData["Title"]</h1>
+                <div class="user-dropdown dropdown">
+                    <button class="dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <div class="user-avatar">
+                            @(User.FindFirst("FullName")?.Value?.Substring(0, 1).ToUpper() ?? "U")
+                        </div>
+                        <span>@(User.FindFirst("FullName")?.Value ?? User.Identity?.Name)</span>
+                        <i class="fas fa-chevron-down ms-1"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
+                                <button type="submit" class="dropdown-item text-danger">
+                                    <i class="fas fa-sign-out-alt me-2"></i>Esci
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="content-wrapper">
+                @if (TempData["Success"] != null)
+                {
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                }
+                @if (TempData["Error"] != null)
+                {
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                }
+                @RenderBody()
+            </div>
+        </div>
+    }
+    else
+    {
+        @RenderBody()
+    }
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

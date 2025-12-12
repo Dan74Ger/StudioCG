@@ -1,0 +1,187 @@
+@model StudioCG.Web.Models.ViewModels.LoginViewModel
+@{
+    ViewData["Title"] = "Accesso";
+    Layout = "_Layout";
+}
+
+<style>
+    body {
+        background: linear-gradient(135deg, #1a365d 0%, #2d5a87 50%, #3d7ab5 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .login-container {
+        width: 100%;
+        max-width: 450px;
+        padding: 20px;
+    }
+
+    .login-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+        overflow: hidden;
+    }
+
+    .login-header {
+        background: linear-gradient(180deg, #f7fafc 0%, #edf2f7 100%);
+        padding: 40px 30px 30px;
+        text-align: center;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .login-header img {
+        max-width: 280px;
+        height: auto;
+        margin-bottom: 15px;
+    }
+
+    .login-subtitle {
+        color: #4a5568;
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+    .login-body {
+        padding: 40px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+        position: relative;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: #4a5568;
+        font-weight: 500;
+    }
+
+    .input-wrapper {
+        position: relative;
+    }
+
+    .input-wrapper .form-control {
+        width: 100%;
+        padding: 14px 45px 14px 15px;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .input-wrapper .form-control:focus {
+        border-color: #1a365d;
+        box-shadow: 0 0 0 3px rgba(26, 54, 93, 0.1);
+        outline: none;
+    }
+
+    .input-wrapper .input-icon {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #a0aec0;
+        pointer-events: none;
+    }
+
+    .btn-login {
+        width: 100%;
+        padding: 14px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #1a365d 0%, #2d5a87 100%);
+        border: none;
+        color: white;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .btn-login:hover {
+        background: linear-gradient(135deg, #2d5a87 0%, #3d7ab5 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(26, 54, 93, 0.3);
+    }
+
+    .form-check {
+        margin-bottom: 25px;
+    }
+
+    .form-check-input:checked {
+        background-color: #1a365d;
+        border-color: #1a365d;
+    }
+
+    .validation-message {
+        color: #e53e3e;
+        font-size: 0.85rem;
+        margin-top: 5px;
+        display: block;
+    }
+
+    .alert-login {
+        background: #fed7d7;
+        color: #c53030;
+        border: none;
+        border-radius: 10px;
+        padding: 12px 15px;
+        margin-bottom: 20px;
+    }
+</style>
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <img src="~/images/CONSULTING GRANDE.png" alt="Consulting Group" />
+            <p class="login-subtitle">Gestionale Studio Professionale</p>
+        </div>
+        <div class="login-body">
+            <form asp-action="Login" method="post">
+                <input type="hidden" name="returnUrl" value="@ViewData["ReturnUrl"]" />
+                
+                @if (!ViewData.ModelState.IsValid)
+                {
+                    <div class="alert alert-login">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                        {
+                            <span>@error.ErrorMessage</span>
+                        }
+                    </div>
+                }
+
+                <div class="form-group">
+                    <label asp-for="Username">Nome Utente</label>
+                    <div class="input-wrapper">
+                        <input asp-for="Username" class="form-control" placeholder="Inserisci nome utente" autofocus />
+                        <i class="fas fa-user input-icon"></i>
+                    </div>
+                    <span asp-validation-for="Username" class="validation-message"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="Password">Password</label>
+                    <div class="input-wrapper">
+                        <input asp-for="Password" class="form-control" placeholder="Inserisci password" />
+                        <i class="fas fa-lock input-icon"></i>
+                    </div>
+                    <span asp-validation-for="Password" class="validation-message"></span>
+                </div>
+
+                <div class="form-check">
+                    <input asp-for="RememberMe" class="form-check-input" />
+                    <label asp-for="RememberMe" class="form-check-label">Ricordami su questo dispositivo</label>
+                </div>
+
+                <button type="submit" class="btn btn-login">
+                    <i class="fas fa-sign-in-alt me-2"></i>Accedi
+                </button>
+            </form>
+        </div>
+    </div>
+</div>

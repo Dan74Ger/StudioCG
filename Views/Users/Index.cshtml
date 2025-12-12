@@ -1,0 +1,117 @@
+@model IEnumerable<StudioCG.Web.Models.User>
+@{
+    ViewData["Title"] = "Gestione Utenti";
+}
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="mb-0"><i class="fas fa-users me-2"></i>Elenco Utenti</h5>
+        </div>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Nuovo Utente
+        </a>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Nome Utente</th>
+                        <th>Nome Completo</th>
+                        <th>Email</th>
+                        <th class="text-center">Stato</th>
+                        <th class="text-center">Ruolo</th>
+                        <th>Ultimo Accesso</th>
+                        <th class="text-end" style="width: 200px;">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model)
+                    {
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="user-avatar-sm me-2">
+                                        @user.Nome.Substring(0, 1).ToUpper()@user.Cognome.Substring(0, 1).ToUpper()
+                                    </div>
+                                    <strong>@user.Username</strong>
+                                </div>
+                            </td>
+                            <td>@user.NomeCompleto</td>
+                            <td>@(user.Email ?? "-")</td>
+                            <td class="text-center">
+                                @if (user.IsActive)
+                                {
+                                    <span class="badge badge-active">Attivo</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-inactive">Inattivo</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (user.IsAdmin)
+                                {
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="fas fa-crown me-1"></i>Admin
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Utente</span>
+                                }
+                            </td>
+                            <td>
+                                @if (user.UltimoAccesso.HasValue)
+                                {
+                                    <small class="text-muted">@user.UltimoAccesso.Value.ToString("dd/MM/yyyy HH:mm")</small>
+                                }
+                                else
+                                {
+                                    <small class="text-muted">Mai</small>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <div class="btn-group">
+                                    <a asp-action="Details" asp-route-id="@user.Id" class="btn btn-sm btn-outline-info" title="Dettagli">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a asp-action="Edit" asp-route-id="@user.Id" class="btn btn-sm btn-outline-primary" title="Modifica">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    @if (user.Username != "admin")
+                                    {
+                                        <a asp-controller="Permissions" asp-action="Utente" asp-route-id="@user.Id" class="btn btn-sm btn-outline-warning" title="Gestione Permessi">
+                                            <i class="fas fa-key"></i>
+                                        </a>
+                                        <a asp-action="Delete" asp-route-id="@user.Id" class="btn btn-sm btn-outline-danger" title="Elimina">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .user-avatar-sm {
+        width: 36px;
+        height: 36px;
+        background: linear-gradient(135deg, #1a365d 0%, #2d5a87 100%);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+</style>
+
+

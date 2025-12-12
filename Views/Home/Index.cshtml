@@ -1,0 +1,46 @@
+﻿@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <img src="~/images/CONSULTING GRANDE.png" alt="Consulting Group" style="max-width: 350px;" class="mb-4" />
+                <h2 class="text-primary mb-3">Benvenuto nel Gestionale Studio CG</h2>
+                <p class="text-muted lead mb-4">
+                    Sistema di gestione per Studio Professionale Commercialista
+                </p>
+                <hr class="my-4" />
+                <div class="row justify-content-center">
+                    @if (User.IsInRole("Admin"))
+                    {
+                        <div class="col-md-4 mb-3">
+                            <div class="card bg-light h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-users text-primary mb-3" style="font-size: 3rem;"></i>
+                                    <h5>Gestione Utenti</h5>
+                                    <p class="text-muted small">Gestisci gli utenti del sistema</p>
+                                    <a asp-controller="Users" asp-action="Index" class="btn btn-primary">
+                                        <i class="fas fa-arrow-right me-2"></i>Vai
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card.bg-light {
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+    }
+    .card.bg-light:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+</style>

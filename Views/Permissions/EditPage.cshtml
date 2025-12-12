@@ -1,0 +1,70 @@
+@model StudioCG.Web.Models.Permission
+@{
+    ViewData["Title"] = "Modifica Pagina";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Modifica Pagina</h5>
+            </div>
+            <div class="card-body">
+                <form asp-action="EditPage" method="post">
+                    <input type="hidden" asp-for="Id" />
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="PageName" class="form-label"></label>
+                        <input asp-for="PageName" class="form-control" />
+                        <span asp-validation-for="PageName" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="PageUrl" class="form-label"></label>
+                        <input asp-for="PageUrl" class="form-control" />
+                        <span asp-validation-for="PageUrl" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label"></label>
+                        <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Icon" class="form-label"></label>
+                        <input asp-for="Icon" class="form-control" />
+                        <small class="text-muted">Usa icone Font Awesome (es: fas fa-home, fas fa-users)</small>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="DisplayOrder" class="form-label"></label>
+                            <input asp-for="DisplayOrder" class="form-control" type="number" />
+                        </div>
+                        <div class="col-md-6 mb-3 d-flex align-items-end">
+                            <div class="form-check form-switch">
+                                <input asp-for="ShowInMenu" class="form-check-input" />
+                                <label asp-for="ShowInMenu" class="form-check-label"></label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Salva Modifiche
+                        </button>
+                        <a asp-action="Pages" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Annulla
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
+
