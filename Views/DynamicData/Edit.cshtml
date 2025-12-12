@@ -1,0 +1,110 @@
+@using StudioCG.Web.Models
+@{
+    var dynPage = ViewBag.Page as DynamicPage;
+    var record = ViewBag.Record as DynamicRecord;
+    var formValues = ViewBag.FormValues as IFormCollection;
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-edit me-2"></i>Modifica Record - @dynPage!.Name
+                </h5>
+                <a asp-action="Page" asp-route-id="@dynPage.Id" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-arrow-left me-1"></i>Torna alla Lista
+                </a>
+            </div>
+            <div class="card-body">
+                <form asp-action="Edit" asp-route-id="@dynPage.Id" asp-route-recordId="@record!.Id" method="post">
+                    @if (!ViewData.ModelState.IsValid)
+                    {
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>Correggi gli errori evidenziati.
+                        </div>
+                    }
+
+                    @foreach (var field in dynPage.Fields.OrderBy(f => f.DisplayOrder))
+                    {
+                        var fieldName = $"field_{field.Id}";
+                        var fieldValue = record.FieldValues?.FirstOrDefault(fv => fv.DynamicFieldId == field.Id);
+                        var currentValue = formValues != null ? formValues[fieldName].ToString() : (fieldValue?.Value ?? "");
+                        var hasError = !ViewData.ModelState.IsValid && ViewData.ModelState.ContainsKey(fieldName);
+
+                        <div class="mb-3">
+                            <label class="form-label">
+                                @field.Label
+                                @if (field.IsRequired)
+                                {
+                                    <span class="text-danger">*</span>
+                                }
+                            </label>
+
+                            @switch (field.FieldType)
+                            {
+                                case FieldTypes.TextArea:
+                                    <textarea name="@fieldName" class="form-control @(hasError ? "is-invalid" : "")" 
+                                              rows="3" placeholder="@field.Placeholder">@currentValue</textarea>
+                                    break;
+
+                                case FieldTypes.Number:
+                                    <input type="number" name="@fieldName" class="form-control @(hasError ? "is-invalid" : "")" 
+                                           value="@currentValue" placeholder="@field.Placeholder" />
+                                    break;
+
+                                case FieldTypes.Decimal:
+                                    <input type="number" step="0.01" name="@fieldName" class="form-control @(hasError ? "is-invalid" : "")" 
+                                           value="@currentValue" placeholder="@field.Placeholder" />
+                                    break;
+
+                                case FieldTypes.Date:
+                                    <input type="date" name="@fieldName" class="form-control @(hasError ? "is-invalid" : "")" 
+                                           value="@currentValue" />
+                                    break;
+
+                                case FieldTypes.Boolean:
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" name="@fieldName" value="true" class="form-check-input" 
+                                               id="@fieldName" @(currentValue == "true" ? "checked" : "") />
+                                        <label class="form-check-label" for="@fieldName">Sì</label>
+                                    </div>
+                                    break;
+
+                                default:
+                                    <input type="text" name="@fieldName" class="form-control @(hasError ? "is-invalid" : "")" 
+                                           value="@currentValue" placeholder="@field.Placeholder" />
+                                    break;
+                            }
+
+                            @if (hasError)
+                            {
+                                <div class="invalid-feedback">
+                                    @ViewData.ModelState[fieldName]?.Errors.FirstOrDefault()?.ErrorMessage
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Salva Modifiche
+                        </button>
+                        <a asp-action="Page" asp-route-id="@dynPage.Id" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-2"></i>Annulla
+                        </a>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer text-muted">
+                <small>
+                    Creato: @record.CreatedAt.ToString("dd/MM/yyyy HH:mm")
+                    @if (record.UpdatedAt.HasValue)
+                    {
+                        <span class="ms-3">Modificato: @record.UpdatedAt.Value.ToString("dd/MM/yyyy HH:mm")</span>
+                    }
+                </small>
+            </div>
+        </div>
+    </div>
+</div>

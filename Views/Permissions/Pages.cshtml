@@ -21,7 +21,7 @@
                         <th style="width: 50px;">Ordine</th>
                         <th>Nome Pagina</th>
                         <th>URL</th>
-                        <th>Descrizione</th>
+                        <th>Categoria</th>
                         <th class="text-center">Nel Menu</th>
                         <th class="text-end" style="width: 150px;">Azioni</th>
                     </tr>
@@ -29,6 +29,7 @@
                 <tbody>
                     @foreach (var pg in Model)
                     {
+                        var isDynamicPage = pg.PageUrl.StartsWith("/DynamicData/");
                         <tr>
                             <td class="text-center">
                                 <span class="badge bg-secondary">@pg.DisplayOrder</span>
@@ -40,10 +41,25 @@
                                         <i class="@pg.Icon me-2 text-primary"></i>
                                     }
                                     <strong>@pg.PageName</strong>
+                                    @if (isDynamicPage)
+                                    {
+                                        <span class="badge bg-info ms-2" title="Pagina Dinamica">
+                                            <i class="fas fa-magic"></i>
+                                        </span>
+                                    }
                                 </div>
                             </td>
                             <td><code>@pg.PageUrl</code></td>
-                            <td>@(pg.Description ?? "-")</td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(pg.Category))
+                                {
+                                    <span class="badge bg-primary">@pg.Category</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
                             <td class="text-center">
                                 @if (pg.ShowInMenu)
                                 {
@@ -59,12 +75,15 @@
                                     <a asp-action="EditPage" asp-route-id="@pg.Id" class="btn btn-sm btn-outline-primary" title="Modifica">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    <form asp-action="DeletePage" asp-route-id="@pg.Id" method="post" class="d-inline" 
-                                          onsubmit="return confirm('Sei sicuro di voler eliminare questa pagina?');">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Elimina">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </form>
+                                    @if (!isDynamicPage)
+                                    {
+                                        <form asp-action="DeletePage" asp-route-id="@pg.Id" method="post" class="d-inline" 
+                                              onsubmit="return confirm('Sei sicuro di voler eliminare questa pagina?');">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Elimina">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    }
                                 </div>
                             </td>
                         </tr>

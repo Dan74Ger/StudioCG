@@ -53,6 +53,7 @@
                             <tbody>
                                 @for (int i = 0; i < Model.Permissions.Count; i++)
                                 {
+                                    var isDynamicPage = Model.Permissions[i].PageUrl.StartsWith("/DynamicData/");
                                     <tr>
                                         <td>
                                             <input type="hidden" name="Permissions[@i].PermissionId" value="@Model.Permissions[i].PermissionId" />
@@ -65,13 +66,14 @@
                                                 }
                                                 <div>
                                                     <strong>@Model.Permissions[i].PageName</strong>
+                                                    @if (isDynamicPage)
+                                                    {
+                                                        <span class="badge bg-info ms-1" title="Pagina Dinamica DATI UTENZA">
+                                                            <i class="fas fa-magic"></i>
+                                                        </span>
+                                                    }
                                                     <br />
                                                     <small class="text-muted">@Model.Permissions[i].PageUrl</small>
-                                                    @if (!string.IsNullOrEmpty(Model.Permissions[i].Description))
-                                                    {
-                                                        <br />
-                                                        <small class="text-secondary">@Model.Permissions[i].Description</small>
-                                                    }
                                                 </div>
                                             </div>
                                         </td>

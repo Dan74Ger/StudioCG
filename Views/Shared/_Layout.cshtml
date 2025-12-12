@@ -196,6 +196,67 @@
             border: none;
             border-radius: 8px;
         }
+
+        /* Accordion Menu */
+        .section-toggle {
+            cursor: pointer;
+        }
+        
+        .section-toggle .section-title {
+            color: white !important;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+        }
+        
+        .section-toggle .section-arrow {
+            transition: transform 0.3s ease;
+            font-size: 0.7rem;
+        }
+        
+        .section-toggle:not(.collapsed) .section-arrow {
+            transform: rotate(180deg);
+        }
+        
+        .submenu {
+            padding-left: 15px;
+            margin-top: 5px;
+        }
+        
+        .submenu .nav-link {
+            padding: 10px 20px;
+            font-size: 0.9rem;
+        }
+        
+        .submenu .nav-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Sub-accordion styles */
+        .subsection-toggle {
+            padding: 8px 15px !important;
+        }
+        
+        .subsection-title {
+            color: rgba(255, 255, 255, 0.9) !important;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        
+        .submenu-inner {
+            padding-left: 20px;
+            margin-top: 3px;
+            border-left: 2px solid rgba(255, 255, 255, 0.2);
+            margin-left: 15px;
+        }
+        
+        .submenu-inner .nav-link {
+            padding: 8px 15px;
+            font-size: 0.85rem;
+        }
     </style>
     @RenderSection("Styles", required: false)
 </head>
@@ -223,49 +284,143 @@
                     @if (isMainAdmin)
                     {
                         <!-- Menu Admin - Solo per utente "admin" -->
-                        <div class="nav-section-title">Amministrazione</div>
                         <li class="nav-item">
-                            <a class="nav-link @(currentController == "Users" ? "active" : "")" asp-controller="Users" asp-action="Index">
-                                <i class="fas fa-users"></i>
-                                <span>Gestione Utenti</span>
+                            @{
+                                var isInUtentiSection = currentController == "Users" || currentController == "Permissions";
+                            }
+                            <a class="nav-link section-toggle @(isInUtentiSection ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuUtenti" role="button" aria-expanded="@(isInUtentiSection ? "true" : "false")" aria-controls="menuUtenti">
+                                <i class="fas fa-users-cog"></i>
+                                <span class="section-title">UTENTI</span>
+                                <i class="fas fa-chevron-down section-arrow ms-auto"></i>
                             </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link @(currentController == "Permissions" ? "active" : "")" asp-controller="Permissions" asp-action="Pages">
-                                <i class="fas fa-key"></i>
-                                <span>Gestione Pagine</span>
-                            </a>
+                            <div class="collapse @(isInUtentiSection ? "show" : "")" id="menuUtenti">
+                                <ul class="nav flex-column submenu">
+                                    <li class="nav-item">
+                                        <a class="nav-link @(currentController == "Users" ? "active" : "")" asp-controller="Users" asp-action="Index">
+                                            <i class="fas fa-users"></i>
+                                            <span>Gestione Utenti</span>
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link @(currentController == "Permissions" ? "active" : "")" asp-controller="Permissions" asp-action="Pages">
+                                            <i class="fas fa-key"></i>
+                                            <span>Gestione Pagine</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
                         </li>
                     }
                     
                     @{
-                        <!-- Menu dinamico basato sui permessi (per tutti, esclude Dashboard e pagine admin) -->
-                        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                        if (int.TryParse(userIdClaim, out int userId))
+                        <!-- Menu DATI UTENZA -->
+                        // Ottieni pagine dinamiche filtrate per i permessi dell'utente corrente
+                        var currentUsername = User.Identity?.Name ?? "";
+                        var dynPagesRiservati = await PermissionService.GetUserDynamicPagesAsync(currentUsername, "DatiRiservati");
+                        var dynPagesGenerali = await PermissionService.GetUserDynamicPagesAsync(currentUsername, "DatiGenerali");
+                        
+                        // Verifica se siamo in una pagina dinamica
+                        var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+                        var currentId = ViewContext.RouteData.Values["id"]?.ToString();
+                        var isInDynamicPages = currentController == "DynamicPages";
+                        var isInDynamicData = currentController == "DynamicData";
+                        
+                        int.TryParse(currentId, out int currentPageId);
+                        var isInDatiRiservati = isInDynamicData && dynPagesRiservati.Any(p => p.Id == currentPageId);
+                        var isInDatiGenerali = isInDynamicData && dynPagesGenerali.Any(p => p.Id == currentPageId);
+                        var isInDatiUtenza = isInDynamicPages || isInDatiRiservati || isInDatiGenerali;
+                        
+                        // Mostra accordion DATI UTENZA
+                        if (dynPagesRiservati.Any() || dynPagesGenerali.Any() || isMainAdmin)
                         {
-                            var menuItems = await PermissionService.GetUserMenuItemsAsync(userId);
-                            // Filtra: escludi Dashboard (già mostrato) e pagine admin (Users, Permissions)
-                            var filteredItems = menuItems.Where(m => 
-                                !m.PageUrl.Equals("/Home", StringComparison.OrdinalIgnoreCase) &&
-                                !m.PageUrl.Equals("/Users", StringComparison.OrdinalIgnoreCase) &&
-                                !m.PageUrl.Equals("/Permissions", StringComparison.OrdinalIgnoreCase) &&
-                                !m.PageUrl.StartsWith("/Permissions", StringComparison.OrdinalIgnoreCase)
-                            ).ToList();
-                            
-                            if (filteredItems.Any())
-                            {
-                                <div class="nav-section-title">Menu</div>
-                                foreach (var item in filteredItems)
-                                {
-                                    var itemController = item.PageUrl.TrimStart('/').Split('/')[0];
-                                    <li class="nav-item">
-                                        <a class="nav-link @(currentController == itemController ? "active" : "")" href="@item.PageUrl">
-                                            <i class="@(item.Icon ?? "fas fa-circle")"></i>
-                                            <span>@item.PageName</span>
-                                        </a>
-                                    </li>
-                                }
-                            }
+                            <!-- DATI UTENZA Accordion -->
+                            <li class="nav-item">
+                                <a class="nav-link section-toggle @(isInDatiUtenza ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuDatiUtenza" role="button" aria-expanded="@(isInDatiUtenza ? "true" : "false")" aria-controls="menuDatiUtenza">
+                                    <i class="fas fa-database"></i>
+                                    <span class="section-title">DATI UTENZA</span>
+                                    <i class="fas fa-chevron-down section-arrow ms-auto"></i>
+                                </a>
+                                <div class="collapse @(isInDatiUtenza ? "show" : "")" id="menuDatiUtenza">
+                                    <ul class="nav flex-column submenu">
+                                        
+                                        <!-- Gestione Pagine Dinamiche - Solo Admin -->
+                                        @if (isMainAdmin)
+                                        {
+                                            <li class="nav-item">
+                                                <a class="nav-link @(isInDynamicPages ? "active" : "")" asp-controller="DynamicPages" asp-action="Index">
+                                                    <i class="fas fa-cogs"></i>
+                                                    <span>Gestione Pagine Dati Utenza</span>
+                                                </a>
+                                            </li>
+                                        }
+                                        
+                                        <!-- DATI Riservati Sub-Accordion -->
+                                        @if (dynPagesRiservati.Any() || isMainAdmin)
+                                        {
+                                            <li class="nav-item">
+                                                <a class="nav-link section-toggle @(isInDatiRiservati ? "" : "collapsed") subsection-toggle" data-bs-toggle="collapse" href="#menuDatiRiservati" role="button" aria-expanded="@(isInDatiRiservati ? "true" : "false")">
+                                                    <i class="fas fa-lock"></i>
+                                                    <span class="subsection-title">DATI Riservati</span>
+                                                    <i class="fas fa-chevron-down section-arrow ms-auto"></i>
+                                                </a>
+                                                <div class="collapse @(isInDatiRiservati ? "show" : "")" id="menuDatiRiservati">
+                                                    <ul class="nav flex-column submenu-inner">
+                                                        @foreach (var dynPage in dynPagesRiservati)
+                                                        {
+                                                            var isActive = isInDynamicData && currentPageId == dynPage.Id;
+                                                            <li class="nav-item">
+                                                                <a class="nav-link @(isActive ? "active" : "")" asp-controller="DynamicData" asp-action="Page" asp-route-id="@dynPage.Id">
+                                                                    <i class="@dynPage.Icon"></i>
+                                                                    <span>@dynPage.Name</span>
+                                                                </a>
+                                                            </li>
+                                                        }
+                                                        @if (!dynPagesRiservati.Any())
+                                                        {
+                                                            <li class="nav-item">
+                                                                <span class="nav-link text-muted small"><i class="fas fa-info-circle me-1"></i>Nessuna pagina</span>
+                                                            </li>
+                                                        }
+                                                    </ul>
+                                                </div>
+                                            </li>
+                                        }
+                                        
+                                        <!-- DATI Generali Sub-Accordion -->
+                                        @if (dynPagesGenerali.Any() || isMainAdmin)
+                                        {
+                                            <li class="nav-item">
+                                                <a class="nav-link section-toggle @(isInDatiGenerali ? "" : "collapsed") subsection-toggle" data-bs-toggle="collapse" href="#menuDatiGenerali" role="button" aria-expanded="@(isInDatiGenerali ? "true" : "false")">
+                                                    <i class="fas fa-folder-open"></i>
+                                                    <span class="subsection-title">DATI Generali</span>
+                                                    <i class="fas fa-chevron-down section-arrow ms-auto"></i>
+                                                </a>
+                                                <div class="collapse @(isInDatiGenerali ? "show" : "")" id="menuDatiGenerali">
+                                                    <ul class="nav flex-column submenu-inner">
+                                                        @foreach (var dynPage in dynPagesGenerali)
+                                                        {
+                                                            var isActive = isInDynamicData && currentPageId == dynPage.Id;
+                                                            <li class="nav-item">
+                                                                <a class="nav-link @(isActive ? "active" : "")" asp-controller="DynamicData" asp-action="Page" asp-route-id="@dynPage.Id">
+                                                                    <i class="@dynPage.Icon"></i>
+                                                                    <span>@dynPage.Name</span>
+                                                                </a>
+                                                            </li>
+                                                        }
+                                                        @if (!dynPagesGenerali.Any())
+                                                        {
+                                                            <li class="nav-item">
+                                                                <span class="nav-link text-muted small"><i class="fas fa-info-circle me-1"></i>Nessuna pagina</span>
+                                                            </li>
+                                                        }
+                                                    </ul>
+                                                </div>
+                                            </li>
+                                        }
+                                        
+                                    </ul>
+                                </div>
+                            </li>
                         }
                     }
                 </ul>

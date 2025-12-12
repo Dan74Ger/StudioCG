@@ -1,0 +1,52 @@
+@model StudioCG.Web.Models.DynamicPage
+@{
+    ViewData["Title"] = "Elimina Pagina";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Conferma Eliminazione</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-warning me-2"></i>
+                    <strong>Attenzione!</strong> Eliminando questa pagina verranno eliminati anche:
+                    <ul class="mb-0 mt-2">
+                        <li><strong>@Model.Fields.Count</strong> campi configurati</li>
+                        <li><strong>@Model.Records.Count</strong> record di dati</li>
+                    </ul>
+                </div>
+
+                <table class="table">
+                    <tr>
+                        <th style="width: 150px;">Nome Pagina:</th>
+                        <td><strong>@Model.Name</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Categoria:</th>
+                        <td>@(Model.Category == "DatiRiservati" ? "DATI Riservati" : "DATI Generali")</td>
+                    </tr>
+                    <tr>
+                        <th>Creata il:</th>
+                        <td>@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                    </tr>
+                </table>
+
+                <form asp-action="Delete" method="post">
+                    <input type="hidden" asp-for="Id" />
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash me-2"></i>Conferma Eliminazione
+                        </button>
+                        <a asp-action="Index" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Annulla
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+

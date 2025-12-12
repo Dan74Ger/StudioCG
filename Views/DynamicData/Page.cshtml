@@ -1,0 +1,138 @@
+@using StudioCG.Web.Models
+@{
+    var dynPage = ViewBag.Page as DynamicPage;
+    var records = ViewBag.Records as List<DynamicRecord> ?? new List<DynamicRecord>();
+    var fieldsToShow = dynPage!.Fields.Where(f => f.ShowInList).OrderBy(f => f.DisplayOrder).ToList();
+    
+    // Permessi utente
+    bool canCreate = ViewBag.CanCreate ?? false;
+    bool canEdit = ViewBag.CanEdit ?? false;
+    bool canDelete = ViewBag.CanDelete ?? false;
+    bool showActions = canEdit || canDelete;
+}
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="mb-0">
+                <i class="@dynPage.Icon me-2"></i>@dynPage.Name
+            </h5>
+            @if (!string.IsNullOrEmpty(dynPage.Description))
+            {
+                <small class="text-muted">@dynPage.Description</small>
+            }
+        </div>
+        @if (canCreate)
+        {
+            <a asp-action="Create" asp-route-id="@dynPage.Id" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Nuovo Record
+            </a>
+        }
+    </div>
+    <div class="card-body p-0">
+        @if (!records.Any())
+        {
+            <div class="text-center py-5">
+                <i class="fas fa-inbox text-muted mb-3" style="font-size: 3rem;"></i>
+                <p class="text-muted">Nessun record. Clicca "Nuovo Record" per iniziare.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            @foreach (var field in fieldsToShow)
+                            {
+                                <th>@field.Label</th>
+                            }
+                            <th style="width: 80px;">Creato</th>
+                            @if (showActions)
+                            {
+                                <th class="text-end" style="width: 120px;">Azioni</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var record in records)
+                        {
+                            <tr>
+                                @foreach (var field in fieldsToShow)
+                                {
+                                    var fieldValue = record.FieldValues.FirstOrDefault(fv => fv.DynamicFieldId == field.Id);
+                                    var displayValue = fieldValue?.Value ?? "";
+                                    
+                                    <td>
+                                        @switch (field.FieldType)
+                                        {
+                                            case FieldTypes.Boolean:
+                                                if (displayValue == "true")
+                                                {
+                                                    <span class="badge bg-success">Sì</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">No</span>
+                                                }
+                                                break;
+                                            case FieldTypes.Date:
+                                                if (DateTime.TryParse(displayValue, out var dateVal))
+                                                {
+                                                    @dateVal.ToString("dd/MM/yyyy")
+                                                }
+                                                else
+                                                {
+                                                    @displayValue
+                                                }
+                                                break;
+                                            case FieldTypes.Decimal:
+                                                if (decimal.TryParse(displayValue, out var decVal))
+                                                {
+                                                    @decVal.ToString("N2")
+                                                }
+                                                else
+                                                {
+                                                    @displayValue
+                                                }
+                                                break;
+                                            default:
+                                                @(displayValue.Length > 50 ? displayValue.Substring(0, 50) + "..." : displayValue)
+                                                break;
+                                        }
+                                    </td>
+                                }
+                                <td>
+                                    <small class="text-muted">@record.CreatedAt.ToString("dd/MM/yy")</small>
+                                </td>
+                                @if (showActions)
+                                {
+                                    <td class="text-end">
+                                        <div class="btn-group">
+                                            @if (canEdit)
+                                            {
+                                                <a asp-action="Edit" asp-route-id="@dynPage.Id" asp-route-recordId="@record.Id" class="btn btn-sm btn-outline-primary" title="Modifica">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                            }
+                                            @if (canDelete)
+                                            {
+                                                <a asp-action="Delete" asp-route-id="@dynPage.Id" asp-route-recordId="@record.Id" class="btn btn-sm btn-outline-danger" title="Elimina">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                            }
+                                        </div>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+    <div class="card-footer text-muted">
+        <small>Totale: @records.Count record</small>
+    </div>
+</div>
+

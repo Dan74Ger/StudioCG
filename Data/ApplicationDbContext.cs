@@ -13,6 +13,12 @@ namespace StudioCG.Web.Data
         public DbSet<User> Users { get; set; }
         public DbSet<Permission> Permissions { get; set; }
         public DbSet<UserPermission> UserPermissions { get; set; }
+        
+        // Tabelle per sistema dinamico
+        public DbSet<DynamicPage> DynamicPages { get; set; }
+        public DbSet<DynamicField> DynamicFields { get; set; }
+        public DbSet<DynamicRecord> DynamicRecords { get; set; }
+        public DbSet<DynamicFieldValue> DynamicFieldValues { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -56,13 +62,64 @@ namespace StudioCG.Web.Data
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
+            // DynamicPage configuration
+            modelBuilder.Entity<DynamicPage>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.TableName).IsUnique();
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Category).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.TableName).IsRequired().HasMaxLength(100);
+            });
+
+            // DynamicField configuration
+            modelBuilder.Entity<DynamicField>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Label).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.FieldType).IsRequired().HasMaxLength(50);
+
+                entity.HasOne(e => e.DynamicPage)
+                    .WithMany(p => p.Fields)
+                    .HasForeignKey(e => e.DynamicPageId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // DynamicRecord configuration
+            modelBuilder.Entity<DynamicRecord>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(e => e.DynamicPage)
+                    .WithMany(p => p.Records)
+                    .HasForeignKey(e => e.DynamicPageId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // DynamicFieldValue configuration
+            modelBuilder.Entity<DynamicFieldValue>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.DynamicRecordId, e.DynamicFieldId }).IsUnique();
+
+                entity.HasOne(e => e.DynamicRecord)
+                    .WithMany(r => r.FieldValues)
+                    .HasForeignKey(e => e.DynamicRecordId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.DynamicField)
+                    .WithMany(f => f.FieldValues)
+                    .HasForeignKey(e => e.DynamicFieldId)
+                    .OnDelete(DeleteBehavior.NoAction); // Evita cicli di cascade
+            });
+
             // Seed admin user (password: 123456)
-            // Hash generato con SHA256
             modelBuilder.Entity<User>().HasData(new User
             {
                 Id = 1,
                 Username = "admin",
-                PasswordHash = "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92", // SHA256 di "123456"
+                PasswordHash = "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
                 Nome = "Amministratore",
                 Cognome = "Sistema",
                 Email = "admin@studiocg.it",
@@ -97,5 +154,3 @@ namespace StudioCG.Web.Data
         }
     }
 }
-
-

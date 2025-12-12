@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StudioCG.Web.Data;
 
@@ -11,9 +12,11 @@ using StudioCG.Web.Data;
 namespace StudioCG.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251212131857_AddCategoryToPermission")]
+    partial class AddCategoryToPermission
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,160 +24,6 @@ namespace StudioCG.Web.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("StudioCG.Web.Models.DynamicField", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("DefaultValue")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
-
-                    b.Property<int>("DynamicPageId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("FieldType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<bool>("IsRequired")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Label")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Placeholder")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<bool>("ShowInList")
-                        .HasColumnType("bit");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DynamicPageId");
-
-                    b.ToTable("DynamicFields");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.DynamicFieldValue", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("DynamicFieldId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("DynamicRecordId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Value")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DynamicFieldId");
-
-                    b.HasIndex("DynamicRecordId", "DynamicFieldId")
-                        .IsUnique();
-
-                    b.ToTable("DynamicFieldValues");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.DynamicPage", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Icon")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("TableName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TableName")
-                        .IsUnique();
-
-                    b.ToTable("DynamicPages");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.DynamicRecord", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<int>("DynamicPageId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DynamicPageId");
-
-                    b.ToTable("DynamicRecords");
-                });
 
             modelBuilder.Entity("StudioCG.Web.Models.Permission", b =>
                 {
@@ -344,47 +193,6 @@ namespace StudioCG.Web.Migrations
                     b.ToTable("UserPermissions");
                 });
 
-            modelBuilder.Entity("StudioCG.Web.Models.DynamicField", b =>
-                {
-                    b.HasOne("StudioCG.Web.Models.DynamicPage", "DynamicPage")
-                        .WithMany("Fields")
-                        .HasForeignKey("DynamicPageId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("DynamicPage");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.DynamicFieldValue", b =>
-                {
-                    b.HasOne("StudioCG.Web.Models.DynamicField", "DynamicField")
-                        .WithMany("FieldValues")
-                        .HasForeignKey("DynamicFieldId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.HasOne("StudioCG.Web.Models.DynamicRecord", "DynamicRecord")
-                        .WithMany("FieldValues")
-                        .HasForeignKey("DynamicRecordId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("DynamicField");
-
-                    b.Navigation("DynamicRecord");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.DynamicRecord", b =>
-                {
-                    b.HasOne("StudioCG.Web.Models.DynamicPage", "DynamicPage")
-                        .WithMany("Records")
-                        .HasForeignKey("DynamicPageId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("DynamicPage");
-                });
-
             modelBuilder.Entity("StudioCG.Web.Models.UserPermission", b =>
                 {
                     b.HasOne("StudioCG.Web.Models.Permission", "Permission")
@@ -402,23 +210,6 @@ namespace StudioCG.Web.Migrations
                     b.Navigation("Permission");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.DynamicField", b =>
-                {
-                    b.Navigation("FieldValues");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.DynamicPage", b =>
-                {
-                    b.Navigation("Fields");
-
-                    b.Navigation("Records");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.DynamicRecord", b =>
-                {
-                    b.Navigation("FieldValues");
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Permission", b =>

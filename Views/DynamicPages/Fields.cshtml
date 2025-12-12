@@ -1,0 +1,187 @@
+@model StudioCG.Web.Models.DynamicPage
+@using StudioCG.Web.Models
+@{
+    ViewData["Title"] = $"Campi - {Model.Name}";
+}
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-0">
+                        <i class="@Model.Icon me-2"></i>@Model.Name
+                    </h5>
+                    <small class="text-muted">Gestione campi della pagina</small>
+                </div>
+                <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-arrow-left me-1"></i>Torna alle Pagine
+                </a>
+            </div>
+            <div class="card-body p-0">
+                @if (!Model.Fields.Any())
+                {
+                    <div class="text-center py-5">
+                        <i class="fas fa-list text-muted mb-3" style="font-size: 3rem;"></i>
+                        <p class="text-muted">Nessun campo. Usa il form a destra per aggiungere campi.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">#</th>
+                                    <th>Campo</th>
+                                    <th>Tipo</th>
+                                    <th class="text-center">Obbl.</th>
+                                    <th class="text-center">In Lista</th>
+                                    <th class="text-end" style="width: 150px;">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var field in Model.Fields.OrderBy(f => f.DisplayOrder))
+                                {
+                                    <tr>
+                                        <td class="text-center text-muted">@field.DisplayOrder</td>
+                                        <td>
+                                            <strong>@field.Label</strong>
+                                            <br /><small class="text-muted">@field.Name</small>
+                                        </td>
+                                        <td>
+                                            @switch (field.FieldType)
+                                            {
+                                                case FieldTypes.Text:
+                                                    <span class="badge bg-primary">Testo</span>
+                                                    break;
+                                                case FieldTypes.TextArea:
+                                                    <span class="badge bg-primary">Testo Lungo</span>
+                                                    break;
+                                                case FieldTypes.Number:
+                                                    <span class="badge bg-info">Numero</span>
+                                                    break;
+                                                case FieldTypes.Decimal:
+                                                    <span class="badge bg-info">Decimale</span>
+                                                    break;
+                                                case FieldTypes.Date:
+                                                    <span class="badge bg-warning text-dark">Data</span>
+                                                    break;
+                                                case FieldTypes.Boolean:
+                                                    <span class="badge bg-success">Sì/No</span>
+                                                    break;
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            @if (field.IsRequired)
+                                            {
+                                                <i class="fas fa-check text-success"></i>
+                                            }
+                                            else
+                                            {
+                                                <i class="fas fa-minus text-muted"></i>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            @if (field.ShowInList)
+                                            {
+                                                <i class="fas fa-check text-success"></i>
+                                            }
+                                            else
+                                            {
+                                                <i class="fas fa-minus text-muted"></i>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="btn-group">
+                                                <form asp-action="MoveFieldUp" asp-route-id="@field.Id" method="post" class="d-inline">
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Sposta Su">
+                                                        <i class="fas fa-arrow-up"></i>
+                                                    </button>
+                                                </form>
+                                                <form asp-action="MoveFieldDown" asp-route-id="@field.Id" method="post" class="d-inline">
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Sposta Giù">
+                                                        <i class="fas fa-arrow-down"></i>
+                                                    </button>
+                                                </form>
+                                                <form asp-action="DeleteField" asp-route-id="@field.Id" method="post" class="d-inline" onsubmit="return confirm('Eliminare questo campo?');">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Elimina">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-plus me-2"></i>Aggiungi Campo</h6>
+            </div>
+            <div class="card-body">
+                <form asp-action="AddField" method="post">
+                    <input type="hidden" name="DynamicPageId" value="@Model.Id" />
+
+                    <div class="mb-3">
+                        <label class="form-label">Etichetta *</label>
+                        <input name="Label" class="form-control" required placeholder="Es: Ragione Sociale" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Tipo Campo *</label>
+                        <select name="FieldType" class="form-select" required>
+                            @foreach (var type in FieldTypes.GetAll())
+                            {
+                                <option value="@type.Value">@type.Label</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Placeholder</label>
+                        <input name="Placeholder" class="form-control" placeholder="Testo di aiuto" />
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <div class="form-check">
+                                <input type="checkbox" name="IsRequired" value="true" class="form-check-input" id="isRequired" />
+                                <label class="form-check-label" for="isRequired">Obbligatorio</label>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="form-check">
+                                <input type="checkbox" name="ShowInList" value="true" class="form-check-input" id="showInList" checked />
+                                <label class="form-check-label" for="showInList">Mostra in Lista</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="fas fa-plus me-2"></i>Aggiungi Campo
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        @if (Model.Fields.Any())
+        {
+            <div class="card mt-3">
+                <div class="card-body text-center">
+                    <a asp-controller="DynamicData" asp-action="Page" asp-route-id="@Model.Id" class="btn btn-primary">
+                        <i class="fas fa-table me-2"></i>Vai ai Dati
+                    </a>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+

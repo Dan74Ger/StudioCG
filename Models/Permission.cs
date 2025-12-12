@@ -30,9 +30,25 @@ namespace StudioCG.Web.Models
         [Display(Name = "Visibile nel Menu")]
         public bool ShowInMenu { get; set; } = true;
 
+        /// <summary>
+        /// Categoria per organizzare le pagine nel menu
+        /// Valori: "DatiRiservati", "DatiGenerali", "Admin", null (root)
+        /// </summary>
+        [StringLength(50)]
+        [Display(Name = "Categoria")]
+        public string? Category { get; set; }
+
         // Navigation property
         public virtual ICollection<UserPermission> UserPermissions { get; set; } = new List<UserPermission>();
     }
+
+    /// <summary>
+    /// Categorie disponibili per le pagine
+    /// </summary>
+    public static class PermissionCategories
+    {
+        public const string DatiRiservati = "DatiRiservati";
+        public const string DatiGenerali = "DatiGenerali";
+        public const string Admin = "Admin";
+    }
 }
-
-

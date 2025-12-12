@@ -12,6 +12,9 @@ namespace StudioCG.Web.Services
         Task<bool> CanDeleteAsync(int userId, string pageUrl);
         Task<List<Permission>> GetUserMenuItemsAsync(int userId);
         Task<bool> IsAdminUserAsync(string username);
+        Task<List<DynamicPage>> GetDynamicPagesAsync(string? category = null);
+        Task<List<DynamicPage>> GetUserDynamicPagesAsync(string username, string? category = null);
+        Task<int?> GetUserIdByUsernameAsync(string username);
     }
 
     public class PermissionService : IPermissionService
@@ -102,19 +105,86 @@ namespace StudioCG.Web.Services
                 .ToListAsync();
         }
 
+        /// <summary>
+        /// Ottiene le pagine dinamiche, opzionalmente filtrate per categoria
+        /// </summary>
+        public async Task<List<DynamicPage>> GetDynamicPagesAsync(string? category = null)
+        {
+            var query = _context.DynamicPages
+                .Where(p => p.IsActive)
+                .OrderBy(p => p.DisplayOrder)
+                .ThenBy(p => p.Name);
+
+            if (!string.IsNullOrEmpty(category))
+            {
+                query = (IOrderedQueryable<DynamicPage>)query.Where(p => p.Category == category);
+            }
+
+            return await query.ToListAsync();
+        }
+
+        /// <summary>
+        /// Ottiene le pagine dinamiche filtrate per i permessi dell'utente
+        /// </summary>
+        public async Task<List<DynamicPage>> GetUserDynamicPagesAsync(string username, string? category = null)
+        {
+            // Admin vede tutte le pagine
+            if (string.Equals(username, "admin", StringComparison.OrdinalIgnoreCase))
+            {
+                return await GetDynamicPagesAsync(category);
+            }
+
+            // Ottieni l'utente
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            if (user == null) return new List<DynamicPage>();
+
+            // Ottieni tutti i permessi dell'utente con CanView = true
+            var userPermissions = await _context.UserPermissions
+                .Include(up => up.Permission)
+                .Where(up => up.UserId == user.Id && up.CanView)
+                .Select(up => up.Permission.PageUrl)
+                .ToListAsync();
+
+            // Filtra le pagine dinamiche in base ai permessi
+            var query = _context.DynamicPages
+                .Where(p => p.IsActive)
+                .OrderBy(p => p.DisplayOrder)
+                .ThenBy(p => p.Name);
+
+            if (!string.IsNullOrEmpty(category))
+            {
+                query = (IOrderedQueryable<DynamicPage>)query.Where(p => p.Category == category);
+            }
+
+            var allPages = await query.ToListAsync();
+
+            // Filtra solo le pagine per cui l'utente ha il permesso
+            return allPages.Where(p => userPermissions.Contains($"/DynamicData/Page/{p.Id}")).ToList();
+        }
+
+        /// <summary>
+        /// Ottiene l'ID utente dal nome utente
+        /// </summary>
+        public async Task<int?> GetUserIdByUsernameAsync(string username)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            return user?.Id;
+        }
+
         private async Task<UserPermission?> GetUserPermission(int userId, string pageUrl)
         {
-            // Normalizza l'URL (rimuovi leading slash se presente)
+            // Normalizza l'URL - prepara tutte le varianti possibili
             var normalizedUrl = pageUrl.TrimStart('/');
+            var urlWithSlash = "/" + normalizedUrl;
             
+            // Cerca il permesso usando varianti pre-calcolate (evita TrimStart nella query SQL)
             return await _context.UserPermissions
                 .Include(up => up.Permission)
                 .FirstOrDefaultAsync(up => 
                     up.UserId == userId && 
                     (up.Permission.PageUrl == pageUrl || 
-                     up.Permission.PageUrl == "/" + normalizedUrl ||
-                     up.Permission.PageUrl.TrimStart('/') == normalizedUrl));
+                     up.Permission.PageUrl == normalizedUrl ||
+                     up.Permission.PageUrl == urlWithSlash));
         }
     }
 }
-

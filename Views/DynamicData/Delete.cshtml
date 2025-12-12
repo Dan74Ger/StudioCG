@@ -1,0 +1,75 @@
+@using StudioCG.Web.Models
+@{
+    var dynPage = ViewBag.Page as DynamicPage;
+    var record = ViewBag.Record as DynamicRecord;
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Conferma Eliminazione - @dynPage!.Name
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-warning me-2"></i>
+                    <strong>Attenzione!</strong> Questa azione è irreversibile. Il record verrà eliminato definitivamente.
+                </div>
+
+                <h6 class="mb-3">Dati del record da eliminare:</h6>
+                <table class="table table-sm">
+                    @foreach (var field in dynPage.Fields.OrderBy(f => f.DisplayOrder))
+                    {
+                        var fieldValue = record!.FieldValues.FirstOrDefault(fv => fv.DynamicFieldId == field.Id);
+                        var displayValue = fieldValue?.Value ?? "-";
+
+                        <tr>
+                            <th style="width: 200px;">@field.Label</th>
+                            <td>
+                                @switch (field.FieldType)
+                                {
+                                    case FieldTypes.Boolean:
+                                        if (displayValue == "true")
+                                        {
+                                            <span class="badge bg-success">Sì</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">No</span>
+                                        }
+                                        break;
+                                    case FieldTypes.Date:
+                                        if (DateTime.TryParse(displayValue, out var dateVal))
+                                        {
+                                            @dateVal.ToString("dd/MM/yyyy")
+                                        }
+                                        else
+                                        {
+                                            @displayValue
+                                        }
+                                        break;
+                                    default:
+                                        @displayValue
+                                        break;
+                                }
+                            </td>
+                        </tr>
+                    }
+                </table>
+
+                <form asp-action="Delete" asp-route-id="@dynPage.Id" asp-route-recordId="@record!.Id" method="post">
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash me-2"></i>Conferma Eliminazione
+                        </button>
+                        <a asp-action="Page" asp-route-id="@dynPage.Id" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Annulla
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
