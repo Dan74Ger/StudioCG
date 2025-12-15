@@ -9,9 +9,34 @@
             <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Pagine Dinamiche</h5>
             <small class="text-muted">Crea e gestisci le pagine personalizzate</small>
         </div>
-        <a asp-action="Create" class="btn btn-primary">
-            <i class="fas fa-plus me-2"></i>Nuova Pagina
-        </a>
+        <div class="btn-group">
+            <div class="dropdown me-2">
+                <button class="btn btn-success dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-file-excel me-1"></i>Export Excel
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <a class="dropdown-item" asp-action="ExportExcel" asp-route-categoria="DatiRiservati">
+                            <i class="fas fa-lock text-danger me-2"></i>Dati Riservati
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" asp-action="ExportExcel" asp-route-categoria="DatiGenerali">
+                            <i class="fas fa-folder-open text-info me-2"></i>Dati Generali
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item" asp-action="ExportExcel" asp-route-categoria="Tutti">
+                            <i class="fas fa-database text-primary me-2"></i>Tutti i Dati
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <a asp-action="Create" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Nuova Pagina
+            </a>
+        </div>
     </div>
     <div class="card-body p-0">
         @if (!Model.Any())

@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StudioCG.Web.Data;
@@ -273,6 +274,124 @@ namespace StudioCG.Web.Controllers
         {
             // Rimuove caratteri speciali e spazi
             return Regex.Replace(label, @"[^a-zA-Z0-9]", "");
+        }
+
+        // GET: DynamicPages/ExportExcel - Esporta dati in Excel
+        public async Task<IActionResult> ExportExcel(string categoria)
+        {
+            // Filtra per categoria
+            var pagesQuery = _context.DynamicPages
+                .Include(p => p.Fields.OrderBy(f => f.DisplayOrder))
+                .Include(p => p.Records)
+                    .ThenInclude(r => r.FieldValues)
+                .Where(p => p.IsActive);
+
+            if (categoria == "DatiRiservati")
+            {
+                pagesQuery = pagesQuery.Where(p => p.Category == "DatiRiservati");
+            }
+            else if (categoria == "DatiGenerali")
+            {
+                pagesQuery = pagesQuery.Where(p => p.Category == "DatiGenerali");
+            }
+            // Se "Tutti" non filtra per categoria
+
+            var pages = await pagesQuery
+                .OrderBy(p => p.Category)
+                .ThenBy(p => p.DisplayOrder)
+                .ThenBy(p => p.Name)
+                .ToListAsync();
+
+            if (!pages.Any())
+            {
+                TempData["Error"] = "Nessun dato da esportare.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            using var workbook = new XLWorkbook();
+
+            foreach (var page in pages)
+            {
+                // Crea un foglio per ogni pagina
+                var sheetName = page.Name.Length > 31 ? page.Name.Substring(0, 31) : page.Name;
+                // Rimuovi caratteri non validi per Excel
+                sheetName = Regex.Replace(sheetName, @"[\[\]\*\?\/\\:]", "");
+                
+                var worksheet = workbook.Worksheets.Add(sheetName);
+
+                // Intestazioni
+                int col = 1;
+                foreach (var field in page.Fields.OrderBy(f => f.DisplayOrder))
+                {
+                    worksheet.Cell(1, col++).Value = field.Label;
+                }
+
+                // Stile intestazione
+                var headerRange = worksheet.Range(1, 1, 1, Math.Max(col - 1, 1));
+                headerRange.Style.Font.Bold = true;
+                headerRange.Style.Fill.BackgroundColor = page.Category == "DatiRiservati" 
+                    ? XLColor.FromHtml("#DC3545") 
+                    : XLColor.FromHtml("#17A2B8");
+                headerRange.Style.Font.FontColor = XLColor.White;
+                headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                // Dati
+                int row = 2;
+                foreach (var record in page.Records.OrderByDescending(r => r.CreatedAt))
+                {
+                    col = 1;
+                    foreach (var field in page.Fields.OrderBy(f => f.DisplayOrder))
+                    {
+                        var valore = record.FieldValues
+                            .FirstOrDefault(v => v.DynamicFieldId == field.Id)?.Value ?? "";
+
+                        if (field.FieldType == FieldTypes.Boolean)
+                        {
+                            worksheet.Cell(row, col++).Value = valore == "true" ? "Sì" : "No";
+                        }
+                        else if (field.FieldType == FieldTypes.Date && DateTime.TryParse(valore, out var dataVal))
+                        {
+                            worksheet.Cell(row, col).Value = dataVal;
+                            worksheet.Cell(row, col++).Style.DateFormat.Format = "dd/MM/yyyy";
+                        }
+                        else if ((field.FieldType == FieldTypes.Number || field.FieldType == FieldTypes.Decimal) && decimal.TryParse(valore, out var numVal))
+                        {
+                            worksheet.Cell(row, col++).Value = numVal;
+                        }
+                        else
+                        {
+                            worksheet.Cell(row, col++).Value = valore;
+                        }
+                    }
+                    row++;
+                }
+
+                // Centra tutte le celle dati
+                if (row > 2 && page.Fields.Any())
+                {
+                    var dataRange = worksheet.Range(2, 1, row - 1, page.Fields.Count);
+                    dataRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    dataRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                }
+
+                // Auto-fit colonne
+                worksheet.Columns().AdjustToContents();
+            }
+
+            // Genera file
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            stream.Position = 0;
+
+            var categoriaLabel = categoria switch
+            {
+                "DatiRiservati" => "DatiRiservati",
+                "DatiGenerali" => "DatiGenerali",
+                _ => "TuttiIDati"
+            };
+            var fileName = $"Export_{categoriaLabel}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            
+            return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
     }
 }
