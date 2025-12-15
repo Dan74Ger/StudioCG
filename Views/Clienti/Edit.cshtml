@@ -1,0 +1,99 @@
+@model StudioCG.Web.Models.Cliente
+
+@{
+    ViewData["Title"] = "Modifica Cliente";
+}
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Modifica Cliente</h5>
+    </div>
+    <div class="card-body">
+        <form asp-action="Edit" method="post">
+            <input type="hidden" asp-for="Id" />
+            <input type="hidden" asp-for="CreatedAt" />
+            
+            <div class="row">
+                <div class="col-md-12 mb-3">
+                    <label asp-for="RagioneSociale" class="form-label"></label>
+                    <input asp-for="RagioneSociale" class="form-control" />
+                    <span asp-validation-for="RagioneSociale" class="text-danger"></span>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label asp-for="Indirizzo" class="form-label"></label>
+                    <input asp-for="Indirizzo" class="form-control" />
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label asp-for="Citta" class="form-label"></label>
+                    <input asp-for="Citta" class="form-control" />
+                </div>
+                <div class="col-md-1 mb-3">
+                    <label asp-for="Provincia" class="form-label"></label>
+                    <input asp-for="Provincia" class="form-control" maxlength="2" />
+                </div>
+                <div class="col-md-2 mb-3">
+                    <label asp-for="CAP" class="form-label"></label>
+                    <input asp-for="CAP" class="form-control" maxlength="5" />
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <label asp-for="CodiceFiscale" class="form-label"></label>
+                    <input asp-for="CodiceFiscale" class="form-control text-uppercase" maxlength="16" />
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label asp-for="PartitaIVA" class="form-label"></label>
+                    <input asp-for="PartitaIVA" class="form-control" maxlength="11" />
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label asp-for="CodiceAteco" class="form-label"></label>
+                    <input asp-for="CodiceAteco" class="form-control" maxlength="10" />
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label asp-for="Telefono" class="form-label"></label>
+                    <input asp-for="Telefono" class="form-control" />
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label asp-for="Email" class="form-label"></label>
+                    <input asp-for="Email" class="form-control" type="email" />
+                    <span asp-validation-for="Email" class="text-danger"></span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="PEC" class="form-label"></label>
+                    <input asp-for="PEC" class="form-control" type="email" />
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Note" class="form-label"></label>
+                <textarea asp-for="Note" class="form-control" rows="3"></textarea>
+            </div>
+
+            <div class="form-check mb-3">
+                <input asp-for="IsActive" class="form-check-input" />
+                <label asp-for="IsActive" class="form-check-label"></label>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Annulla
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-1"></i>Salva Modifiche
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
+

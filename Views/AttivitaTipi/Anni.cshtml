@@ -1,0 +1,68 @@
+@model StudioCG.Web.Models.AttivitaTipo
+@using StudioCG.Web.Models
+
+@{
+    ViewData["Title"] = $"Anni - {Model.Nome}";
+    var tuttiAnni = ViewBag.TuttiAnni as List<AnnualitaFiscale> ?? new List<AnnualitaFiscale>();
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-1">
+            <i class="@Model.Icon me-2"></i>@Model.Nome
+        </h4>
+        <p class="text-muted mb-0">Gestione anni fiscali associati</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i>Torna all'elenco
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h6 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Anni Fiscali</h6>
+    </div>
+    <div class="card-body">
+        @if (!tuttiAnni.Any())
+        {
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                Nessun anno fiscale configurato. <a asp-controller="Annualita" asp-action="Create">Crea un anno fiscale</a>.
+            </div>
+        }
+        else
+        {
+            <p class="text-muted mb-3">Seleziona gli anni per cui questa attività deve essere disponibile:</p>
+            <div class="row">
+                @foreach (var anno in tuttiAnni)
+                {
+                    var attivitaAnnuale = Model.AttivitaAnnuali.FirstOrDefault(aa => aa.AnnualitaFiscaleId == anno.Id);
+                    var isAssociato = attivitaAnnuale != null;
+                    
+                    <div class="col-md-4 col-lg-3 mb-3">
+                        <div class="card @(isAssociato ? "border-primary" : "")">
+                            <div class="card-body text-center p-3">
+                                <form asp-action="ToggleAnno" method="post">
+                                    <input type="hidden" name="tipoId" value="@Model.Id" />
+                                    <input type="hidden" name="annualitaId" value="@anno.Id" />
+                                    <input type="hidden" name="assegna" value="@(isAssociato ? "false" : "true")" />
+                                    
+                                    <h4 class="mb-2">@anno.Anno</h4>
+                                    @if (anno.IsCurrent)
+                                    {
+                                        <span class="badge bg-success mb-2">Corrente</span>
+                                    }
+                                    <div class="form-check form-switch d-flex justify-content-center">
+                                        <input class="form-check-input" type="checkbox" @(isAssociato ? "checked" : "") 
+                                               onchange="this.form.submit()" style="width: 3em; height: 1.5em;" />
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+

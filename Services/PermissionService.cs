@@ -15,6 +15,8 @@ namespace StudioCG.Web.Services
         Task<List<DynamicPage>> GetDynamicPagesAsync(string? category = null);
         Task<List<DynamicPage>> GetUserDynamicPagesAsync(string username, string? category = null);
         Task<int?> GetUserIdByUsernameAsync(string username);
+        Task<List<AttivitaAnnuale>> GetUserAttivitaAsync(string username);
+        Task<AnnualitaFiscale?> GetAnnoCorrenteAsync();
     }
 
     public class PermissionService : IPermissionService
@@ -169,6 +171,48 @@ namespace StudioCG.Web.Services
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
             return user?.Id;
+        }
+
+        /// <summary>
+        /// Ottiene le attività per l'anno corrente filtrate per i permessi dell'utente
+        /// </summary>
+        public async Task<List<AttivitaAnnuale>> GetUserAttivitaAsync(string username)
+        {
+            var annoCorrente = await GetAnnoCorrenteAsync();
+            if (annoCorrente == null) return new List<AttivitaAnnuale>();
+
+            var attivita = await _context.AttivitaAnnuali
+                .Include(aa => aa.AttivitaTipo)
+                .Where(aa => aa.AnnualitaFiscaleId == annoCorrente.Id && aa.IsActive)
+                .OrderBy(aa => aa.AttivitaTipo!.DisplayOrder)
+                .ThenBy(aa => aa.AttivitaTipo!.Nome)
+                .ToListAsync();
+
+            // Admin vede tutto
+            if (string.Equals(username, "admin", StringComparison.OrdinalIgnoreCase))
+            {
+                return attivita;
+            }
+
+            // Altri utenti: filtra per permessi
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            if (user == null) return new List<AttivitaAnnuale>();
+
+            var userPermissions = await _context.UserPermissions
+                .Include(up => up.Permission)
+                .Where(up => up.UserId == user.Id && up.CanView)
+                .Select(up => up.Permission.PageUrl)
+                .ToListAsync();
+
+            return attivita.Where(aa => userPermissions.Contains($"/Attivita/Tipo/{aa.AttivitaTipoId}")).ToList();
+        }
+
+        /// <summary>
+        /// Ottiene l'anno fiscale corrente
+        /// </summary>
+        public async Task<AnnualitaFiscale?> GetAnnoCorrenteAsync()
+        {
+            return await _context.AnnualitaFiscali.FirstOrDefaultAsync(a => a.IsCurrent);
         }
 
         private async Task<UserPermission?> GetUserPermission(int userId, string pageUrl)

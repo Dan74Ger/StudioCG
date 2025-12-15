@@ -1,0 +1,144 @@
+@model StudioCG.Web.Models.AttivitaTipo
+@using StudioCG.Web.Models
+
+@{
+    ViewData["Title"] = $"Campi - {Model.Nome}";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-1">
+            <i class="@Model.Icon me-2"></i>@Model.Nome
+        </h4>
+        <p class="text-muted mb-0">Gestione campi del tipo attività</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i>Torna all'elenco
+    </a>
+</div>
+
+<div class="row">
+    <!-- Lista Campi -->
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-list me-2"></i>Campi Configurati (@Model.Campi.Count)</h6>
+            </div>
+            <div class="card-body p-0">
+                @if (!Model.Campi.Any())
+                {
+                    <div class="p-4 text-center text-muted">
+                        <i class="fas fa-inbox fa-3x mb-3 opacity-50"></i>
+                        <p>Nessun campo configurato.<br>Usa il form a destra per aggiungere campi.</p>
+                    </div>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var campo in Model.Campi)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>@campo.Label</strong>
+                                    <span class="badge bg-primary ms-2">
+                                        @switch (campo.FieldType)
+                                        {
+                                            case AttivitaFieldType.Text: @:Testo
+                                                break;
+                                            case AttivitaFieldType.LongText: @:Testo Lungo
+                                                break;
+                                            case AttivitaFieldType.Number: @:Numero
+                                                break;
+                                            case AttivitaFieldType.Decimal: @:Decimale
+                                                break;
+                                            case AttivitaFieldType.Date: @:Data
+                                                break;
+                                            case AttivitaFieldType.Boolean: @:Sì/No
+                                                break;
+                                        }
+                                    </span>
+                                    @if (campo.IsRequired)
+                                    {
+                                        <span class="badge bg-danger ms-1">Obbligatorio</span>
+                                    }
+                                    @if (campo.ShowInList)
+                                    {
+                                        <span class="badge bg-info ms-1">In Lista</span>
+                                    }
+                                </div>
+                                <div class="btn-group btn-group-sm">
+                                    <form asp-action="MoveCampoUp" asp-route-id="@campo.Id" method="post" class="d-inline">
+                                        <button type="submit" class="btn btn-outline-secondary" title="Sposta su">
+                                            <i class="fas fa-arrow-up"></i>
+                                        </button>
+                                    </form>
+                                    <form asp-action="MoveCampoDown" asp-route-id="@campo.Id" method="post" class="d-inline">
+                                        <button type="submit" class="btn btn-outline-secondary" title="Sposta giù">
+                                            <i class="fas fa-arrow-down"></i>
+                                        </button>
+                                    </form>
+                                    <form asp-action="DeleteCampo" asp-route-id="@campo.Id" method="post" class="d-inline" onsubmit="return confirm('Eliminare questo campo?');">
+                                        <button type="submit" class="btn btn-outline-danger" title="Elimina">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Form Aggiungi Campo -->
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Aggiungi Campo</h6>
+            </div>
+            <div class="card-body">
+                <form asp-action="AddCampo" method="post">
+                    <input type="hidden" name="AttivitaTipoId" value="@Model.Id" />
+
+                    <div class="mb-3">
+                        <label class="form-label">Etichetta *</label>
+                        <input type="text" name="Label" class="form-control" required placeholder="Es. Data Scadenza" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Tipo Campo</label>
+                        <select name="FieldType" class="form-select">
+                            <option value="@((int)AttivitaFieldType.Text)">Testo</option>
+                            <option value="@((int)AttivitaFieldType.LongText)">Testo Lungo</option>
+                            <option value="@((int)AttivitaFieldType.Number)">Numero</option>
+                            <option value="@((int)AttivitaFieldType.Decimal)">Decimale</option>
+                            <option value="@((int)AttivitaFieldType.Date)">Data</option>
+                            <option value="@((int)AttivitaFieldType.Boolean)">Sì/No</option>
+                        </select>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="IsRequired" value="true" id="isRequired" />
+                                <label class="form-check-label" for="isRequired">Obbligatorio</label>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="ShowInList" value="true" id="showInList" checked />
+                                <label class="form-check-label" for="showInList">Mostra in lista</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-plus me-1"></i>Aggiungi Campo
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+

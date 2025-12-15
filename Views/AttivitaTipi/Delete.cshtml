@@ -1,0 +1,48 @@
+@model StudioCG.Web.Models.AttivitaTipo
+
+@{
+    ViewData["Title"] = $"Elimina {Model.Nome}";
+}
+
+<div class="card border-danger">
+    <div class="card-header bg-danger text-white">
+        <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Conferma Eliminazione</h5>
+    </div>
+    <div class="card-body">
+        <p class="lead">Sei sicuro di voler eliminare il tipo di attività <strong>@Model.Nome</strong>?</p>
+        
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-circle me-2"></i>
+            <strong>Attenzione:</strong> Questa azione eliminerà:
+            <ul class="mb-0 mt-2">
+                <li>@Model.Campi.Count campi configurati</li>
+                <li>@Model.AttivitaAnnuali.Count abbinamenti con anni fiscali</li>
+                <li>Tutti i dati delle attività dei clienti associati</li>
+            </ul>
+        </div>
+
+        <dl class="row">
+            <dt class="col-sm-3">Nome</dt>
+            <dd class="col-sm-9">@Model.Nome</dd>
+
+            <dt class="col-sm-3">Descrizione</dt>
+            <dd class="col-sm-9">@Model.Descrizione</dd>
+
+            <dt class="col-sm-3">Icona</dt>
+            <dd class="col-sm-9"><i class="@Model.Icon"></i></dd>
+        </dl>
+
+        <form asp-action="Delete" method="post">
+            <input type="hidden" asp-for="Id" />
+            <div class="d-flex justify-content-between">
+                <a asp-action="Index" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Annulla
+                </a>
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash me-1"></i>Elimina Definitivamente
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+

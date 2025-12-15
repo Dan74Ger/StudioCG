@@ -1,0 +1,50 @@
+@model StudioCG.Web.Models.Cliente
+
+@{
+    ViewData["Title"] = "Elimina Cliente";
+}
+
+<div class="card border-danger">
+    <div class="card-header bg-danger text-white">
+        <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Conferma Eliminazione</h5>
+    </div>
+    <div class="card-body">
+        <p class="lead">Sei sicuro di voler eliminare il cliente <strong>@Model.RagioneSociale</strong>?</p>
+        
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-circle me-2"></i>
+            <strong>Attenzione:</strong> Questa azione eliminerà anche:
+            <ul class="mb-0 mt-2">
+                <li>@Model.Soggetti.Count soggetti collegati (LR, Consiglieri, Soci)</li>
+                <li>@Model.Attivita.Count attività assegnate</li>
+            </ul>
+        </div>
+
+        <dl class="row">
+            <dt class="col-sm-3">Ragione Sociale</dt>
+            <dd class="col-sm-9">@Model.RagioneSociale</dd>
+
+            <dt class="col-sm-3">P.IVA</dt>
+            <dd class="col-sm-9">@Model.PartitaIVA</dd>
+
+            <dt class="col-sm-3">C.F.</dt>
+            <dd class="col-sm-9">@Model.CodiceFiscale</dd>
+
+            <dt class="col-sm-3">Città</dt>
+            <dd class="col-sm-9">@Model.Citta @(!string.IsNullOrEmpty(Model.Provincia) ? $"({Model.Provincia})" : "")</dd>
+        </dl>
+
+        <form asp-action="Delete" method="post">
+            <input type="hidden" asp-for="Id" />
+            <div class="d-flex justify-content-between">
+                <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Annulla
+                </a>
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash me-1"></i>Elimina Definitivamente
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+

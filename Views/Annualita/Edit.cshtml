@@ -1,0 +1,58 @@
+@model StudioCG.Web.Models.AnnualitaFiscale
+
+@{
+    ViewData["Title"] = $"Modifica Anno {Model.Anno}";
+}
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Modifica Annualità Fiscale</h5>
+    </div>
+    <div class="card-body">
+        <form asp-action="Edit" method="post">
+            <input type="hidden" asp-for="Id" />
+            <input type="hidden" asp-for="CreatedAt" />
+            
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label asp-for="Anno" class="form-label"></label>
+                    <input asp-for="Anno" class="form-control" type="number" min="2000" max="2100" />
+                    <span asp-validation-for="Anno" class="text-danger"></span>
+                </div>
+                <div class="col-md-8 mb-3">
+                    <label asp-for="Descrizione" class="form-label"></label>
+                    <input asp-for="Descrizione" class="form-control" />
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <div class="form-check">
+                        <input asp-for="IsActive" class="form-check-input" />
+                        <label asp-for="IsActive" class="form-check-label"></label>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="form-check">
+                        <input asp-for="IsCurrent" class="form-check-input" />
+                        <label asp-for="IsCurrent" class="form-check-label"></label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <a asp-action="Index" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Annulla
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-1"></i>Salva Modifiche
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
+

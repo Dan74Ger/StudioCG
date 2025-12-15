@@ -1,0 +1,59 @@
+@model StudioCG.Web.Models.AttivitaTipo
+
+@{
+    ViewData["Title"] = "Nuovo Tipo Attività";
+}
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Nuovo Tipo Attività</h5>
+    </div>
+    <div class="card-body">
+        <form asp-action="Create" method="post">
+            <div class="row">
+                <div class="col-md-8 mb-3">
+                    <label asp-for="Nome" class="form-label"></label>
+                    <input asp-for="Nome" class="form-control" placeholder="Es. Dichiarazione Redditi" />
+                    <span asp-validation-for="Nome" class="text-danger"></span>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label asp-for="Icon" class="form-label"></label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="@(Model.Icon ?? "fas fa-tasks")"></i></span>
+                        <input asp-for="Icon" class="form-control" placeholder="fas fa-tasks" />
+                    </div>
+                    <small class="form-text text-muted">
+                        <a href="https://fontawesome.com/icons" target="_blank">Vedi icone disponibili</a>
+                    </small>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Descrizione" class="form-label"></label>
+                <textarea asp-for="Descrizione" class="form-control" rows="2" placeholder="Descrizione opzionale..."></textarea>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label asp-for="DisplayOrder" class="form-label"></label>
+                    <input asp-for="DisplayOrder" class="form-control" type="number" min="0" />
+                    <small class="form-text text-muted">Ordine di visualizzazione nel menu</small>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <a asp-action="Index" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Annulla
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-1"></i>Salva e Aggiungi Campi
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
+

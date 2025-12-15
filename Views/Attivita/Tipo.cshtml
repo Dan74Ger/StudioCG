@@ -1,0 +1,287 @@
+@model StudioCG.Web.Models.AttivitaAnnuale
+@using StudioCG.Web.Models
+
+@{
+    ViewData["Title"] = Model.AttivitaTipo?.Nome ?? "Attività";
+    var tuttiAnni = ViewBag.TuttiAnni as List<AnnualitaFiscale> ?? new List<AnnualitaFiscale>();
+    var clientiDisponibili = ViewBag.ClientiDisponibili as List<Cliente> ?? new List<Cliente>();
+    var annoPrecedente = ViewBag.AnnoPrecedente as AnnualitaFiscale;
+    var clientiAnnoPrecedente = ViewBag.ClientiAnnoPrecedente as int? ?? 0;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-1">
+            <i class="@Model.AttivitaTipo?.Icon me-2"></i>@Model.AttivitaTipo?.Nome
+            <span class="badge bg-primary ms-2">@Model.AnnualitaFiscale?.Anno</span>
+        </h4>
+        @if (!string.IsNullOrEmpty(Model.AttivitaTipo?.Descrizione))
+        {
+            <p class="text-muted mb-0">@Model.AttivitaTipo.Descrizione</p>
+        }
+    </div>
+    <div class="btn-group">
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Torna all'elenco
+        </a>
+        @if (annoPrecedente != null && clientiAnnoPrecedente > 0)
+        {
+            <form asp-action="CopiaClientiDaAnno" method="post" class="d-inline" 
+                  onsubmit="return confirm('Copiare @clientiAnnoPrecedente clienti dal @annoPrecedente.Anno al @Model.AnnualitaFiscale?.Anno?');">
+                <input type="hidden" name="attivitaAnnualeId" value="@Model.Id" />
+                <input type="hidden" name="annoPrecedenteId" value="@annoPrecedente.Id" />
+                <button type="submit" class="btn btn-info">
+                    <i class="fas fa-copy me-1"></i>Copia da @annoPrecedente.Anno (@clientiAnnoPrecedente)
+                </button>
+            </form>
+        }
+        <a asp-action="ExportExcel" asp-route-id="@Model.Id" class="btn btn-success">
+            <i class="fas fa-file-excel me-1"></i>Export Excel
+        </a>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#nuovoClienteModal">
+            <i class="fas fa-plus me-1"></i>Nuovo
+        </button>
+        <form asp-action="AssegnaTutti" method="post" class="d-inline" onsubmit="return confirm('Assegnare questa attività a tutti i clienti attivi?');">
+            <input type="hidden" name="attivitaAnnualeId" value="@Model.Id" />
+            <button type="submit" class="btn btn-outline-success">
+                <i class="fas fa-user-plus me-1"></i>Assegna a Tutti
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Statistiche -->
+@{
+    var totale = Model.ClientiAttivita.Count;
+    var completate = Model.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.Completata);
+    var inCorso = Model.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.InCorso);
+    var daFare = Model.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.DaFare);
+    var sospese = Model.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.Sospesa);
+}
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-secondary text-white">
+            <div class="card-body py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="small">Da Fare</div>
+                        <div class="fs-4 fw-bold">@daFare</div>
+                    </div>
+                    <i class="fas fa-clock fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="small">In Corso</div>
+                        <div class="fs-4 fw-bold">@inCorso</div>
+                    </div>
+                    <i class="fas fa-spinner fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="small">Completate</div>
+                        <div class="fs-4 fw-bold">@completate</div>
+                    </div>
+                    <i class="fas fa-check-circle fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="small">Sospese</div>
+                        <div class="fs-4 fw-bold">@sospese</div>
+                    </div>
+                    <i class="fas fa-pause-circle fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lista Clienti -->
+<div class="card">
+    <div class="card-header">
+        <h6 class="mb-0"><i class="fas fa-users me-2"></i>Clienti Assegnati (@totale)</h6>
+    </div>
+    <div class="card-body p-0">
+        @if (!Model.ClientiAttivita.Any())
+        {
+            <div class="p-4 text-center text-muted">
+                <i class="fas fa-users-slash fa-3x mb-3 opacity-50"></i>
+                <p>Nessun cliente assegnato a questa attività.<br>
+                   Vai alla scheda di un cliente per assegnare l'attività, oppure usa "Assegna a Tutti".</p>
+            </div>
+        }
+        else
+        {
+            var campiVisibili = Model.AttivitaTipo?.Campi.Where(c => c.ShowInList).OrderBy(c => c.DisplayOrder).ToList() ?? new List<AttivitaCampo>();
+            var numColonne = 4 + campiVisibili.Count; // Cliente, Ateco, Stato, Azioni + campi
+            
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 250px;">Cliente</th>
+                            <th style="width: 100px;">Cod. Ateco</th>
+                            <th style="width: 120px;">Stato</th>
+                            @foreach (var campo in campiVisibili)
+                            {
+                                <th class="text-center" style="min-width: 100px;">@campo.Label</th>
+                            }
+                            <th style="width: 100px;" class="text-end">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var ca in Model.ClientiAttivita.OrderBy(c => c.Cliente?.RagioneSociale))
+                        {
+                            <tr class="align-middle">
+                                <td>
+                                    <a asp-controller="Clienti" asp-action="Details" asp-route-id="@ca.ClienteId">
+                                        <strong>@ca.Cliente?.RagioneSociale</strong>
+                                    </a>
+                                </td>
+                                <td><code class="small">@ca.Cliente?.CodiceAteco</code></td>
+                                <td>
+                                    @switch (ca.Stato)
+                                    {
+                                        case StatoAttivita.DaFare:
+                                            <span class="badge bg-secondary">Da Fare</span>
+                                            break;
+                                        case StatoAttivita.InCorso:
+                                            <span class="badge bg-warning">In Corso</span>
+                                            break;
+                                        case StatoAttivita.Completata:
+                                            <span class="badge bg-success">Completata</span>
+                                            break;
+                                        case StatoAttivita.Sospesa:
+                                            <span class="badge bg-danger">Sospesa</span>
+                                            break;
+                                    }
+                                </td>
+                                @foreach (var campo in campiVisibili)
+                                {
+                                    var valore = ca.Valori.FirstOrDefault(v => v.AttivitaCampoId == campo.Id)?.Valore ?? "";
+                                    <td class="text-center">
+                                        @if (campo.FieldType == AttivitaFieldType.Boolean)
+                                        {
+                                            if (valore == "true")
+                                            {
+                                                <i class="fas fa-check-circle text-success"></i>
+                                            }
+                                            else
+                                            {
+                                                <i class="fas fa-circle text-muted opacity-25"></i>
+                                            }
+                                        }
+                                        else if (campo.FieldType == AttivitaFieldType.Date && !string.IsNullOrEmpty(valore))
+                                        {
+                                            if (DateTime.TryParse(valore, out var dataVal))
+                                            {
+                                                <span class="small">@dataVal.ToString("dd/MM/yy")</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="small">@valore</span>
+                                            }
+                                        }
+                                        else if (!string.IsNullOrEmpty(valore))
+                                        {
+                                            <span class="small" title="@valore">@(valore.Length > 20 ? valore.Substring(0, 17) + "..." : valore)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                }
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <a asp-action="ClienteAttivita" asp-route-id="@ca.Id" class="btn btn-outline-primary" title="Modifica">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        @if (ca.Stato != StatoAttivita.Completata)
+                                        {
+                                            <form asp-action="CambiaStato" method="post" class="d-inline">
+                                                <input type="hidden" name="id" value="@ca.Id" />
+                                                <input type="hidden" name="nuovoStato" value="@((int)StatoAttivita.Completata)" />
+                                                <input type="hidden" name="returnToTipoId" value="@Model.AttivitaTipoId" />
+                                                <input type="hidden" name="annoId" value="@Model.AnnualitaFiscaleId" />
+                                                <button type="submit" class="btn btn-outline-success" title="Segna come Completata">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                            </form>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal Nuovo Cliente -->
+<div class="modal fade" id="nuovoClienteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="NuovoClienteAttivita" method="post">
+                <input type="hidden" name="attivitaAnnualeId" value="@Model.Id" />
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i>Aggiungi Cliente all'Attività</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Cliente *</label>
+                        <select name="clienteId" id="clienteSelect" class="form-select" required>
+                            <option value="">-- Seleziona Cliente --</option>
+                            @foreach (var cliente in clientiDisponibili)
+                            {
+                                <option value="@cliente.Id" data-ateco="@cliente.CodiceAteco">
+                                    @cliente.RagioneSociale
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Codice Ateco</label>
+                        <input type="text" id="codiceAtecoDisplay" class="form-control" readonly />
+                        <small class="form-text text-muted">Copiato automaticamente dal cliente</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Aggiungi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.getElementById('clienteSelect').addEventListener('change', function() {
+            var selectedOption = this.options[this.selectedIndex];
+            var ateco = selectedOption.getAttribute('data-ateco') || '';
+            document.getElementById('codiceAtecoDisplay').value = ateco;
+        });
+    </script>
+}
+

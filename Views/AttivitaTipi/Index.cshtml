@@ -1,0 +1,96 @@
+@model IEnumerable<StudioCG.Web.Models.AttivitaTipo>
+
+@{
+    ViewData["Title"] = "Tipi Attività";
+}
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Gestione Tipi Attività</h5>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i>Nuovo Tipo Attività
+        </a>
+    </div>
+    <div class="card-body">
+        @if (!Model.Any())
+        {
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>Nessun tipo di attività presente. Clicca su "Nuovo Tipo Attività" per aggiungerne uno.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">Icona</th>
+                            <th>Nome</th>
+                            <th>Campi</th>
+                            <th>Anni Attivi</th>
+                            <th>Stato</th>
+                            <th style="width: 200px;">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var tipo in Model)
+                        {
+                            <tr>
+                                <td class="text-center">
+                                    <i class="@tipo.Icon fa-lg text-primary"></i>
+                                </td>
+                                <td>
+                                    <strong>@tipo.Nome</strong>
+                                    @if (!string.IsNullOrEmpty(tipo.Descrizione))
+                                    {
+                                        <br><small class="text-muted">@tipo.Descrizione</small>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">@tipo.Campi.Count campi</span>
+                                </td>
+                                <td>
+                                    @foreach (var aa in tipo.AttivitaAnnuali.OrderByDescending(a => a.AnnualitaFiscale?.Anno).Take(3))
+                                    {
+                                        <span class="badge bg-info me-1">@aa.AnnualitaFiscale?.Anno</span>
+                                    }
+                                    @if (tipo.AttivitaAnnuali.Count > 3)
+                                    {
+                                        <span class="badge bg-secondary">+@(tipo.AttivitaAnnuali.Count - 3)</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (tipo.IsActive)
+                                    {
+                                        <span class="badge bg-success">Attivo</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Inattivo</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a asp-action="Campi" asp-route-id="@tipo.Id" class="btn btn-outline-primary" title="Gestisci Campi">
+                                            <i class="fas fa-list"></i>
+                                        </a>
+                                        <a asp-action="Anni" asp-route-id="@tipo.Id" class="btn btn-outline-info" title="Gestisci Anni">
+                                            <i class="fas fa-calendar"></i>
+                                        </a>
+                                        <a asp-action="Edit" asp-route-id="@tipo.Id" class="btn btn-outline-secondary" title="Modifica">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a asp-action="Delete" asp-route-id="@tipo.Id" class="btn btn-outline-danger" title="Elimina">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+

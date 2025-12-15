@@ -1,0 +1,395 @@
+@model StudioCG.Web.Models.Cliente
+@using StudioCG.Web.Models
+
+@{
+    ViewData["Title"] = Model.RagioneSociale;
+    var attivitaDisponibili = ViewBag.AttivitaDisponibili as List<AttivitaAnnuale> ?? new List<AttivitaAnnuale>();
+    var annoCorrente = ViewBag.AnnoCorrente as AnnualitaFiscale;
+    var tuttiAnni = ViewBag.TuttiAnni as List<AnnualitaFiscale> ?? new List<AnnualitaFiscale>();
+    var annoSelezionato = ViewBag.AnnoSelezionato as int? ?? annoCorrente?.Id;
+    
+    var legaliRappresentanti = Model.Soggetti.Where(s => s.TipoSoggetto == TipoSoggetto.LegaleRappresentante).ToList();
+    var consiglieri = Model.Soggetti.Where(s => s.TipoSoggetto == TipoSoggetto.Consigliere).ToList();
+    var soci = Model.Soggetti.Where(s => s.TipoSoggetto == TipoSoggetto.Socio).ToList();
+}
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h4 class="mb-1">@Model.RagioneSociale</h4>
+        <p class="text-muted mb-0">
+            @if (!string.IsNullOrEmpty(Model.PartitaIVA))
+            {
+                <span class="me-3"><i class="fas fa-id-card me-1"></i>P.IVA: <code>@Model.PartitaIVA</code></span>
+            }
+            @if (!string.IsNullOrEmpty(Model.CodiceFiscale))
+            {
+                <span><i class="fas fa-fingerprint me-1"></i>C.F.: <code>@Model.CodiceFiscale</code></span>
+            }
+        </p>
+    </div>
+    <div class="btn-group">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary">
+            <i class="fas fa-edit me-1"></i>Modifica
+        </a>
+        <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-danger">
+            <i class="fas fa-trash me-1"></i>Elimina
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Colonna Sinistra: Dati Cliente -->
+    <div class="col-lg-4">
+        <!-- Dati Anagrafici -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Dati Anagrafici</h6>
+            </div>
+            <div class="card-body">
+                @if (!string.IsNullOrEmpty(Model.Indirizzo))
+                {
+                    <p class="mb-2">
+                        <i class="fas fa-map-marker-alt text-muted me-2"></i>
+                        @Model.Indirizzo<br>
+                        <span class="ms-4">@Model.CAP @Model.Citta @(!string.IsNullOrEmpty(Model.Provincia) ? $"({Model.Provincia})" : "")</span>
+                    </p>
+                }
+                @if (!string.IsNullOrEmpty(Model.Email))
+                {
+                    <p class="mb-2"><i class="fas fa-envelope text-muted me-2"></i><a href="mailto:@Model.Email">@Model.Email</a></p>
+                }
+                @if (!string.IsNullOrEmpty(Model.PEC))
+                {
+                    <p class="mb-2"><i class="fas fa-envelope-open-text text-muted me-2"></i><a href="mailto:@Model.PEC">@Model.PEC</a></p>
+                }
+                @if (!string.IsNullOrEmpty(Model.Telefono))
+                {
+                    <p class="mb-2"><i class="fas fa-phone text-muted me-2"></i>@Model.Telefono</p>
+                }
+                @if (!string.IsNullOrEmpty(Model.CodiceAteco))
+                {
+                    <p class="mb-2"><i class="fas fa-industry text-muted me-2"></i>Cod. Ateco: <code>@Model.CodiceAteco</code></p>
+                }
+                @if (!string.IsNullOrEmpty(Model.Note))
+                {
+                    <hr>
+                    <p class="mb-0 small text-muted">@Model.Note</p>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Colonna Centrale: Soggetti -->
+    <div class="col-lg-4">
+        <!-- Legale Rappresentante -->
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <h6 class="mb-0"><i class="fas fa-user-tie me-2"></i>Legale Rappresentante</h6>
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addSoggettoModal" data-tipo="0">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            <ul class="list-group list-group-flush">
+                @if (!legaliRappresentanti.Any())
+                {
+                    <li class="list-group-item text-muted small">Nessun legale rappresentante</li>
+                }
+                @foreach (var lr in legaliRappresentanti)
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>@lr.NomeCompleto</strong>
+                            @if (!string.IsNullOrEmpty(lr.CodiceFiscale))
+                            {
+                                <br><small class="text-muted">C.F.: @lr.CodiceFiscale</small>
+                            }
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <a asp-action="EditSoggetto" asp-route-id="@lr.Id" class="btn btn-outline-secondary btn-sm"><i class="fas fa-edit"></i></a>
+                            <form asp-action="DeleteSoggetto" asp-route-id="@lr.Id" method="post" class="d-inline" onsubmit="return confirm('Eliminare questo soggetto?')">
+                                <button type="submit" class="btn btn-outline-danger btn-sm"><i class="fas fa-times"></i></button>
+                            </form>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        <!-- Consiglieri -->
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <h6 class="mb-0"><i class="fas fa-users me-2"></i>Consiglieri (@consiglieri.Count)</h6>
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addSoggettoModal" data-tipo="1">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            <ul class="list-group list-group-flush" style="max-height: 200px; overflow-y: auto;">
+                @if (!consiglieri.Any())
+                {
+                    <li class="list-group-item text-muted small">Nessun consigliere</li>
+                }
+                @foreach (var c in consiglieri)
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                        <span>@c.NomeCompleto</span>
+                        <div class="btn-group btn-group-sm">
+                            <a asp-action="EditSoggetto" asp-route-id="@c.Id" class="btn btn-outline-secondary btn-sm"><i class="fas fa-edit"></i></a>
+                            <form asp-action="DeleteSoggetto" asp-route-id="@c.Id" method="post" class="d-inline" onsubmit="return confirm('Eliminare questo soggetto?')">
+                                <button type="submit" class="btn btn-outline-danger btn-sm"><i class="fas fa-times"></i></button>
+                            </form>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        <!-- Soci -->
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <h6 class="mb-0"><i class="fas fa-handshake me-2"></i>Soci (@soci.Count)</h6>
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addSoggettoModal" data-tipo="2">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            <ul class="list-group list-group-flush" style="max-height: 250px; overflow-y: auto;">
+                @if (!soci.Any())
+                {
+                    <li class="list-group-item text-muted small">Nessun socio</li>
+                }
+                @foreach (var s in soci)
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                        <div>
+                            <span>@s.NomeCompleto</span>
+                            @if (s.QuotaPercentuale.HasValue)
+                            {
+                                <span class="badge bg-info ms-2">@s.QuotaPercentuale.Value.ToString("0.##")%</span>
+                            }
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <a asp-action="EditSoggetto" asp-route-id="@s.Id" class="btn btn-outline-secondary btn-sm"><i class="fas fa-edit"></i></a>
+                            <form asp-action="DeleteSoggetto" asp-route-id="@s.Id" method="post" class="d-inline" onsubmit="return confirm('Eliminare questo soggetto?')">
+                                <button type="submit" class="btn btn-outline-danger btn-sm"><i class="fas fa-times"></i></button>
+                            </form>
+                        </div>
+                    </li>
+                }
+            </ul>
+            @if (soci.Any())
+            {
+                var totaleQuote = soci.Sum(s => s.QuotaPercentuale ?? 0);
+                <div class="card-footer py-2">
+                    <small class="text-muted">Totale quote: <strong class="@(totaleQuote == 100 ? "text-success" : "text-warning")">@totaleQuote.ToString("0.##")%</strong></small>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Colonna Destra: Attività -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="fas fa-tasks me-2"></i>Attività
+                    @if (annoCorrente != null)
+                    {
+                        <span class="badge bg-primary ms-2">@annoCorrente.Anno</span>
+                    }
+                </h6>
+                @if (tuttiAnni.Count > 1)
+                {
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-calendar-alt"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            @foreach (var anno in tuttiAnni)
+                            {
+                                <li>
+                                    <a class="dropdown-item @(anno.Id == annoSelezionato ? "active" : "")" 
+                                       asp-action="Details" asp-route-id="@Model.Id" asp-route-annoId="@anno.Id">
+                                        @anno.Anno
+                                        @if (anno.IsCurrent)
+                                        {
+                                            <span class="badge bg-success ms-1">Corrente</span>
+                                        }
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </div>
+            <div class="card-body p-0">
+                @if (annoCorrente == null)
+                {
+                    <div class="p-3 text-muted small">Nessun anno fiscale configurato.</div>
+                }
+                else if (!attivitaDisponibili.Any())
+                {
+                    <div class="p-3 text-muted small">Nessuna attività disponibile per quest'anno.</div>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var attivita in attivitaDisponibili)
+                        {
+                            var clienteAttivita = Model.Attivita.FirstOrDefault(ca => ca.AttivitaAnnualeId == attivita.Id);
+                            var isAssegnata = clienteAttivita != null;
+                            
+                            <li class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="form-check">
+                                        <form asp-action="ToggleAttivita" method="post" class="d-inline">
+                                            <input type="hidden" name="clienteId" value="@Model.Id" />
+                                            <input type="hidden" name="attivitaAnnualeId" value="@attivita.Id" />
+                                            <input type="hidden" name="assegna" value="@(isAssegnata ? "false" : "true")" />
+                                            <input type="hidden" name="annoId" value="@annoCorrente?.Id" />
+                                            <input type="checkbox" class="form-check-input" @(isAssegnata ? "checked" : "") 
+                                                   onchange="this.form.submit()" />
+                                            <label class="form-check-label ms-1">
+                                                <i class="@attivita.AttivitaTipo?.Icon me-1"></i>
+                                                @attivita.AttivitaTipo?.Nome
+                                            </label>
+                                        </form>
+                                    </div>
+                                    @if (isAssegnata)
+                                    {
+                                        <div>
+                                            @switch (clienteAttivita!.Stato)
+                                            {
+                                                case StatoAttivita.DaFare:
+                                                    <span class="badge bg-secondary">Da Fare</span>
+                                                    break;
+                                                case StatoAttivita.InCorso:
+                                                    <span class="badge bg-warning">In Corso</span>
+                                                    break;
+                                                case StatoAttivita.Completata:
+                                                    <span class="badge bg-success">Completata</span>
+                                                    break;
+                                                case StatoAttivita.Sospesa:
+                                                    <span class="badge bg-danger">Sospesa</span>
+                                                    break;
+                                            }
+                                            <a asp-controller="Attivita" asp-action="ClienteAttivita" asp-route-id="@clienteAttivita.Id" 
+                                               class="btn btn-sm btn-outline-primary ms-1" title="Gestisci">
+                                                <i class="fas fa-external-link-alt"></i>
+                                            </a>
+                                        </div>
+                                    }
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a asp-action="Index" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i>Torna all'elenco
+    </a>
+</div>
+
+<!-- Modal Aggiungi Soggetto -->
+<div class="modal fade" id="addSoggettoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="AddSoggetto" method="post">
+                <input type="hidden" name="ClienteId" value="@Model.Id" />
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-user-plus me-2"></i>Aggiungi Soggetto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Tipo Soggetto</label>
+                        <select name="TipoSoggetto" id="tipoSoggettoSelect" class="form-select" required>
+                            <option value="0">Legale Rappresentante</option>
+                            <option value="1">Consigliere</option>
+                            <option value="2">Socio</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nome *</label>
+                            <input type="text" name="Nome" class="form-control" required />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Cognome *</label>
+                            <input type="text" name="Cognome" class="form-control" required />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Codice Fiscale</label>
+                        <input type="text" name="CodiceFiscale" class="form-control text-uppercase" maxlength="16" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Indirizzo</label>
+                        <input type="text" name="Indirizzo" class="form-control" />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Città</label>
+                            <input type="text" name="Citta" class="form-control" />
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Prov.</label>
+                            <input type="text" name="Provincia" class="form-control" maxlength="2" />
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">CAP</label>
+                            <input type="text" name="CAP" class="form-control" maxlength="5" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" name="Email" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Telefono</label>
+                            <input type="text" name="Telefono" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="mb-3" id="quotaField" style="display: none;">
+                        <label class="form-label">Quota % Capitale</label>
+                        <div class="input-group">
+                            <input type="text" name="QuotaPercentuale" class="form-control" placeholder="Es: 48,66" />
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <small class="form-text text-muted">Usa la virgola come separatore decimale</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Salva</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Pre-seleziona il tipo soggetto quando si apre il modal
+        document.getElementById('addSoggettoModal').addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var tipo = button.getAttribute('data-tipo');
+            document.getElementById('tipoSoggettoSelect').value = tipo;
+            toggleQuotaField();
+        });
+
+        // Mostra/nascondi campo quota
+        document.getElementById('tipoSoggettoSelect').addEventListener('change', toggleQuotaField);
+
+        function toggleQuotaField() {
+            var tipo = document.getElementById('tipoSoggettoSelect').value;
+            document.getElementById('quotaField').style.display = (tipo === '2') ? 'block' : 'none';
+        }
+    </script>
+}
+

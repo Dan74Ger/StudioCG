@@ -1,0 +1,88 @@
+@model IEnumerable<StudioCG.Web.Models.AnnualitaFiscale>
+
+@{
+    ViewData["Title"] = "Annualità Fiscali";
+}
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Annualità Fiscali</h5>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i>Nuovo Anno
+        </a>
+    </div>
+    <div class="card-body">
+        @if (!Model.Any())
+        {
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>Nessuna annualità presente. Clicca su "Nuovo Anno" per aggiungerne una.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Anno</th>
+                            <th>Descrizione</th>
+                            <th>Attività</th>
+                            <th>Stato</th>
+                            <th style="width: 250px;">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var anno in Model)
+                        {
+                            <tr class="@(anno.IsCurrent ? "table-primary" : "")">
+                                <td>
+                                    <strong class="fs-5">@anno.Anno</strong>
+                                    @if (anno.IsCurrent)
+                                    {
+                                        <span class="badge bg-success ms-2">Corrente</span>
+                                    }
+                                </td>
+                                <td>@anno.Descrizione</td>
+                                <td>
+                                    <span class="badge bg-secondary">@anno.AttivitaAnnuali.Count attività</span>
+                                </td>
+                                <td>
+                                    @if (anno.IsActive)
+                                    {
+                                        <span class="badge bg-success">Attivo</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Inattivo</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        @if (!anno.IsCurrent)
+                                        {
+                                            <form asp-action="SetCurrent" asp-route-id="@anno.Id" method="post" class="d-inline">
+                                                <button type="submit" class="btn btn-outline-success" title="Imposta come corrente">
+                                                    <i class="fas fa-check-circle"></i>
+                                                </button>
+                                            </form>
+                                        }
+                                        <a asp-action="CopiaAttivita" asp-route-id="@anno.Id" class="btn btn-outline-info" title="Copia attività da anno precedente">
+                                            <i class="fas fa-copy"></i>
+                                        </a>
+                                        <a asp-action="Edit" asp-route-id="@anno.Id" class="btn btn-outline-secondary" title="Modifica">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a asp-action="Delete" asp-route-id="@anno.Id" class="btn btn-outline-danger" title="Elimina">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+

@@ -28,7 +28,7 @@
                     @foreach (var field in dynPage.Fields.OrderBy(f => f.DisplayOrder))
                     {
                         var fieldName = $"field_{field.Id}";
-                        var fieldValue = record.FieldValues?.FirstOrDefault(fv => fv.DynamicFieldId == field.Id);
+                        var fieldValue = record!.FieldValues?.FirstOrDefault(fv => fv.DynamicFieldId == field.Id);
                         var currentValue = formValues != null ? formValues[fieldName].ToString() : (fieldValue?.Value ?? "");
                         var hasError = !ViewData.ModelState.IsValid && ViewData.ModelState.ContainsKey(fieldName);
 

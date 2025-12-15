@@ -1,0 +1,67 @@
+@model IEnumerable<StudioCG.Web.Models.Cliente>
+
+@{
+    ViewData["Title"] = "Clienti";
+}
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-building me-2"></i>Elenco Clienti</h5>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i>Nuovo Cliente
+        </a>
+    </div>
+    <div class="card-body">
+        @if (!Model.Any())
+        {
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>Nessun cliente presente. Clicca su "Nuovo Cliente" per aggiungerne uno.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Ragione Sociale</th>
+                            <th>Città</th>
+                            <th>P.IVA</th>
+                            <th>Cod. Ateco</th>
+                            <th>Email</th>
+                            <th style="width: 150px;">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cliente in Model)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@cliente.RagioneSociale</strong>
+                                </td>
+                                <td>@cliente.Citta @(!string.IsNullOrEmpty(cliente.Provincia) ? $"({cliente.Provincia})" : "")</td>
+                                <td><code>@cliente.PartitaIVA</code></td>
+                                <td><code>@cliente.CodiceAteco</code></td>
+                                <td>@cliente.Email</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a asp-action="Details" asp-route-id="@cliente.Id" class="btn btn-outline-primary" title="Dettagli">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a asp-action="Edit" asp-route-id="@cliente.Id" class="btn btn-outline-secondary" title="Modifica">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a asp-action="Delete" asp-route-id="@cliente.Id" class="btn btn-outline-danger" title="Elimina">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
