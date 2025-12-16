@@ -46,6 +46,10 @@ namespace StudioCG.Web.Models
         [Display(Name = "Codice Ateco")]
         public string? CodiceAteco { get; set; }
 
+        [StringLength(10)]
+        [Display(Name = "Tipo Soggetto")]
+        public string? TipoSoggetto { get; set; }
+
         [Display(Name = "Attivo")]
         public bool IsActive { get; set; } = true;
 

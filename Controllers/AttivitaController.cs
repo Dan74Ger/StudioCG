@@ -69,7 +69,7 @@ namespace StudioCG.Web.Controllers
         }
 
         // GET: Attivita/Tipo/5 - Dettaglio attività con lista clienti
-        public async Task<IActionResult> Tipo(int? id, int? annoId)
+        public async Task<IActionResult> Tipo(int? id, int? annoId, string? searchNome, int? filtroStato, string? ordinamento)
         {
             if (id == null) return NotFound();
 
@@ -99,13 +99,51 @@ namespace StudioCG.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
+            // Applica filtri ai ClientiAttivita
+            var clientiFiltrati = attivitaAnnuale.ClientiAttivita.AsEnumerable();
+
+            // Filtro per nome cliente
+            if (!string.IsNullOrWhiteSpace(searchNome))
+            {
+                clientiFiltrati = clientiFiltrati.Where(ca => 
+                    ca.Cliente != null && ca.Cliente.RagioneSociale.Contains(searchNome, StringComparison.OrdinalIgnoreCase));
+            }
+
+            // Filtro per stato
+            if (filtroStato.HasValue)
+            {
+                var statoFiltro = (StatoAttivita)filtroStato.Value;
+                clientiFiltrati = clientiFiltrati.Where(ca => ca.Stato == statoFiltro);
+            }
+
+            // Ordinamento
+            if (ordinamento == "desc")
+            {
+                clientiFiltrati = clientiFiltrati.OrderByDescending(ca => ca.Cliente?.RagioneSociale);
+            }
+            else
+            {
+                clientiFiltrati = clientiFiltrati.OrderBy(ca => ca.Cliente?.RagioneSociale);
+            }
+
+            // Sostituisci la collection con quella filtrata
+            attivitaAnnuale.ClientiAttivita = clientiFiltrati.ToList();
+
+            // Passa i parametri di filtro alla view
+            ViewBag.SearchNome = searchNome;
+            ViewBag.FiltroStato = filtroStato;
+            ViewBag.Ordinamento = ordinamento ?? "asc";
+
             ViewBag.TuttiAnni = await _context.AnnualitaFiscali
                 .Where(a => a.IsActive)
                 .OrderByDescending(a => a.Anno)
                 .ToListAsync();
 
-            // Clienti non ancora assegnati a questa attività
-            var clientiGiaAssegnati = attivitaAnnuale.ClientiAttivita.Select(ca => ca.ClienteId).ToList();
+            // Clienti non ancora assegnati a questa attività (usa i dati originali non filtrati)
+            var clientiGiaAssegnati = await _context.ClientiAttivita
+                .Where(ca => ca.AttivitaAnnualeId == attivitaAnnuale.Id)
+                .Select(ca => ca.ClienteId)
+                .ToListAsync();
             ViewBag.ClientiDisponibili = await _context.Clienti
                 .Where(c => c.IsActive && !clientiGiaAssegnati.Contains(c.Id))
                 .OrderBy(c => c.RagioneSociale)
@@ -172,11 +210,11 @@ namespace StudioCG.Web.Controllers
             clienteAttivita.Note = note;
             clienteAttivita.UpdatedAt = DateTime.Now;
 
-            if (stato == StatoAttivita.Completata && !clienteAttivita.DataCompletamento.HasValue)
+            if (stato == StatoAttivita.DRInviate && !clienteAttivita.DataCompletamento.HasValue)
             {
                 clienteAttivita.DataCompletamento = DateTime.Now;
             }
-            else if (stato != StatoAttivita.Completata)
+            else if (stato == StatoAttivita.DaFare || stato == StatoAttivita.Sospesa)
             {
                 clienteAttivita.DataCompletamento = null;
             }
@@ -239,11 +277,11 @@ namespace StudioCG.Web.Controllers
             clienteAttivita.Stato = nuovoStato;
             clienteAttivita.UpdatedAt = DateTime.Now;
 
-            if (nuovoStato == StatoAttivita.Completata)
+            if (nuovoStato == StatoAttivita.DRInviate)
             {
                 clienteAttivita.DataCompletamento = DateTime.Now;
             }
-            else
+            else if (nuovoStato == StatoAttivita.DaFare || nuovoStato == StatoAttivita.Sospesa)
             {
                 clienteAttivita.DataCompletamento = null;
             }
@@ -505,8 +543,9 @@ namespace StudioCG.Web.Controllers
                 var statoText = ca.Stato switch
                 {
                     StatoAttivita.DaFare => "Da Fare",
-                    StatoAttivita.InCorso => "In Corso",
                     StatoAttivita.Completata => "Completata",
+                    StatoAttivita.DaInviareEntratel => "Da inviare Entratel",
+                    StatoAttivita.DRInviate => "DR Inviate",
                     StatoAttivita.Sospesa => "Sospesa",
                     _ => ""
                 };

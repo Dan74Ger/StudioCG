@@ -8,14 +8,17 @@ namespace StudioCG.Web.Models
         [Display(Name = "Da Fare")]
         DaFare = 0,
 
-        [Display(Name = "In Corso")]
-        InCorso = 1,
-
         [Display(Name = "Completata")]
-        Completata = 2,
+        Completata = 1,
+
+        [Display(Name = "Da inviare Entratel")]
+        DaInviareEntratel = 2,
+
+        [Display(Name = "DR Inviate")]
+        DRInviate = 3,
 
         [Display(Name = "Sospesa")]
-        Sospesa = 3
+        Sospesa = 4
     }
 
     public class ClienteAttivita

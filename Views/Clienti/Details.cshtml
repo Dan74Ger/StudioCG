@@ -71,6 +71,10 @@
                 {
                     <p class="mb-2"><i class="fas fa-industry text-muted me-2"></i>Cod. Ateco: <code>@Model.CodiceAteco</code></p>
                 }
+                @if (!string.IsNullOrEmpty(Model.TipoSoggetto))
+                {
+                    <p class="mb-2"><i class="fas fa-user-tag text-muted me-2"></i>Tipo: <code>@Model.TipoSoggetto</code></p>
+                }
                 @if (!string.IsNullOrEmpty(Model.Note))
                 {
                     <hr>
@@ -262,11 +266,14 @@
                                                 case StatoAttivita.DaFare:
                                                     <span class="badge bg-secondary">Da Fare</span>
                                                     break;
-                                                case StatoAttivita.InCorso:
-                                                    <span class="badge bg-warning">In Corso</span>
-                                                    break;
                                                 case StatoAttivita.Completata:
-                                                    <span class="badge bg-success">Completata</span>
+                                                    <span class="badge bg-warning text-dark">Completata</span>
+                                                    break;
+                                                case StatoAttivita.DaInviareEntratel:
+                                                    <span class="badge text-white" style="background-color: #fd7e14;">Da inviare</span>
+                                                    break;
+                                                case StatoAttivita.DRInviate:
+                                                    <span class="badge bg-success">DR Inviate</span>
                                                     break;
                                                 case StatoAttivita.Sospesa:
                                                     <span class="badge bg-danger">Sospesa</span>

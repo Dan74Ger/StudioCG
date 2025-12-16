@@ -61,10 +61,11 @@ else
         @foreach (var attivita in Model)
         {
             var totaleClienti = attivita.ClientiAttivita.Count;
-            var completate = attivita.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.Completata);
-            var inCorso = attivita.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.InCorso);
             var daFare = attivita.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.DaFare);
-            var percentualeCompletate = totaleClienti > 0 ? (completate * 100 / totaleClienti) : 0;
+            var completate = attivita.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.Completata);
+            var daInviareEntratel = attivita.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.DaInviareEntratel);
+            var drInviate = attivita.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.DRInviate);
+            var percentualeCompletate = totaleClienti > 0 ? (drInviate * 100 / totaleClienti) : 0;
             
             <div class="col-md-6 col-lg-4 mb-4">
                 <div class="card h-100">
@@ -86,17 +87,21 @@ else
                         </div>
                         
                         <div class="row text-center">
-                            <div class="col-4">
+                            <div class="col-3">
                                 <div class="small text-muted">Da Fare</div>
-                                <div class="fs-5 text-secondary">@daFare</div>
+                                <div class="fs-6 text-secondary">@daFare</div>
                             </div>
-                            <div class="col-4">
-                                <div class="small text-muted">In Corso</div>
-                                <div class="fs-5 text-warning">@inCorso</div>
-                            </div>
-                            <div class="col-4">
+                            <div class="col-3">
                                 <div class="small text-muted">Completate</div>
-                                <div class="fs-5 text-success">@completate</div>
+                                <div class="fs-6 text-warning">@completate</div>
+                            </div>
+                            <div class="col-3">
+                                <div class="small text-muted">Da inviare</div>
+                                <div class="fs-6" style="color: #fd7e14;">@daInviareEntratel</div>
+                            </div>
+                            <div class="col-3">
+                                <div class="small text-muted">DR Inv.</div>
+                                <div class="fs-6 text-success">@drInviate</div>
                             </div>
                         </div>
                     </div>

@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,12 +19,57 @@ namespace StudioCG.Web.Controllers
         }
 
         // GET: Clienti
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string? searchRagioneSociale, string? searchTipoSoggetto, int? searchAttivitaId)
         {
-            var clienti = await _context.Clienti
-                .Where(c => c.IsActive)
+            // Carica l'anno corrente
+            var annoCorrente = await _context.AnnualitaFiscali.FirstOrDefaultAsync(a => a.IsCurrent);
+            ViewBag.AnnoCorrente = annoCorrente;
+            ViewBag.AnnoCorrenteId = annoCorrente?.Id;
+
+            // Carica le attività disponibili per il filtro
+            if (annoCorrente != null)
+            {
+                ViewBag.AttivitaDisponibili = await _context.AttivitaAnnuali
+                    .Include(aa => aa.AttivitaTipo)
+                    .Where(aa => aa.AnnualitaFiscaleId == annoCorrente.Id && aa.IsActive)
+                    .OrderBy(aa => aa.AttivitaTipo!.DisplayOrder)
+                    .ToListAsync();
+            }
+
+            // Valori di ricerca per mantenere i filtri
+            ViewBag.SearchRagioneSociale = searchRagioneSociale;
+            ViewBag.SearchTipoSoggetto = searchTipoSoggetto;
+            ViewBag.SearchAttivitaId = searchAttivitaId;
+
+            // Query base
+            var query = _context.Clienti
+                .Include(c => c.Attivita)
+                    .ThenInclude(a => a.AttivitaAnnuale)
+                        .ThenInclude(aa => aa!.AttivitaTipo)
+                .Where(c => c.IsActive);
+
+            // Filtro per Ragione Sociale
+            if (!string.IsNullOrWhiteSpace(searchRagioneSociale))
+            {
+                query = query.Where(c => c.RagioneSociale.Contains(searchRagioneSociale));
+            }
+
+            // Filtro per Tipo Soggetto
+            if (!string.IsNullOrWhiteSpace(searchTipoSoggetto))
+            {
+                query = query.Where(c => c.TipoSoggetto == searchTipoSoggetto);
+            }
+
+            // Filtro per Attività
+            if (searchAttivitaId.HasValue)
+            {
+                query = query.Where(c => c.Attivita.Any(a => a.AttivitaAnnualeId == searchAttivitaId));
+            }
+
+            var clienti = await query
                 .OrderBy(c => c.RagioneSociale)
                 .ToListAsync();
+
             return View(clienti);
         }
 
@@ -126,6 +172,7 @@ namespace StudioCG.Web.Controllers
                 cliente.CodiceFiscale = model.CodiceFiscale;
                 cliente.PartitaIVA = model.PartitaIVA;
                 cliente.CodiceAteco = model.CodiceAteco;
+                cliente.TipoSoggetto = model.TipoSoggetto;
                 cliente.Note = model.Note;
                 cliente.IsActive = model.IsActive;
 
@@ -294,6 +341,182 @@ namespace StudioCG.Web.Controllers
             }
 
             return RedirectToAction(nameof(Details), new { id = clienteId, annoId = annoId });
+        }
+
+        // ==================== EXPORT EXCEL ====================
+
+        // GET: Clienti/ExportExcel
+        public async Task<IActionResult> ExportExcel(string? searchRagioneSociale, string? searchTipoSoggetto, int? searchAttivitaId)
+        {
+            var annoCorrente = await _context.AnnualitaFiscali.FirstOrDefaultAsync(a => a.IsCurrent);
+
+            // Query base con gli stessi filtri della pagina Index
+            var query = _context.Clienti
+                .Include(c => c.Soggetti)
+                .Include(c => c.Attivita)
+                    .ThenInclude(a => a.AttivitaAnnuale)
+                        .ThenInclude(aa => aa!.AttivitaTipo)
+                .Where(c => c.IsActive);
+
+            // Applica filtri
+            if (!string.IsNullOrWhiteSpace(searchRagioneSociale))
+            {
+                query = query.Where(c => c.RagioneSociale.Contains(searchRagioneSociale));
+            }
+            if (!string.IsNullOrWhiteSpace(searchTipoSoggetto))
+            {
+                query = query.Where(c => c.TipoSoggetto == searchTipoSoggetto);
+            }
+            if (searchAttivitaId.HasValue)
+            {
+                query = query.Where(c => c.Attivita.Any(a => a.AttivitaAnnualeId == searchAttivitaId));
+            }
+
+            var clienti = await query
+                .OrderBy(c => c.RagioneSociale)
+                .ToListAsync();
+
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Clienti");
+
+            // Intestazioni
+            int col = 1;
+            // Dati Cliente
+            worksheet.Cell(1, col++).Value = "Ragione Sociale";
+            worksheet.Cell(1, col++).Value = "Tipo Soggetto";
+            worksheet.Cell(1, col++).Value = "Indirizzo";
+            worksheet.Cell(1, col++).Value = "CAP";
+            worksheet.Cell(1, col++).Value = "Città";
+            worksheet.Cell(1, col++).Value = "Provincia";
+            worksheet.Cell(1, col++).Value = "Codice Fiscale";
+            worksheet.Cell(1, col++).Value = "Partita IVA";
+            worksheet.Cell(1, col++).Value = "Codice Ateco";
+            worksheet.Cell(1, col++).Value = "Email";
+            worksheet.Cell(1, col++).Value = "PEC";
+            worksheet.Cell(1, col++).Value = "Telefono";
+            // Legale Rappresentante
+            worksheet.Cell(1, col++).Value = "LR - Nome Cognome";
+            worksheet.Cell(1, col++).Value = "LR - Codice Fiscale";
+            worksheet.Cell(1, col++).Value = "LR - Indirizzo";
+            worksheet.Cell(1, col++).Value = "LR - CAP";
+            worksheet.Cell(1, col++).Value = "LR - Città";
+            worksheet.Cell(1, col++).Value = "LR - Provincia";
+            worksheet.Cell(1, col++).Value = "LR - Email";
+            worksheet.Cell(1, col++).Value = "LR - Telefono";
+            // Consiglieri
+            worksheet.Cell(1, col++).Value = "Consiglieri";
+            // Soci
+            worksheet.Cell(1, col++).Value = "Soci";
+            // Attività e altro
+            worksheet.Cell(1, col++).Value = "Attività Anno Corrente";
+            worksheet.Cell(1, col++).Value = "Note";
+            worksheet.Cell(1, col++).Value = "Data Creazione";
+
+            var totalCols = col - 1;
+
+            // Stile intestazione
+            var headerRange = worksheet.Range(1, 1, 1, totalCols);
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#4472C4");
+            headerRange.Style.Font.FontColor = XLColor.White;
+            headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            headerRange.Style.Alignment.WrapText = true;
+
+            // Dati
+            int row = 2;
+            foreach (var cliente in clienti)
+            {
+                col = 1;
+                // Dati Cliente
+                worksheet.Cell(row, col++).Value = cliente.RagioneSociale;
+                worksheet.Cell(row, col++).Value = cliente.TipoSoggetto ?? "";
+                worksheet.Cell(row, col++).Value = cliente.Indirizzo ?? "";
+                worksheet.Cell(row, col++).Value = cliente.CAP ?? "";
+                worksheet.Cell(row, col++).Value = cliente.Citta ?? "";
+                worksheet.Cell(row, col++).Value = cliente.Provincia ?? "";
+                worksheet.Cell(row, col++).Value = cliente.CodiceFiscale ?? "";
+                worksheet.Cell(row, col++).Value = cliente.PartitaIVA ?? "";
+                worksheet.Cell(row, col++).Value = cliente.CodiceAteco ?? "";
+                worksheet.Cell(row, col++).Value = cliente.Email ?? "";
+                worksheet.Cell(row, col++).Value = cliente.PEC ?? "";
+                worksheet.Cell(row, col++).Value = cliente.Telefono ?? "";
+
+                // Legale Rappresentante (primo trovato con tutti i dati)
+                var legaleRapp = cliente.Soggetti
+                    .Where(s => s.TipoSoggetto == TipoSoggetto.LegaleRappresentante)
+                    .FirstOrDefault();
+                worksheet.Cell(row, col++).Value = legaleRapp?.NomeCompleto ?? "";
+                worksheet.Cell(row, col++).Value = legaleRapp?.CodiceFiscale ?? "";
+                worksheet.Cell(row, col++).Value = legaleRapp?.Indirizzo ?? "";
+                worksheet.Cell(row, col++).Value = legaleRapp?.CAP ?? "";
+                worksheet.Cell(row, col++).Value = legaleRapp?.Citta ?? "";
+                worksheet.Cell(row, col++).Value = legaleRapp?.Provincia ?? "";
+                worksheet.Cell(row, col++).Value = legaleRapp?.Email ?? "";
+                worksheet.Cell(row, col++).Value = legaleRapp?.Telefono ?? "";
+
+                // Consiglieri (tutti, con dettagli)
+                var consiglieri = cliente.Soggetti
+                    .Where(s => s.TipoSoggetto == TipoSoggetto.Consigliere)
+                    .Select(s => {
+                        var dettagli = new List<string> { s.NomeCompleto };
+                        if (!string.IsNullOrEmpty(s.CodiceFiscale)) dettagli.Add($"CF: {s.CodiceFiscale}");
+                        if (!string.IsNullOrEmpty(s.Indirizzo)) dettagli.Add($"{s.Indirizzo}");
+                        if (!string.IsNullOrEmpty(s.Citta)) dettagli.Add($"{s.CAP} {s.Citta} ({s.Provincia})");
+                        if (!string.IsNullOrEmpty(s.Email)) dettagli.Add($"Email: {s.Email}");
+                        if (!string.IsNullOrEmpty(s.Telefono)) dettagli.Add($"Tel: {s.Telefono}");
+                        return string.Join(" - ", dettagli);
+                    });
+                worksheet.Cell(row, col++).Value = string.Join("\n", consiglieri);
+
+                // Soci (tutti, con dettagli e quota)
+                var soci = cliente.Soggetti
+                    .Where(s => s.TipoSoggetto == TipoSoggetto.Socio)
+                    .Select(s => {
+                        var dettagli = new List<string> { s.NomeCompleto };
+                        if (s.QuotaPercentuale.HasValue) dettagli.Add($"Quota: {s.QuotaPercentuale}%");
+                        if (!string.IsNullOrEmpty(s.CodiceFiscale)) dettagli.Add($"CF: {s.CodiceFiscale}");
+                        if (!string.IsNullOrEmpty(s.Indirizzo)) dettagli.Add($"{s.Indirizzo}");
+                        if (!string.IsNullOrEmpty(s.Citta)) dettagli.Add($"{s.CAP} {s.Citta} ({s.Provincia})");
+                        if (!string.IsNullOrEmpty(s.Email)) dettagli.Add($"Email: {s.Email}");
+                        if (!string.IsNullOrEmpty(s.Telefono)) dettagli.Add($"Tel: {s.Telefono}");
+                        return string.Join(" - ", dettagli);
+                    });
+                worksheet.Cell(row, col++).Value = string.Join("\n", soci);
+
+                // Attività anno corrente
+                var attivita = cliente.Attivita
+                    .Where(a => a.AttivitaAnnuale?.AnnualitaFiscaleId == annoCorrente?.Id)
+                    .Select(a => a.AttivitaAnnuale?.AttivitaTipo?.Nome)
+                    .Where(n => n != null);
+                worksheet.Cell(row, col++).Value = string.Join(", ", attivita);
+
+                worksheet.Cell(row, col++).Value = cliente.Note ?? "";
+                
+                worksheet.Cell(row, col).Value = cliente.CreatedAt;
+                worksheet.Cell(row, col++).Style.DateFormat.Format = "dd/MM/yyyy";
+
+                row++;
+            }
+
+            // Centra tutte le celle dati e abilita wrap text
+            if (row > 2)
+            {
+                var dataRange = worksheet.Range(2, 1, row - 1, totalCols);
+                dataRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                dataRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                dataRange.Style.Alignment.WrapText = true;
+            }
+
+            // Auto-fit colonne
+            worksheet.Columns().AdjustToContents();
+
+            // Genera file
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            stream.Position = 0;
+
+            var fileName = $"Clienti_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
     }
 }

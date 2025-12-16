@@ -1,21 +1,87 @@
 @model IEnumerable<StudioCG.Web.Models.Cliente>
+@using StudioCG.Web.Models
 
 @{
     ViewData["Title"] = "Clienti";
+    var annoCorrente = ViewBag.AnnoCorrente as AnnualitaFiscale;
+    var annoCorrenteId = ViewBag.AnnoCorrenteId as int?;
+    var attivitaDisponibili = ViewBag.AttivitaDisponibili as List<AttivitaAnnuale> ?? new List<AttivitaAnnuale>();
+    var searchRagioneSociale = ViewBag.SearchRagioneSociale as string;
+    var searchTipoSoggetto = ViewBag.SearchTipoSoggetto as string;
+    var searchAttivitaId = ViewBag.SearchAttivitaId as int?;
 }
 
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fas fa-building me-2"></i>Elenco Clienti</h5>
-        <a asp-action="Create" class="btn btn-primary">
-            <i class="fas fa-plus me-1"></i>Nuovo Cliente
-        </a>
+        <h5 class="mb-0">
+            <i class="fas fa-building me-2"></i>Elenco Clienti
+        </h5>
+        <div class="btn-group">
+            <a asp-action="ExportExcel" 
+               asp-route-searchRagioneSociale="@searchRagioneSociale"
+               asp-route-searchTipoSoggetto="@searchTipoSoggetto"
+               asp-route-searchAttivitaId="@searchAttivitaId"
+               class="btn btn-success">
+                <i class="fas fa-file-excel me-1"></i>Export Excel
+            </a>
+            <a asp-action="Create" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Nuovo Cliente
+            </a>
+        </div>
     </div>
     <div class="card-body">
+        <!-- Filtri di ricerca -->
+        <form asp-action="Index" method="get" class="mb-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small text-muted">Ragione Sociale</label>
+                    <input type="text" name="searchRagioneSociale" class="form-control" 
+                           value="@searchRagioneSociale" placeholder="Cerca per ragione sociale..." />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted">Tipo Soggetto</label>
+                    <select name="searchTipoSoggetto" class="form-select">
+                        <option value="">-- Tutti --</option>
+                        <option value="PF" selected="@(searchTipoSoggetto == "PF")">PF - Persona Fisica</option>
+                        <option value="DI" selected="@(searchTipoSoggetto == "DI")">DI - Ditta Individuale</option>
+                        <option value="SP" selected="@(searchTipoSoggetto == "SP")">SP - Società Persone</option>
+                        <option value="SC" selected="@(searchTipoSoggetto == "SC")">SC - Società Capitali</option>
+                        <option value="PROF" selected="@(searchTipoSoggetto == "PROF")">PROF - Professionista</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">Attività anno corrente</label>
+                    <select name="searchAttivitaId" class="form-select">
+                        <option value="">-- Tutte --</option>
+                        @foreach (var att in attivitaDisponibili)
+                        {
+                            <option value="@att.Id" selected="@(searchAttivitaId == att.Id)">@att.AttivitaTipo?.Nome</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search me-1"></i>Cerca
+                    </button>
+                    <a asp-action="Index" class="btn btn-outline-secondary">
+                        <i class="fas fa-times me-1"></i>Reset
+                    </a>
+                </div>
+            </div>
+        </form>
+
         @if (!Model.Any())
         {
             <div class="alert alert-info">
-                <i class="fas fa-info-circle me-2"></i>Nessun cliente presente. Clicca su "Nuovo Cliente" per aggiungerne uno.
+                <i class="fas fa-info-circle me-2"></i>
+                @if (!string.IsNullOrEmpty(searchRagioneSociale) || !string.IsNullOrEmpty(searchTipoSoggetto) || searchAttivitaId.HasValue)
+                {
+                    <span>Nessun cliente trovato con i filtri selezionati.</span>
+                }
+                else
+                {
+                    <span>Nessun cliente presente. Clicca su "Nuovo Cliente" per aggiungerne uno.</span>
+                }
             </div>
         }
         else
@@ -24,25 +90,52 @@
                 <table class="table table-hover align-middle">
                     <thead>
                         <tr>
-                            <th>Ragione Sociale</th>
-                            <th>Città</th>
-                            <th>P.IVA</th>
-                            <th>Cod. Ateco</th>
-                            <th>Email</th>
-                            <th style="width: 150px;">Azioni</th>
+                            <th style="min-width: 180px;">Ragione Sociale</th>
+                            <th style="width: 50px;">Tipo</th>
+                            <th style="width: 140px;">Indirizzo</th>
+                            <th style="width: 120px;">Città</th>
+                            <th style="width: 100px;">P.IVA</th>
+                            <th style="width: 80px;">Ateco</th>
+                            <th style="min-width: 280px;">Attività anno corrente</th>
+                            <th style="width: 100px;">Azioni</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var cliente in Model)
                         {
+                            var attivitaAnnoCorrente = cliente.Attivita
+                                .Where(a => a.AttivitaAnnuale?.AnnualitaFiscaleId == annoCorrenteId)
+                                .Select(a => new { Tipo = a.AttivitaAnnuale?.AttivitaTipo, TipoId = a.AttivitaAnnuale?.AttivitaTipoId })
+                                .Where(t => t.Tipo != null)
+                                .OrderBy(t => t.Tipo!.DisplayOrder)
+                                .ToList();
+                            
                             <tr>
                                 <td>
                                     <strong>@cliente.RagioneSociale</strong>
                                 </td>
-                                <td>@cliente.Citta @(!string.IsNullOrEmpty(cliente.Provincia) ? $"({cliente.Provincia})" : "")</td>
-                                <td><code>@cliente.PartitaIVA</code></td>
-                                <td><code>@cliente.CodiceAteco</code></td>
-                                <td>@cliente.Email</td>
+                                <td class="text-center"><code class="small">@cliente.TipoSoggetto</code></td>
+                                <td class="small">@cliente.Indirizzo</td>
+                                <td class="small">@cliente.Citta @(!string.IsNullOrEmpty(cliente.Provincia) ? $"({cliente.Provincia})" : "")</td>
+                                <td><code class="small">@cliente.PartitaIVA</code></td>
+                                <td><code class="small">@cliente.CodiceAteco</code></td>
+                                <td>
+                                    @if (attivitaAnnoCorrente.Any())
+                                    {
+                                        @foreach (var attivita in attivitaAnnoCorrente)
+                                        {
+                                            <a asp-controller="Attivita" asp-action="Tipo" asp-route-id="@attivita.TipoId" asp-route-annoId="@annoCorrenteId"
+                                               class="badge border border-primary text-primary bg-white me-1 mb-1 text-decoration-none" 
+                                               style="cursor: pointer;" title="Vai a @attivita.Tipo!.Nome">
+                                                @attivita.Tipo!.Nome
+                                            </a>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">-</span>
+                                    }
+                                </td>
                                 <td>
                                     <div class="btn-group btn-group-sm">
                                         <a asp-action="Details" asp-route-id="@cliente.Id" class="btn btn-outline-primary" title="Dettagli">

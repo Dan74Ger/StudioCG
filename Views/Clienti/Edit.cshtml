@@ -53,6 +53,14 @@
                     <label asp-for="CodiceAteco" class="form-label"></label>
                     <input asp-for="CodiceAteco" class="form-control" maxlength="10" />
                 </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <label asp-for="TipoSoggetto" class="form-label"></label>
+                    <input asp-for="TipoSoggetto" class="form-control text-uppercase" placeholder="PF - DI - SP - SC - PROF" maxlength="10" />
+                    <small class="form-text text-muted">PF=Persona Fisica, DI=Ditta Individuale, SP=Società Persone, SC=Società Capitali, PROF=Professionista</small>
+                </div>
                 <div class="col-md-3 mb-3">
                     <label asp-for="Telefono" class="form-label"></label>
                     <input asp-for="Telefono" class="form-control" />

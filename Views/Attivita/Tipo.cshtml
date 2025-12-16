@@ -7,13 +7,35 @@
     var clientiDisponibili = ViewBag.ClientiDisponibili as List<Cliente> ?? new List<Cliente>();
     var annoPrecedente = ViewBag.AnnoPrecedente as AnnualitaFiscale;
     var clientiAnnoPrecedente = ViewBag.ClientiAnnoPrecedente as int? ?? 0;
+    var searchNome = ViewBag.SearchNome as string;
+    var filtroStato = ViewBag.FiltroStato as int?;
+    var ordinamento = ViewBag.Ordinamento as string ?? "asc";
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h4 class="mb-1">
+        <h4 class="mb-1 d-flex align-items-center">
             <i class="@Model.AttivitaTipo?.Icon me-2"></i>@Model.AttivitaTipo?.Nome
-            <span class="badge bg-primary ms-2">@Model.AnnualitaFiscale?.Anno</span>
+            <div class="dropdown ms-2">
+                <button class="btn btn-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    @Model.AnnualitaFiscale?.Anno
+                </button>
+                <ul class="dropdown-menu">
+                    @foreach (var anno in tuttiAnni.OrderByDescending(a => a.Anno))
+                    {
+                        <li>
+                            <a class="dropdown-item @(anno.Id == Model.AnnualitaFiscaleId ? "active" : "")" 
+                               asp-action="Tipo" asp-route-id="@Model.AttivitaTipoId" asp-route-annoId="@anno.Id">
+                                @anno.Anno
+                                @if (anno.IsCurrent)
+                                {
+                                    <span class="badge bg-success ms-2">Corrente</span>
+                                }
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </div>
         </h4>
         @if (!string.IsNullOrEmpty(Model.AttivitaTipo?.Descrizione))
         {
@@ -50,75 +72,155 @@
     </div>
 </div>
 
-<!-- Statistiche -->
+<!-- Statistiche CLICCABILI -->
 @{
     var totale = Model.ClientiAttivita.Count;
-    var completate = Model.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.Completata);
-    var inCorso = Model.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.InCorso);
     var daFare = Model.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.DaFare);
+    var completate = Model.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.Completata);
+    var daInviareEntratel = Model.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.DaInviareEntratel);
+    var drInviate = Model.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.DRInviate);
     var sospese = Model.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.Sospesa);
 }
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card bg-secondary text-white">
-            <div class="card-body py-2">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="small">Da Fare</div>
-                        <div class="fs-4 fw-bold">@daFare</div>
+<div class="row mb-4 g-2">
+    <div class="col">
+        <a asp-action="Tipo" asp-route-id="@Model.AttivitaTipoId" asp-route-annoId="@Model.AnnualitaFiscaleId" asp-route-filtroStato="0" class="text-decoration-none">
+            <div class="card bg-secondary text-white @(filtroStato == 0 ? "border border-3 border-dark" : "")" style="cursor: pointer;">
+                <div class="card-body py-2 px-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="small">Da Fare</div>
+                            <div class="fs-4 fw-bold">@daFare</div>
+                        </div>
+                        <i class="fas fa-clock fa-lg opacity-50"></i>
                     </div>
-                    <i class="fas fa-clock fa-2x opacity-50"></i>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-warning text-dark">
-            <div class="card-body py-2">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="small">In Corso</div>
-                        <div class="fs-4 fw-bold">@inCorso</div>
+    <div class="col">
+        <a asp-action="Tipo" asp-route-id="@Model.AttivitaTipoId" asp-route-annoId="@Model.AnnualitaFiscaleId" asp-route-filtroStato="1" class="text-decoration-none">
+            <div class="card bg-warning text-dark @(filtroStato == 1 ? "border border-3 border-dark" : "")" style="cursor: pointer;">
+                <div class="card-body py-2 px-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="small">Completate</div>
+                            <div class="fs-4 fw-bold">@completate</div>
+                        </div>
+                        <i class="fas fa-check fa-lg opacity-50"></i>
                     </div>
-                    <i class="fas fa-spinner fa-2x opacity-50"></i>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-success text-white">
-            <div class="card-body py-2">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="small">Completate</div>
-                        <div class="fs-4 fw-bold">@completate</div>
+    <div class="col">
+        <a asp-action="Tipo" asp-route-id="@Model.AttivitaTipoId" asp-route-annoId="@Model.AnnualitaFiscaleId" asp-route-filtroStato="2" class="text-decoration-none">
+            <div class="card text-white @(filtroStato == 2 ? "border border-3 border-dark" : "")" style="cursor: pointer; background-color: #fd7e14;">
+                <div class="card-body py-2 px-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="small">Da inviare Entratel</div>
+                            <div class="fs-4 fw-bold">@daInviareEntratel</div>
+                        </div>
+                        <i class="fas fa-paper-plane fa-lg opacity-50"></i>
                     </div>
-                    <i class="fas fa-check-circle fa-2x opacity-50"></i>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-danger text-white">
-            <div class="card-body py-2">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="small">Sospese</div>
-                        <div class="fs-4 fw-bold">@sospese</div>
+    <div class="col">
+        <a asp-action="Tipo" asp-route-id="@Model.AttivitaTipoId" asp-route-annoId="@Model.AnnualitaFiscaleId" asp-route-filtroStato="3" class="text-decoration-none">
+            <div class="card bg-success text-white @(filtroStato == 3 ? "border border-3 border-dark" : "")" style="cursor: pointer;">
+                <div class="card-body py-2 px-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="small">DR Inviate</div>
+                            <div class="fs-4 fw-bold">@drInviate</div>
+                        </div>
+                        <i class="fas fa-check-double fa-lg opacity-50"></i>
                     </div>
-                    <i class="fas fa-pause-circle fa-2x opacity-50"></i>
                 </div>
             </div>
-        </div>
+        </a>
+    </div>
+    <div class="col">
+        <a asp-action="Tipo" asp-route-id="@Model.AttivitaTipoId" asp-route-annoId="@Model.AnnualitaFiscaleId" asp-route-filtroStato="4" class="text-decoration-none">
+            <div class="card bg-danger text-white @(filtroStato == 4 ? "border border-3 border-dark" : "")" style="cursor: pointer;">
+                <div class="card-body py-2 px-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="small">Sospese</div>
+                            <div class="fs-4 fw-bold">@sospese</div>
+                        </div>
+                        <i class="fas fa-pause-circle fa-lg opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- Filtri e Ordinamento -->
+<div class="card mb-4">
+    <div class="card-body py-2">
+        <form asp-action="Tipo" method="get" class="row g-2 align-items-center">
+            <input type="hidden" name="id" value="@Model.AttivitaTipoId" />
+            <input type="hidden" name="annoId" value="@Model.AnnualitaFiscaleId" />
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" name="searchNome" class="form-control" value="@searchNome" placeholder="Cerca cliente..." />
+                </div>
+            </div>
+            <div class="col-md-auto">
+                <div class="btn-group">
+                    <a asp-action="Tipo" asp-route-id="@Model.AttivitaTipoId" asp-route-annoId="@Model.AnnualitaFiscaleId" 
+                       asp-route-searchNome="@searchNome" asp-route-filtroStato="@filtroStato" asp-route-ordinamento="asc"
+                       class="btn @(ordinamento == "asc" ? "btn-primary" : "btn-outline-primary")">
+                        <i class="fas fa-sort-alpha-down me-1"></i>A→Z
+                    </a>
+                    <a asp-action="Tipo" asp-route-id="@Model.AttivitaTipoId" asp-route-annoId="@Model.AnnualitaFiscaleId" 
+                       asp-route-searchNome="@searchNome" asp-route-filtroStato="@filtroStato" asp-route-ordinamento="desc"
+                       class="btn @(ordinamento == "desc" ? "btn-primary" : "btn-outline-primary")">
+                        <i class="fas fa-sort-alpha-up me-1"></i>Z→A
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-auto">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search me-1"></i>Cerca
+                </button>
+            </div>
+            <div class="col-md-auto">
+                <a asp-action="Tipo" asp-route-id="@Model.AttivitaTipoId" asp-route-annoId="@Model.AnnualitaFiscaleId" class="btn btn-outline-secondary">
+                    <i class="fas fa-times me-1"></i>Reset
+                </a>
+            </div>
+            @if (filtroStato.HasValue)
+            {
+                <div class="col-md-auto">
+                    <span class="badge bg-info fs-6">
+                        Filtro: 
+                        @switch (filtroStato.Value)
+                        {
+                            case 0: <text>Da Fare</text> break;
+                            case 1: <text>Completate</text> break;
+                            case 2: <text>Da inviare Entratel</text> break;
+                            case 3: <text>DR Inviate</text> break;
+                            case 4: <text>Sospese</text> break;
+                        }
+                    </span>
+                </div>
+            }
+        </form>
     </div>
 </div>
 
 <!-- Lista Clienti -->
-<div class="card">
+<div class="card" style="overflow: visible;">
     <div class="card-header">
         <h6 class="mb-0"><i class="fas fa-users me-2"></i>Clienti Assegnati (@totale)</h6>
     </div>
-    <div class="card-body p-0">
+    <div class="card-body p-0" style="overflow: visible;">
         @if (!Model.ClientiAttivita.Any())
         {
             <div class="p-4 text-center text-muted">
@@ -132,7 +234,7 @@
             var campiVisibili = Model.AttivitaTipo?.Campi.Where(c => c.ShowInList).OrderBy(c => c.DisplayOrder).ToList() ?? new List<AttivitaCampo>();
             var numColonne = 4 + campiVisibili.Count; // Cliente, Ateco, Stato, Azioni + campi
             
-            <div class="table-responsive">
+            <div class="table-responsive" style="overflow: visible;">
                 <table class="table table-hover mb-0">
                     <thead>
                         <tr>
@@ -147,7 +249,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var ca in Model.ClientiAttivita.OrderBy(c => c.Cliente?.RagioneSociale))
+                        @foreach (var ca in Model.ClientiAttivita)
                         {
                             <tr class="align-middle">
                                 <td>
@@ -162,11 +264,14 @@
                                         case StatoAttivita.DaFare:
                                             <span class="badge bg-secondary">Da Fare</span>
                                             break;
-                                        case StatoAttivita.InCorso:
-                                            <span class="badge bg-warning">In Corso</span>
-                                            break;
                                         case StatoAttivita.Completata:
-                                            <span class="badge bg-success">Completata</span>
+                                            <span class="badge bg-warning text-dark">Completata</span>
+                                            break;
+                                        case StatoAttivita.DaInviareEntratel:
+                                            <span class="badge text-white" style="background-color: #fd7e14;">Da inviare Entratel</span>
+                                            break;
+                                        case StatoAttivita.DRInviate:
+                                            <span class="badge bg-success">DR Inviate</span>
                                             break;
                                         case StatoAttivita.Sospesa:
                                             <span class="badge bg-danger">Sospesa</span>
@@ -211,21 +316,87 @@
                                 }
                                 <td class="text-end">
                                     <div class="btn-group btn-group-sm">
-                                        <a asp-action="ClienteAttivita" asp-route-id="@ca.Id" class="btn btn-outline-primary" title="Modifica">
+                                        <a asp-action="ClienteAttivita" asp-route-id="@ca.Id" class="btn btn-outline-primary" title="Modifica dettagli">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        @if (ca.Stato != StatoAttivita.Completata)
-                                        {
-                                            <form asp-action="CambiaStato" method="post" class="d-inline">
-                                                <input type="hidden" name="id" value="@ca.Id" />
-                                                <input type="hidden" name="nuovoStato" value="@((int)StatoAttivita.Completata)" />
-                                                <input type="hidden" name="returnToTipoId" value="@Model.AttivitaTipoId" />
-                                                <input type="hidden" name="annoId" value="@Model.AnnualitaFiscaleId" />
-                                                <button type="submit" class="btn btn-outline-success" title="Segna come Completata">
-                                                    <i class="fas fa-check"></i>
-                                                </button>
-                                            </form>
-                                        }
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" title="Cambia stato">
+                                                <i class="fas fa-exchange-alt"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end shadow" style="z-index: 1050;">
+                                                @if (ca.Stato != StatoAttivita.DaFare)
+                                                {
+                                                    <li>
+                                                        <form asp-action="CambiaStato" method="post">
+                                                            <input type="hidden" name="id" value="@ca.Id" />
+                                                            <input type="hidden" name="nuovoStato" value="@((int)StatoAttivita.DaFare)" />
+                                                            <input type="hidden" name="returnToTipoId" value="@Model.AttivitaTipoId" />
+                                                            <input type="hidden" name="annoId" value="@Model.AnnualitaFiscaleId" />
+                                                            <button type="submit" class="dropdown-item">
+                                                                <i class="fas fa-clock text-secondary me-2"></i>Da Fare
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                }
+                                                @if (ca.Stato != StatoAttivita.Completata)
+                                                {
+                                                    <li>
+                                                        <form asp-action="CambiaStato" method="post">
+                                                            <input type="hidden" name="id" value="@ca.Id" />
+                                                            <input type="hidden" name="nuovoStato" value="@((int)StatoAttivita.Completata)" />
+                                                            <input type="hidden" name="returnToTipoId" value="@Model.AttivitaTipoId" />
+                                                            <input type="hidden" name="annoId" value="@Model.AnnualitaFiscaleId" />
+                                                            <button type="submit" class="dropdown-item">
+                                                                <i class="fas fa-check text-warning me-2"></i>Completata
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                }
+                                                @if (ca.Stato != StatoAttivita.DaInviareEntratel)
+                                                {
+                                                    <li>
+                                                        <form asp-action="CambiaStato" method="post">
+                                                            <input type="hidden" name="id" value="@ca.Id" />
+                                                            <input type="hidden" name="nuovoStato" value="@((int)StatoAttivita.DaInviareEntratel)" />
+                                                            <input type="hidden" name="returnToTipoId" value="@Model.AttivitaTipoId" />
+                                                            <input type="hidden" name="annoId" value="@Model.AnnualitaFiscaleId" />
+                                                            <button type="submit" class="dropdown-item">
+                                                                <i class="fas fa-paper-plane me-2" style="color: #fd7e14;"></i>Da inviare Entratel
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                }
+                                                @if (ca.Stato != StatoAttivita.DRInviate)
+                                                {
+                                                    <li>
+                                                        <form asp-action="CambiaStato" method="post">
+                                                            <input type="hidden" name="id" value="@ca.Id" />
+                                                            <input type="hidden" name="nuovoStato" value="@((int)StatoAttivita.DRInviate)" />
+                                                            <input type="hidden" name="returnToTipoId" value="@Model.AttivitaTipoId" />
+                                                            <input type="hidden" name="annoId" value="@Model.AnnualitaFiscaleId" />
+                                                            <button type="submit" class="dropdown-item">
+                                                                <i class="fas fa-check-double text-success me-2"></i>DR Inviate
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                }
+                                                @if (ca.Stato != StatoAttivita.Sospesa)
+                                                {
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li>
+                                                        <form asp-action="CambiaStato" method="post">
+                                                            <input type="hidden" name="id" value="@ca.Id" />
+                                                            <input type="hidden" name="nuovoStato" value="@((int)StatoAttivita.Sospesa)" />
+                                                            <input type="hidden" name="returnToTipoId" value="@Model.AttivitaTipoId" />
+                                                            <input type="hidden" name="annoId" value="@Model.AnnualitaFiscaleId" />
+                                                            <button type="submit" class="dropdown-item text-danger">
+                                                                <i class="fas fa-pause-circle me-2"></i>Sospesa
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                }
+                                            </ul>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
