@@ -1,0 +1,213 @@
+@model List<StudioCG.Web.Models.Fatturazione.AnnoFatturazione>
+@{
+    ViewData["Title"] = "Gestione Anni Fatturazione";
+    var statistiche = ViewBag.Statistiche as Dictionary<int, (int Mandati, decimal Fatturato, decimal Incassato)> 
+        ?? new Dictionary<int, (int Mandati, decimal Fatturato, decimal Incassato)>();
+    var annoCorrente = DateTime.Now.Year;
+}
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h4 class="mb-0"><i class="fas fa-calendar-alt me-2 text-primary"></i>Gestione Anni Fatturazione</h4>
+                <small class="text-muted">Crea e gestisci gli anni di fatturazione (separati dagli anni fiscali attività)</small>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuovoAnno">
+                    <i class="fas fa-plus me-2"></i>Nuovo Anno
+                </button>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCopiaMandati">
+                    <i class="fas fa-copy me-2"></i>Copia Mandati
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Info -->
+    <div class="alert alert-info mb-4">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Nota:</strong> L'anno di fatturazione è <strong>separato</strong> dall'anno fiscale delle attività.
+        Qui gestisci gli anni per mandati, scadenze e fatturazione.
+    </div>
+
+    <!-- Lista Anni -->
+    <div class="row g-4">
+        @foreach (var anno in Model)
+        {
+            var stats = statistiche.ContainsKey(anno.Anno) ? statistiche[anno.Anno] : (0, 0m, 0m);
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 @(anno.IsCurrent ? "border-primary border-2" : "")">
+                    <div class="card-header d-flex justify-content-between align-items-center @(anno.IsCurrent ? "bg-primary text-white" : "bg-light")">
+                        <h5 class="mb-0">
+                            <i class="fas fa-calendar me-2"></i>@anno.Anno
+                        </h5>
+                        @if (anno.IsCurrent)
+                        {
+                            <span class="badge bg-warning text-dark">
+                                <i class="fas fa-star me-1"></i>CORRENTE
+                            </span>
+                        }
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-4 text-center">
+                                <div class="small text-muted">Mandati</div>
+                                <div class="fs-5 fw-bold text-primary">@stats.Item1</div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div class="small text-muted">Fatturato</div>
+                                <div class="fs-6 fw-bold text-success">@stats.Item2.ToString("N0") €</div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div class="small text-muted">Incassato</div>
+                                <div class="fs-6 fw-bold text-info">@stats.Item3.ToString("N0") €</div>
+                            </div>
+                        </div>
+                        
+                        @if (!string.IsNullOrEmpty(anno.Note))
+                        {
+                            <hr>
+                            <small class="text-muted">@anno.Note</small>
+                        }
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                @if (anno.IsActive)
+                                {
+                                    <span class="badge bg-success"><i class="fas fa-check me-1"></i>Attivo</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Inattivo</span>
+                                }
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                                @if (!anno.IsCurrent)
+                                {
+                                    <form asp-action="ImpostaAnnoCorrente" method="post" class="d-inline">
+                                        <input type="hidden" name="id" value="@anno.Id" />
+                                        <button type="submit" class="btn btn-outline-primary" title="Imposta come corrente">
+                                            <i class="fas fa-star"></i>
+                                        </button>
+                                    </form>
+                                }
+                                <a asp-action="Mandati" asp-route-anno="@anno.Anno" class="btn btn-outline-info" title="Vai ai Mandati">
+                                    <i class="fas fa-file-contract"></i>
+                                </a>
+                                <a asp-action="Scadenze" asp-route-anno="@anno.Anno" class="btn btn-outline-warning" title="Vai alle Scadenze">
+                                    <i class="fas fa-file-invoice-dollar"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Se non ci sono anni -->
+    @if (!Model.Any())
+    {
+        <div class="text-center py-5">
+            <i class="fas fa-calendar-plus fa-4x text-muted mb-3"></i>
+            <h5 class="text-muted">Nessun anno configurato</h5>
+            <p class="text-muted">Clicca "Nuovo Anno" per iniziare</p>
+        </div>
+    }
+</div>
+
+<!-- Modal Nuovo Anno -->
+<div class="modal fade" id="modalNuovoAnno" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CreaAnnoFatturazione" method="post">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Crea Nuovo Anno</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Anno <span class="text-danger">*</span></label>
+                        <input type="number" name="anno" class="form-control" required 
+                               min="2020" max="2050" value="@(annoCorrente + 1)">
+                        <small class="form-text text-muted">Inserisci l'anno da creare</small>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Dopo aver creato l'anno, usa "Copia Mandati" per riportare i mandati dall'anno precedente.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check me-2"></i>Crea Anno
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Copia Mandati -->
+<div class="modal fade" id="modalCopiaMandati" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CopiaMandatiAnnoSuccessivo" method="post">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-copy me-2"></i>Copia Mandati Anno Successivo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label">Da Anno</label>
+                            <select name="annoDa" class="form-select" required>
+                                @foreach (var anno in Model.OrderByDescending(a => a.Anno))
+                                {
+                                    <option value="@anno.Anno" selected="@(anno.IsCurrent)">@anno.Anno</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-2 text-center pt-4">
+                            <i class="fas fa-arrow-right fa-2x text-primary"></i>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">A Anno</label>
+                            <select name="annoA" class="form-select" required>
+                                @for (int i = annoCorrente - 1; i <= annoCorrente + 2; i++)
+                                {
+                                    <option value="@i" selected="@(i == annoCorrente + 1)">@i</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="generaScadenze" id="generaScadenze" value="true" checked>
+                        <label class="form-check-label" for="generaScadenze">
+                            <strong>Genera automaticamente le scadenze</strong>
+                        </label>
+                        <small class="d-block text-muted">Crea le scadenze mensili/bimestrali/trimestrali per ogni mandato copiato</small>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Verranno copiati tutti i mandati <strong>attivi</strong> dall'anno selezionato.
+                        I mandati già esistenti nell'anno destinazione saranno saltati.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-copy me-2"></i>Copia Mandati
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+

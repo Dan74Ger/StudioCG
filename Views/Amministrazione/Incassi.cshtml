@@ -1,0 +1,516 @@
+@model List<StudioCG.Web.Models.Fatturazione.ScadenzaFatturazione>
+@using StudioCG.Web.Models.Fatturazione
+@{
+    ViewData["Title"] = "Incassi";
+    var annoSelezionato = (int)ViewBag.AnnoSelezionato;
+    var anniDisponibili = (List<int>)ViewBag.AnniDisponibili;
+    var meseSelezionato = (int?)ViewBag.MeseSelezionato;
+    var statoSelezionato = (int?)ViewBag.StatoSelezionato;
+    var professionisti = (List<StudioCG.Web.Models.User>)ViewBag.Professionisti;
+}
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h4 class="mb-0"><i class="fas fa-money-bill-wave me-2 text-success"></i>Gestione Incassi</h4>
+                <small class="text-muted">Registrazione incassi e suddivisione tra professionisti - Anno @annoSelezionato</small>
+            </div>
+            <div class="d-flex gap-2">
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-calendar-alt me-2"></i>Anno @annoSelezionato
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        @foreach (var anno in anniDisponibili)
+                        {
+                            <li>
+                                <a class="dropdown-item @(anno == annoSelezionato ? "active" : "")" 
+                                   asp-action="Incassi" asp-route-anno="@anno">@anno</a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiche -->
+    @{
+        var totDaIncassare = Model.Count(s => s.StatoIncasso == StatoIncasso.DaIncassare);
+        var totParziale = Model.Count(s => s.StatoIncasso == StatoIncasso.ParzialmenteIncassata);
+        var totIncassate = Model.Count(s => s.StatoIncasso == StatoIncasso.Incassata);
+        var importoDaIncassare = Model.Where(s => s.StatoIncasso == StatoIncasso.DaIncassare).Sum(s => s.TotaleScadenza);
+        var importoParziale = Model.Where(s => s.StatoIncasso == StatoIncasso.ParzialmenteIncassata).Sum(s => s.ResiduoDaIncassare);
+        var importoIncassato = Model.Sum(s => s.TotaleIncassato);
+    }
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <a asp-action="Incassi" asp-route-anno="@annoSelezionato" asp-route-stato="1"
+               class="card text-decoration-none @(statoSelezionato == 1 ? "border-3 border-warning" : "")">
+                <div class="card-body bg-warning bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-warning small">Da Incassare</div>
+                            <div class="fs-4 fw-bold text-warning">@totDaIncassare</div>
+                            <small class="text-muted">@importoDaIncassare.ToString("C", new System.Globalization.CultureInfo("it-IT"))</small>
+                        </div>
+                        <i class="fas fa-hourglass-half fa-2x text-warning opacity-50"></i>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a asp-action="Incassi" asp-route-anno="@annoSelezionato" asp-route-stato="2"
+               class="card text-decoration-none @(statoSelezionato == 2 ? "border-3 border-info" : "")">
+                <div class="card-body bg-info bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-info small">Parzialmente Incassate</div>
+                            <div class="fs-4 fw-bold text-info">@totParziale</div>
+                            <small class="text-muted">Residuo: @importoParziale.ToString("C", new System.Globalization.CultureInfo("it-IT"))</small>
+                        </div>
+                        <i class="fas fa-spinner fa-2x text-info opacity-50"></i>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a asp-action="Incassi" asp-route-anno="@annoSelezionato" asp-route-stato="3"
+               class="card text-decoration-none @(statoSelezionato == 3 ? "border-3 border-success" : "")">
+                <div class="card-body bg-success bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-success small">Incassate</div>
+                            <div class="fs-4 fw-bold text-success">@totIncassate</div>
+                            <small class="text-muted">@importoIncassato.ToString("C", new System.Globalization.CultureInfo("it-IT"))</small>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x text-success opacity-50"></i>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtri -->
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <form asp-action="Incassi" method="get" class="row g-2 align-items-end">
+                <input type="hidden" name="anno" value="@annoSelezionato" />
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">Mese Fattura</label>
+                    <select name="mese" class="form-select form-select-sm">
+                        <option value="">-- Tutti --</option>
+                        @for (int m = 1; m <= 12; m++)
+                        {
+                            <option value="@m" selected="@(meseSelezionato == m)">
+                                @System.Globalization.CultureInfo.GetCultureInfo("it-IT").DateTimeFormat.GetMonthName(m)
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">Stato</label>
+                    <select name="stato" class="form-select form-select-sm">
+                        <option value="">-- Tutti --</option>
+                        <option value="1" selected="@(statoSelezionato == 1)">Da Incassare</option>
+                        <option value="2" selected="@(statoSelezionato == 2)">Parzialmente Incassate</option>
+                        <option value="3" selected="@(statoSelezionato == 3)">Incassate</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-filter me-1"></i>Filtra
+                    </button>
+                    <a asp-action="Incassi" asp-route-anno="@annoSelezionato" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-times me-1"></i>Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabella Fatture -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-file-invoice-dollar me-2"></i>Fatture da Incassare (@Model.Count)</h5>
+        </div>
+        <div class="card-body p-0">
+            @if (Model.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>Fattura</th>
+                                <th>Data Fatt.</th>
+                                <th>Cliente</th>
+                                <th class="text-end">Importo</th>
+                                <th class="text-end">Incassato</th>
+                                <th>Data Incasso</th>
+                                <th class="text-end">Residuo</th>
+                                <th>Stato</th>
+                                <th class="text-center">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var fat in Model)
+                            {
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-success">@fat.NumeroFatturaFormattato</span>
+                                    </td>
+                                    <td>@fat.DataFattura?.ToString("dd/MM/yyyy")</td>
+                                    <td><strong>@fat.Cliente?.RagioneSociale</strong></td>
+                                    <td class="text-end">@fat.TotaleScadenza.ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                    <td class="text-end text-success">@fat.TotaleIncassato.ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                    <td>
+                                        @if (fat.Incassi?.Any() == true)
+                                        {
+                                            var ultimoIncasso = fat.Incassi.OrderByDescending(i => i.DataIncasso).First();
+                                            <span class="text-success">@ultimoIncasso.DataIncasso.ToString("dd/MM/yyyy")</span>
+                                            @if (fat.Incassi.Count > 1)
+                                            {
+                                                <br><small class="text-muted">(@fat.Incassi.Count incassi)</small>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td class="text-end @(fat.ResiduoDaIncassare > 0 ? "text-danger fw-bold" : "")">
+                                        @fat.ResiduoDaIncassare.ToString("C", new System.Globalization.CultureInfo("it-IT"))
+                                    </td>
+                                    <td>
+                                        @switch (fat.StatoIncasso)
+                                        {
+                                            case StatoIncasso.DaIncassare:
+                                                <span class="badge bg-warning text-dark">Da Incassare</span>
+                                                break;
+                                            case StatoIncasso.ParzialmenteIncassata:
+                                                <span class="badge bg-info">Parziale</span>
+                                                break;
+                                            case StatoIncasso.Incassata:
+                                                <span class="badge bg-success">Incassata</span>
+                                                break;
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm">
+                                            @* Visualizza incassi *@
+                                            @if (fat.Incassi?.Any() == true)
+                                            {
+                                                <button type="button" class="btn btn-outline-info" title="Dettaglio Incassi"
+                                                        data-bs-toggle="modal" data-bs-target="#modalDettaglio"
+                                                        data-fattura="@fat.NumeroFatturaFormattato"
+                                                        data-cliente="@fat.Cliente?.RagioneSociale"
+                                                        data-importo="@fat.TotaleScadenza.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                        data-incassato="@fat.TotaleIncassato.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                        data-residuo="@fat.ResiduoDaIncassare.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                        data-incassi='@System.Text.Json.JsonSerializer.Serialize(fat.Incassi.Select(i => new { data = i.DataIncasso.ToString("dd/MM/yyyy"), importo = i.ImportoIncassato, note = i.Note, professionisti = i.SuddivisioneProfessionisti.Select(p => new { nome = p.Utente?.Nome + " " + p.Utente?.Cognome, importo = p.Importo }) }))'>
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            }
+
+                                            @* Registra incasso (se non completamente incassata) *@
+                                            @if (fat.StatoIncasso != StatoIncasso.Incassata)
+                                            {
+                                                <button type="button" class="btn btn-success" title="Registra Incasso"
+                                                        data-bs-toggle="modal" data-bs-target="#modalIncasso"
+                                                        data-id="@fat.Id"
+                                                        data-fattura="@fat.NumeroFatturaFormattato"
+                                                        data-cliente="@fat.Cliente?.RagioneSociale"
+                                                        data-importo="@fat.TotaleScadenza.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                        data-residuo="@fat.ResiduoDaIncassare.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)">
+                                                    <i class="fas fa-coins"></i>
+                                                </button>
+                                            }
+
+                                            @* Annulla TUTTI gli incassi (se ce ne sono) *@
+                                            @if (fat.Incassi?.Any() == true)
+                                            {
+                                                <form asp-action="AnnullaIncassi" method="post" class="d-inline"
+                                                      onsubmit="return confirm('Annullare TUTTI gli incassi per la fattura @fat.NumeroFatturaFormattato?\n\nImporto: @fat.TotaleIncassato.ToString("C", new System.Globalization.CultureInfo("it-IT"))\n\nQuesta azione non può essere annullata.');">
+                                                    <input type="hidden" name="scadenzaId" value="@fat.Id" />
+                                                    <input type="hidden" name="anno" value="@annoSelezionato" />
+                                                    <button type="submit" class="btn btn-outline-danger" title="Annulla tutti gli incassi">
+                                                        <i class="fas fa-undo"></i>
+                                                    </button>
+                                                </form>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="bg-light">
+                            <tr class="fw-bold">
+                                <td colspan="3">TOTALI</td>
+                                <td class="text-end">@Model.Sum(f => f.TotaleScadenza).ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                <td class="text-end text-success">@Model.Sum(f => f.TotaleIncassato).ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                <td></td>
+                                <td class="text-end text-danger">@Model.Sum(f => f.ResiduoDaIncassare).ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <i class="fas fa-money-bill-wave fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">Nessuna fattura trovata</h5>
+                    <p class="text-muted">Le fatture appariranno qui dopo l'emissione</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal Dettaglio Incassi -->
+<div class="modal fade" id="modalDettaglio" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-eye me-2"></i>Dettaglio Incassi</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Fattura:</strong> <span id="detFattura"></span><br>
+                        <strong>Cliente:</strong> <span id="detCliente"></span>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <div>Importo: <strong id="detImporto"></strong></div>
+                        <div>Incassato: <span class="text-success" id="detIncassato"></span></div>
+                        <div>Residuo: <span class="text-danger" id="detResiduo"></span></div>
+                    </div>
+                </div>
+                <hr>
+                <h6>Storico Incassi</h6>
+                <div id="storicoIncassi"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Registra Incasso -->
+<div class="modal fade" id="modalIncasso" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form asp-action="RegistraIncasso" method="post">
+                <input type="hidden" name="scadenzaId" id="incassoScadenzaId" />
+                <input type="hidden" name="anno" value="@annoSelezionato" />
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-coins me-2"></i>Registra Incasso</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Fattura:</strong> <span id="incFattura"></span><br>
+                            <strong>Cliente:</strong> <span id="incCliente"></span>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <div>Importo Fattura: <strong id="incImporto"></strong></div>
+                            <div>Residuo da Incassare: <span class="text-danger fw-bold" id="incResiduo"></span></div>
+                        </div>
+                    </div>
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Data Incasso <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-success text-white"><i class="fas fa-calendar-day"></i></span>
+                                <input type="date" name="dataIncasso" id="dataIncassoInput" class="form-control border-success" required 
+                                       value="@DateTime.Today.ToString("yyyy-MM-dd")">
+                            </div>
+                            <small class="text-muted">Campo obbligatorio</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Importo Incasso <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text">€</span>
+                                <input type="text" name="importo" id="incImportoInput" class="form-control" required>
+                            </div>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="incassaTutto" onclick="incassaTuttoResiduo()">
+                                <label class="form-check-label" for="incassaTutto">
+                                    Incassa tutto il residuo
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Note</label>
+                        <input type="text" name="note" class="form-control" maxlength="200" 
+                               placeholder="Es: Bonifico, Contanti, Assegno...">
+                    </div>
+
+                    <hr>
+                    <h6><i class="fas fa-users me-2"></i>Suddivisione tra Professionisti</h6>
+                    <p class="text-muted small">Indica come suddividere l'incasso tra i professionisti dello studio</p>
+                    
+                    <div id="suddivisioneProfessionisti">
+                        @foreach (var prof in professionisti)
+                        {
+                            <div class="row mb-2 prof-row" data-profid="@prof.Id">
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input prof-check" type="checkbox" 
+                                               name="professionisti[@prof.Id].selezionato" 
+                                               id="prof_@prof.Id" onchange="aggiornaProf()">
+                                        <label class="form-check-label" for="prof_@prof.Id">
+                                            @prof.Nome @prof.Cognome
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">€</span>
+                                        <input type="text" name="professionisti[@prof.Id].importo" 
+                                               class="form-control prof-importo" disabled placeholder="0,00">
+                                        <input type="hidden" name="professionisti[@prof.Id].utenteId" value="@prof.Id">
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    
+                    <div class="alert alert-info mt-3" id="alertSuddivisione">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <span id="suddivisioneInfo">Seleziona i professionisti e inserisci gli importi</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-success" id="btnSalvaIncasso">
+                        <i class="fas fa-save me-2"></i>Registra Incasso
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    var residuoCorrente = 0;
+
+    // Formato valuta
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+    }
+
+    // Modal Dettaglio
+    document.getElementById('modalDettaglio').addEventListener('show.bs.modal', function(event) {
+        var btn = event.relatedTarget;
+        document.getElementById('detFattura').textContent = btn.getAttribute('data-fattura');
+        document.getElementById('detCliente').textContent = btn.getAttribute('data-cliente');
+        document.getElementById('detImporto').textContent = formatCurrency(parseFloat(btn.getAttribute('data-importo')));
+        document.getElementById('detIncassato').textContent = formatCurrency(parseFloat(btn.getAttribute('data-incassato')));
+        document.getElementById('detResiduo').textContent = formatCurrency(parseFloat(btn.getAttribute('data-residuo')));
+
+        var incassi = JSON.parse(btn.getAttribute('data-incassi') || '[]');
+        var html = '<table class="table table-sm">';
+        html += '<thead><tr><th>Data</th><th>Importo</th><th>Note</th><th>Professionisti</th></tr></thead><tbody>';
+        incassi.forEach(function(inc) {
+            var profs = inc.professionisti.map(p => p.nome + ' (' + formatCurrency(p.importo) + ')').join(', ');
+            html += '<tr><td>' + inc.data + '</td><td>' + formatCurrency(inc.importo) + '</td><td>' + (inc.note || '-') + '</td><td>' + (profs || '-') + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        document.getElementById('storicoIncassi').innerHTML = html;
+    });
+
+    // Modal Incasso
+    document.getElementById('modalIncasso').addEventListener('show.bs.modal', function(event) {
+        var btn = event.relatedTarget;
+        document.getElementById('incassoScadenzaId').value = btn.getAttribute('data-id');
+        document.getElementById('incFattura').textContent = btn.getAttribute('data-fattura');
+        document.getElementById('incCliente').textContent = btn.getAttribute('data-cliente');
+        document.getElementById('incImporto').textContent = formatCurrency(parseFloat(btn.getAttribute('data-importo')));
+        
+        residuoCorrente = parseFloat(btn.getAttribute('data-residuo'));
+        document.getElementById('incResiduo').textContent = formatCurrency(residuoCorrente);
+        document.getElementById('incImportoInput').value = residuoCorrente.toFixed(2).replace('.', ',');
+        
+        // Reset professionisti
+        document.querySelectorAll('.prof-check').forEach(function(cb) {
+            cb.checked = false;
+        });
+        document.querySelectorAll('.prof-importo').forEach(function(input) {
+            input.value = '';
+            input.disabled = true;
+        });
+        document.getElementById('incassaTutto').checked = true;
+        aggiornaProf();
+    });
+
+    function incassaTuttoResiduo() {
+        if (document.getElementById('incassaTutto').checked) {
+            document.getElementById('incImportoInput').value = residuoCorrente.toFixed(2).replace('.', ',');
+        } else {
+            document.getElementById('incImportoInput').value = '';
+        }
+        aggiornaProf();
+    }
+
+    function aggiornaProf() {
+        var checkedProfs = document.querySelectorAll('.prof-check:checked');
+        var importoTotale = parseFloat(document.getElementById('incImportoInput').value.replace(',', '.')) || 0;
+        
+        document.querySelectorAll('.prof-check').forEach(function(cb, idx) {
+            var row = cb.closest('.prof-row');
+            var inputImporto = row.querySelector('.prof-importo');
+            
+            if (cb.checked) {
+                inputImporto.disabled = false;
+                // Dividi equamente se più professionisti
+                if (checkedProfs.length > 0) {
+                    var quota = importoTotale / checkedProfs.length;
+                    inputImporto.value = quota.toFixed(2).replace('.', ',');
+                }
+            } else {
+                inputImporto.disabled = true;
+                inputImporto.value = '';
+            }
+        });
+        
+        // Calcola totale suddiviso
+        var totaleSuddiviso = 0;
+        document.querySelectorAll('.prof-importo:not(:disabled)').forEach(function(input) {
+            totaleSuddiviso += parseFloat(input.value.replace(',', '.')) || 0;
+        });
+        
+        var diff = importoTotale - totaleSuddiviso;
+        var alertDiv = document.getElementById('alertSuddivisione');
+        var infoSpan = document.getElementById('suddivisioneInfo');
+        
+        if (checkedProfs.length === 0) {
+            alertDiv.className = 'alert alert-warning mt-3';
+            infoSpan.textContent = 'Seleziona almeno un professionista';
+        } else if (Math.abs(diff) > 0.01) {
+            alertDiv.className = 'alert alert-danger mt-3';
+            infoSpan.textContent = 'Differenza: ' + formatCurrency(diff) + ' - Correggi gli importi';
+        } else {
+            alertDiv.className = 'alert alert-success mt-3';
+            infoSpan.textContent = 'Suddivisione corretta: ' + formatCurrency(totaleSuddiviso);
+        }
+    }
+
+    document.getElementById('incImportoInput').addEventListener('input', aggiornaProf);
+    document.querySelectorAll('.prof-importo').forEach(function(input) {
+        input.addEventListener('input', aggiornaProf);
+    });
+</script>
+}
+

@@ -506,6 +506,114 @@
                             </li>
                         }
                     }
+                    
+                    @{
+                        <!-- Menu AMMINISTRAZIONE -->
+                        var isInAmministrazione = currentController == "Amministrazione";
+                        var userHasAmministrazione = isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione");
+                        
+                        if (userHasAmministrazione)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link section-toggle @(isInAmministrazione ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuAmministrazione" role="button" aria-expanded="@(isInAmministrazione ? "true" : "false")" aria-controls="menuAmministrazione">
+                                    <i class="fas fa-file-invoice-dollar"></i>
+                                    <span class="section-title">AMMINISTRAZIONE</span>
+                                    <i class="fas fa-chevron-down section-arrow ms-auto"></i>
+                                </a>
+                                <div class="collapse @(isInAmministrazione ? "show" : "")" id="menuAmministrazione">
+                                    <ul class="nav flex-column submenu">
+                                        @{
+                                            var ammAction = ViewContext.RouteData.Values["action"]?.ToString();
+                                        }
+                                        <li class="nav-item">
+                                            <a class="nav-link @(isInAmministrazione && ammAction == "Index" ? "active" : "")" asp-controller="Amministrazione" asp-action="Index">
+                                                <i class="fas fa-chart-line"></i>
+                                                <span>Dashboard</span>
+                                            </a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link @(isInAmministrazione && ammAction == "GestioneAnni" ? "active" : "")" asp-controller="Amministrazione" asp-action="GestioneAnni">
+                                                <i class="fas fa-calendar-alt"></i>
+                                                <span>Gestione Anni</span>
+                                            </a>
+                                        </li>
+                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/Mandati"))
+                                        {
+                                            <li class="nav-item">
+                                                <a class="nav-link @(isInAmministrazione && ammAction == "Mandati" ? "active" : "")" asp-controller="Amministrazione" asp-action="Mandati">
+                                                    <i class="fas fa-file-contract"></i>
+                                                    <span>Mandati Clienti</span>
+                                                </a>
+                                            </li>
+                                        }
+                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/Scadenze"))
+                                        {
+                                            <li class="nav-item">
+                                                <a class="nav-link @(isInAmministrazione && ammAction == "Scadenze" ? "active" : "")" asp-controller="Amministrazione" asp-action="Scadenze">
+                                                    <i class="fas fa-file-invoice-dollar"></i>
+                                                    <span>Fatturazione</span>
+                                                </a>
+                                            </li>
+                                        }
+                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/SpesePratiche"))
+                                        {
+                                            <li class="nav-item">
+                                                <a class="nav-link @(isInAmministrazione && ammAction == "SpesePratiche" ? "active" : "")" asp-controller="Amministrazione" asp-action="SpesePratiche">
+                                                    <i class="fas fa-receipt"></i>
+                                                    <span>Spese Pratiche</span>
+                                                </a>
+                                            </li>
+                                        }
+                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/AccessiClienti"))
+                                        {
+                                            <li class="nav-item">
+                                                <a class="nav-link @(isInAmministrazione && ammAction == "AccessiClienti" ? "active" : "")" asp-controller="Amministrazione" asp-action="AccessiClienti">
+                                                    <i class="fas fa-door-open"></i>
+                                                    <span>Accessi Clienti</span>
+                                                </a>
+                                            </li>
+                                        }
+                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/FattureCloud"))
+                                        {
+                                            <li class="nav-item">
+                                                <a class="nav-link @(isInAmministrazione && ammAction == "FattureCloud" ? "active" : "")" asp-controller="Amministrazione" asp-action="FattureCloud">
+                                                    <i class="fas fa-cloud"></i>
+                                                    <span>Fatture in Cloud</span>
+                                                </a>
+                                            </li>
+                                        }
+                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/BilanciCEE"))
+                                        {
+                                            <li class="nav-item">
+                                                <a class="nav-link @(isInAmministrazione && ammAction == "BilanciCEE" ? "active" : "")" asp-controller="Amministrazione" asp-action="BilanciCEE">
+                                                    <i class="fas fa-balance-scale"></i>
+                                                    <span>Bilanci CEE</span>
+                                                </a>
+                                            </li>
+                                        }
+                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/Incassi"))
+                                        {
+                                            <li class="nav-item">
+                                                <a class="nav-link @(isInAmministrazione && ammAction == "Incassi" ? "active" : "")" asp-controller="Amministrazione" asp-action="Incassi">
+                                                    <i class="fas fa-money-bill-wave"></i>
+                                                    <span>Incassi</span>
+                                                </a>
+                                            </li>
+                                        }
+                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/ReportProfessionisti"))
+                                        {
+                                            <li class="nav-item">
+                                                <a class="nav-link @(isInAmministrazione && ammAction == "ReportProfessionisti" ? "active" : "")" asp-controller="Amministrazione" asp-action="ReportProfessionisti">
+                                                    <i class="fas fa-user-tie"></i>
+                                                    <span>Report Professionisti</span>
+                                                </a>
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
+                            </li>
+                        }
+                    }
                 </ul>
             </nav>
             <div class="sidebar-footer">
@@ -547,7 +655,7 @@
                 @if (TempData["Error"] != null)
                 {
                     <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+                        <i class="fas fa-exclamation-circle me-2"></i>@Html.Raw(TempData["Error"])
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 }

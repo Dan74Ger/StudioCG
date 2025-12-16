@@ -1,0 +1,381 @@
+@{
+    ViewData["Title"] = "Dashboard Fatturazione";
+    var annoSelezionato = (int)ViewBag.AnnoSelezionato;
+    var anniDisponibili = (List<int>)ViewBag.AnniDisponibili;
+    var mandatiAttivi = (int)ViewBag.MandatiAttivi;
+    var totaleImportoMandati = (decimal)ViewBag.TotaleImportoMandati;
+    var scadenzeAperte = (int)ViewBag.ScadenzeAperte;
+    var scadenzeProforma = (int)ViewBag.ScadenzeProforma;
+    var scadenzeFatturate = (int)ViewBag.ScadenzeFatturate;
+    var totaleFatturato = (decimal)ViewBag.TotaleFatturato;
+    var totaleIncassato = (decimal)ViewBag.TotaleIncassato;
+    var fattureDaIncassare = (int)ViewBag.FattureDaIncassare;
+    var prossimeScadenze = (List<StudioCG.Web.Models.Fatturazione.ScadenzaFatturazione>)ViewBag.ProssimeScadenze;
+}
+
+<div class="container-fluid">
+    <!-- Header con selezione anno -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-0"><i class="fas fa-chart-line me-2 text-primary"></i>Dashboard Fatturazione</h4>
+                <small class="text-muted">Riepilogo generale anno @annoSelezionato</small>
+            </div>
+            <div class="d-flex gap-2">
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-calendar-alt me-2"></i>Anno @annoSelezionato
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        @foreach (var anno in anniDisponibili)
+                        {
+                            <li>
+                                <a class="dropdown-item @(anno == annoSelezionato ? "active" : "")" asp-action="Index" asp-route-anno="@anno">
+                                    @anno
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiche principali -->
+    <div class="row g-4 mb-4">
+        <!-- Mandati -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card h-100 border-start border-4 border-primary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Mandati Attivi</h6>
+                            <h3 class="mb-0">@mandatiAttivi</h3>
+                            <small class="text-primary">@totaleImportoMandati.ToString("C", new System.Globalization.CultureInfo("it-IT"))</small>
+                        </div>
+                        <div class="text-primary opacity-50">
+                            <i class="fas fa-file-contract fa-3x"></i>
+                        </div>
+                    </div>
+                </div>
+                <a asp-action="Mandati" asp-route-anno="@annoSelezionato" class="card-footer bg-transparent border-top-0 text-primary text-decoration-none small">
+                    Gestisci Mandati <i class="fas fa-arrow-right ms-1"></i>
+                </a>
+            </div>
+        </div>
+
+        <!-- Scadenze Aperte -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card h-100 border-start border-4 border-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Scadenze Aperte</h6>
+                            <h3 class="mb-0">@scadenzeAperte</h3>
+                            <small class="text-warning">@scadenzeProforma proforma emesse</small>
+                        </div>
+                        <div class="text-warning opacity-50">
+                            <i class="fas fa-clock fa-3x"></i>
+                        </div>
+                    </div>
+                </div>
+                <a asp-action="Scadenze" asp-route-anno="@annoSelezionato" asp-route-stato="0" class="card-footer bg-transparent border-top-0 text-warning text-decoration-none small">
+                    Vedi Scadenze <i class="fas fa-arrow-right ms-1"></i>
+                </a>
+            </div>
+        </div>
+
+        <!-- Fatturato -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card h-100 border-start border-4 border-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Fatturato</h6>
+                            <h3 class="mb-0">@totaleFatturato.ToString("C", new System.Globalization.CultureInfo("it-IT"))</h3>
+                            <small class="text-success">@scadenzeFatturate fatture emesse</small>
+                        </div>
+                        <div class="text-success opacity-50">
+                            <i class="fas fa-file-invoice-dollar fa-3x"></i>
+                        </div>
+                    </div>
+                </div>
+                <a asp-action="Scadenze" asp-route-anno="@annoSelezionato" asp-route-stato="2" class="card-footer bg-transparent border-top-0 text-success text-decoration-none small">
+                    Vedi Fatture <i class="fas fa-arrow-right ms-1"></i>
+                </a>
+            </div>
+        </div>
+
+        <!-- Incassato -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card h-100 border-start border-4 border-info">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Incassato</h6>
+                            <h3 class="mb-0">@totaleIncassato.ToString("C", new System.Globalization.CultureInfo("it-IT"))</h3>
+                            <small class="text-danger">@fattureDaIncassare da incassare</small>
+                        </div>
+                        <div class="text-info opacity-50">
+                            <i class="fas fa-money-bill-wave fa-3x"></i>
+                        </div>
+                    </div>
+                </div>
+                <a asp-action="Incassi" asp-route-anno="@annoSelezionato" class="card-footer bg-transparent border-top-0 text-info text-decoration-none small">
+                    Gestisci Incassi <i class="fas fa-arrow-right ms-1"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sezione centrale -->
+    <div class="row g-4">
+        <!-- Prossime Scadenze -->
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-calendar-check me-2 text-warning"></i>Prossime Scadenze</h5>
+                    <a asp-action="Scadenze" asp-route-anno="@annoSelezionato" class="btn btn-sm btn-outline-primary">
+                        Vedi Tutte
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    @if (prossimeScadenze.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Cliente</th>
+                                        <th class="text-end">Importo</th>
+                                        <th>Stato</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var scad in prossimeScadenze)
+                                    {
+                                        var isScaduta = scad.DataScadenza < DateTime.Today;
+                                        <tr class="@(isScaduta ? "table-danger" : "")">
+                                            <td>
+                                                <span class="@(isScaduta ? "text-danger fw-bold" : "")">
+                                                    @scad.DataScadenza.ToString("dd/MM/yyyy")
+                                                </span>
+                                                @if (isScaduta)
+                                                {
+                                                    <i class="fas fa-exclamation-triangle text-danger ms-1" title="Scaduta!"></i>
+                                                }
+                                            </td>
+                                            <td>@scad.Cliente?.RagioneSociale</td>
+                                            <td class="text-end">@scad.TotaleScadenza.ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                            <td><span class="badge bg-secondary">Aperta</span></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>
+                            <p class="mb-0">Nessuna scadenza aperta!</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-bolt me-2 text-warning"></i>Azioni Rapide</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a asp-action="Mandati" asp-route-anno="@annoSelezionato" class="btn btn-outline-primary text-start">
+                            <i class="fas fa-plus me-2"></i>Nuovo Mandato
+                        </a>
+                        <a asp-action="SpesePratiche" asp-route-anno="@annoSelezionato" class="btn btn-outline-secondary text-start">
+                            <i class="fas fa-receipt me-2"></i>Aggiungi Spesa Pratica
+                        </a>
+                        <a asp-action="AccessiClienti" asp-route-anno="@annoSelezionato" class="btn btn-outline-info text-start">
+                            <i class="fas fa-door-open me-2"></i>Registra Accesso Cliente
+                        </a>
+                        <a asp-action="Incassi" asp-route-anno="@annoSelezionato" class="btn btn-outline-success text-start">
+                            <i class="fas fa-money-bill-wave me-2"></i>Registra Incasso
+                        </a>
+                        <a asp-action="ReportProfessionisti" asp-route-anno="@annoSelezionato" class="btn btn-outline-dark text-start">
+                            <i class="fas fa-user-tie me-2"></i>Report Professionisti
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Riepilogo anno -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body py-3">
+                    <div class="row text-center">
+                        <div class="col-md-3 border-end">
+                            <small class="text-muted d-block">Importo Mandati</small>
+                            <strong class="text-primary fs-5">@totaleImportoMandati.ToString("C", new System.Globalization.CultureInfo("it-IT"))</strong>
+                        </div>
+                        <div class="col-md-3 border-end">
+                            <small class="text-muted d-block">Fatturato</small>
+                            <strong class="text-success fs-5">@totaleFatturato.ToString("C", new System.Globalization.CultureInfo("it-IT"))</strong>
+                        </div>
+                        <div class="col-md-3 border-end">
+                            <small class="text-muted d-block">Incassato</small>
+                            <strong class="text-info fs-5">@totaleIncassato.ToString("C", new System.Globalization.CultureInfo("it-IT"))</strong>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted d-block">% Incassato</small>
+                            @{
+                                var percentualeIncasso = totaleFatturato > 0 ? (totaleIncassato / totaleFatturato * 100) : 0;
+                            }
+                            <strong class="@(percentualeIncasso >= 80 ? "text-success" : percentualeIncasso >= 50 ? "text-warning" : "text-danger") fs-5">
+                                @percentualeIncasso.ToString("0.0")%
+                            </strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- RIEPILOGO ECONOMICO DETTAGLIATO -->
+    <!-- ============================================ -->
+    @{
+        var mandatiQ1 = (decimal)ViewBag.MandatiQ1;
+        var mandatiQ2 = (decimal)ViewBag.MandatiQ2;
+        var mandatiQ3 = (decimal)ViewBag.MandatiQ3;
+        var mandatiQ4 = (decimal)ViewBag.MandatiQ4;
+        var mandatiTotale = (decimal)ViewBag.MandatiTotale;
+
+        var rimborsiQ1 = (decimal)ViewBag.RimborsiQ1;
+        var rimborsiQ2 = (decimal)ViewBag.RimborsiQ2;
+        var rimborsiQ3 = (decimal)ViewBag.RimborsiQ3;
+        var rimborsiQ4 = (decimal)ViewBag.RimborsiQ4;
+        var rimborsiTotale = (decimal)ViewBag.RimborsiTotale;
+
+        var spesePraticheQ1 = (decimal)ViewBag.SpesePraticheQ1;
+        var spesePraticheQ2 = (decimal)ViewBag.SpesePraticheQ2;
+        var spesePraticheQ3 = (decimal)ViewBag.SpesePraticheQ3;
+        var spesePraticheQ4 = (decimal)ViewBag.SpesePraticheQ4;
+        var spesePraticheTotale = (decimal)ViewBag.SpesePraticheTotale;
+
+        var accessiQ1 = (decimal)ViewBag.AccessiQ1;
+        var accessiQ2 = (decimal)ViewBag.AccessiQ2;
+        var accessiQ3 = (decimal)ViewBag.AccessiQ3;
+        var accessiQ4 = (decimal)ViewBag.AccessiQ4;
+        var accessiTotale = (decimal)ViewBag.AccessiTotale;
+
+        var fattureCloudTotale = (decimal)ViewBag.FattureCloudTotale;
+        var bilanciCEETotale = (decimal)ViewBag.BilanciCEETotale;
+        var totaleComplessivoAnnuo = (decimal)ViewBag.TotaleComplessivoAnnuo;
+
+        var cultura = new System.Globalization.CultureInfo("it-IT");
+    }
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calculator me-2"></i>Riepilogo Economico Dettagliato - Anno @annoSelezionato
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover mb-0">
+                            <thead class="table-secondary">
+                                <tr class="text-center">
+                                    <th style="width: 25%">Voce</th>
+                                    <th style="width: 15%">Q1<br><small class="text-muted fw-normal">Gen-Mar</small></th>
+                                    <th style="width: 15%">Q2<br><small class="text-muted fw-normal">Apr-Giu</small></th>
+                                    <th style="width: 15%">Q3<br><small class="text-muted fw-normal">Lug-Set</small></th>
+                                    <th style="width: 15%">Q4<br><small class="text-muted fw-normal">Ott-Dic</small></th>
+                                    <th style="width: 15%" class="table-primary">TOTALE ANNUO</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- MANDATI -->
+                                <tr>
+                                    <td class="fw-bold"><i class="fas fa-file-contract text-primary me-2"></i>Mandati</td>
+                                    <td class="text-end">@mandatiQ1.ToString("C", cultura)</td>
+                                    <td class="text-end">@mandatiQ2.ToString("C", cultura)</td>
+                                    <td class="text-end">@mandatiQ3.ToString("C", cultura)</td>
+                                    <td class="text-end">@mandatiQ4.ToString("C", cultura)</td>
+                                    <td class="text-end fw-bold table-primary">@mandatiTotale.ToString("C", cultura)</td>
+                                </tr>
+                                <!-- RIMBORSI SPESE -->
+                                <tr>
+                                    <td class="fw-bold"><i class="fas fa-hand-holding-usd text-success me-2"></i>Rimborsi Spese</td>
+                                    <td class="text-end">@rimborsiQ1.ToString("C", cultura)</td>
+                                    <td class="text-end">@rimborsiQ2.ToString("C", cultura)</td>
+                                    <td class="text-end">@rimborsiQ3.ToString("C", cultura)</td>
+                                    <td class="text-end">@rimborsiQ4.ToString("C", cultura)</td>
+                                    <td class="text-end fw-bold table-primary">@rimborsiTotale.ToString("C", cultura)</td>
+                                </tr>
+                                <!-- SPESE PRATICHE -->
+                                <tr>
+                                    <td class="fw-bold"><i class="fas fa-receipt text-warning me-2"></i>Spese Pratiche</td>
+                                    <td class="text-end">@spesePraticheQ1.ToString("C", cultura)</td>
+                                    <td class="text-end">@spesePraticheQ2.ToString("C", cultura)</td>
+                                    <td class="text-end">@spesePraticheQ3.ToString("C", cultura)</td>
+                                    <td class="text-end">@spesePraticheQ4.ToString("C", cultura)</td>
+                                    <td class="text-end fw-bold table-primary">@spesePraticheTotale.ToString("C", cultura)</td>
+                                </tr>
+                                <!-- ACCESSI CLIENTI -->
+                                <tr>
+                                    <td class="fw-bold"><i class="fas fa-door-open text-info me-2"></i>Accessi Clienti</td>
+                                    <td class="text-end">@accessiQ1.ToString("C", cultura)</td>
+                                    <td class="text-end">@accessiQ2.ToString("C", cultura)</td>
+                                    <td class="text-end">@accessiQ3.ToString("C", cultura)</td>
+                                    <td class="text-end">@accessiQ4.ToString("C", cultura)</td>
+                                    <td class="text-end fw-bold table-primary">@accessiTotale.ToString("C", cultura)</td>
+                                </tr>
+                            </tbody>
+                            <tbody>
+                                <tr class="table-light">
+                                    <td colspan="6" class="py-1"></td>
+                                </tr>
+                            </tbody>
+                            <tbody>
+                                <!-- FATTURE IN CLOUD (solo totale annuo) -->
+                                <tr>
+                                    <td class="fw-bold"><i class="fas fa-cloud text-secondary me-2"></i>Fatture in Cloud</td>
+                                    <td class="text-center text-muted" colspan="4">-</td>
+                                    <td class="text-end fw-bold table-primary">@fattureCloudTotale.ToString("C", cultura)</td>
+                                </tr>
+                                <!-- BILANCI CEE (solo totale annuo) -->
+                                <tr>
+                                    <td class="fw-bold"><i class="fas fa-balance-scale text-secondary me-2"></i>Bilanci CEE</td>
+                                    <td class="text-center text-muted" colspan="4">-</td>
+                                    <td class="text-end fw-bold table-primary">@bilanciCEETotale.ToString("C", cultura)</td>
+                                </tr>
+                            </tbody>
+                            <tfoot class="table-dark">
+                                <tr>
+                                    <td class="fw-bold fs-5"><i class="fas fa-coins me-2"></i>TOTALE COMPLESSIVO</td>
+                                    <td class="text-end fw-bold">@((mandatiQ1 + rimborsiQ1 + spesePraticheQ1 + accessiQ1).ToString("C", cultura))</td>
+                                    <td class="text-end fw-bold">@((mandatiQ2 + rimborsiQ2 + spesePraticheQ2 + accessiQ2).ToString("C", cultura))</td>
+                                    <td class="text-end fw-bold">@((mandatiQ3 + rimborsiQ3 + spesePraticheQ3 + accessiQ3).ToString("C", cultura))</td>
+                                    <td class="text-end fw-bold">@((mandatiQ4 + rimborsiQ4 + spesePraticheQ4 + accessiQ4).ToString("C", cultura))</td>
+                                    <td class="text-end fw-bold fs-5 text-success">@totaleComplessivoAnnuo.ToString("C", cultura)</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

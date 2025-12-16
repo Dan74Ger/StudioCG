@@ -17,6 +17,7 @@ namespace StudioCG.Web.Services
         Task<int?> GetUserIdByUsernameAsync(string username);
         Task<List<AttivitaAnnuale>> GetUserAttivitaAsync(string username);
         Task<AnnualitaFiscale?> GetAnnoCorrenteAsync();
+        Task<bool> UserHasPermissionAsync(string username, string pageUrl);
     }
 
     public class PermissionService : IPermissionService
@@ -213,6 +214,32 @@ namespace StudioCG.Web.Services
         public async Task<AnnualitaFiscale?> GetAnnoCorrenteAsync()
         {
             return await _context.AnnualitaFiscali.FirstOrDefaultAsync(a => a.IsCurrent);
+        }
+
+        /// <summary>
+        /// Verifica se l'utente ha il permesso per una specifica pagina URL
+        /// </summary>
+        public async Task<bool> UserHasPermissionAsync(string username, string pageUrl)
+        {
+            // Admin ha sempre accesso
+            if (string.Equals(username, "admin", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            if (user == null) return false;
+
+            // Normalizza l'URL
+            var normalizedUrl = pageUrl.TrimStart('/');
+            var urlWithSlash = "/" + normalizedUrl;
+
+            return await _context.UserPermissions
+                .Include(up => up.Permission)
+                .AnyAsync(up => 
+                    up.UserId == user.Id && 
+                    up.CanView &&
+                    (up.Permission.PageUrl == pageUrl || 
+                     up.Permission.PageUrl == normalizedUrl ||
+                     up.Permission.PageUrl == urlWithSlash));
         }
 
         private async Task<UserPermission?> GetUserPermission(int userId, string pageUrl)

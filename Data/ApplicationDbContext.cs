@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StudioCG.Web.Models;
+using StudioCG.Web.Models.Fatturazione;
 
 namespace StudioCG.Web.Data
 {
@@ -31,6 +32,18 @@ namespace StudioCG.Web.Data
         public DbSet<AttivitaAnnuale> AttivitaAnnuali { get; set; }
         public DbSet<ClienteAttivita> ClientiAttivita { get; set; }
         public DbSet<ClienteAttivitaValore> ClientiAttivitaValori { get; set; }
+
+        // Tabelle Amministrazione/Fatturazione
+        public DbSet<AnnoFatturazione> AnniFatturazione { get; set; }
+        public DbSet<MandatoCliente> MandatiClienti { get; set; }
+        public DbSet<ScadenzaFatturazione> ScadenzeFatturazione { get; set; }
+        public DbSet<SpesaPratica> SpesePratiche { get; set; }
+        public DbSet<AccessoCliente> AccessiClienti { get; set; }
+        public DbSet<FatturaCloud> FattureCloud { get; set; }
+        public DbSet<BilancioCEE> BilanciCEE { get; set; }
+        public DbSet<ContatoreDocumento> ContatoriDocumenti { get; set; }
+        public DbSet<IncassoFattura> IncassiFatture { get; set; }
+        public DbSet<IncassoProfessionista> IncassiProfessionisti { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -247,6 +260,156 @@ namespace StudioCG.Web.Data
                     .OnDelete(DeleteBehavior.NoAction); // Evita cicli
             });
 
+            // ============ TABELLE FATTURAZIONE ============
+
+            // MandatoCliente configuration
+            modelBuilder.Entity<MandatoCliente>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.ClienteId, e.Anno }).IsUnique();
+                entity.Property(e => e.ImportoAnnuo).HasColumnType("decimal(18,2)");
+
+                entity.HasOne(e => e.Cliente)
+                    .WithMany()
+                    .HasForeignKey(e => e.ClienteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ScadenzaFatturazione configuration
+            modelBuilder.Entity<ScadenzaFatturazione>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.ImportoMandato).HasColumnType("decimal(18,2)");
+
+                entity.HasOne(e => e.MandatoCliente)
+                    .WithMany(m => m.Scadenze)
+                    .HasForeignKey(e => e.MandatoClienteId)
+                    .OnDelete(DeleteBehavior.NoAction); // Evita cicli - gestito manualmente
+
+                entity.HasOne(e => e.Cliente)
+                    .WithMany()
+                    .HasForeignKey(e => e.ClienteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // SpesaPratica configuration
+            modelBuilder.Entity<SpesaPratica>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Importo).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.Descrizione).IsRequired().HasMaxLength(200);
+
+                entity.HasOne(e => e.Cliente)
+                    .WithMany()
+                    .HasForeignKey(e => e.ClienteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.ScadenzaFatturazione)
+                    .WithMany(s => s.SpesePratiche)
+                    .HasForeignKey(e => e.ScadenzaFatturazioneId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Utente)
+                    .WithMany()
+                    .HasForeignKey(e => e.UtenteId)
+                    .OnDelete(DeleteBehavior.NoAction); // Mantiene riferimento utente
+            });
+
+            // AccessoCliente configuration
+            modelBuilder.Entity<AccessoCliente>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.TariffaOraria).HasColumnType("decimal(18,2)");
+
+                entity.HasOne(e => e.Cliente)
+                    .WithMany()
+                    .HasForeignKey(e => e.ClienteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.ScadenzaFatturazione)
+                    .WithMany(s => s.AccessiClienti)
+                    .HasForeignKey(e => e.ScadenzaFatturazioneId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Utente)
+                    .WithMany()
+                    .HasForeignKey(e => e.UtenteId)
+                    .OnDelete(DeleteBehavior.NoAction); // Mantiene riferimento utente
+            });
+
+            // FatturaCloud configuration
+            modelBuilder.Entity<FatturaCloud>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.ClienteId, e.Anno }).IsUnique();
+                entity.Property(e => e.Importo).HasColumnType("decimal(18,2)");
+
+                entity.HasOne(e => e.Cliente)
+                    .WithMany()
+                    .HasForeignKey(e => e.ClienteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.ScadenzaFatturazione)
+                    .WithMany(s => s.FattureCloud)
+                    .HasForeignKey(e => e.ScadenzaFatturazioneId)
+                    .OnDelete(DeleteBehavior.NoAction); // Evita cicli
+            });
+
+            // BilancioCEE configuration
+            modelBuilder.Entity<BilancioCEE>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.ClienteId, e.Anno }).IsUnique();
+                entity.Property(e => e.Importo).HasColumnType("decimal(18,2)");
+
+                entity.HasOne(e => e.Cliente)
+                    .WithMany()
+                    .HasForeignKey(e => e.ClienteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.ScadenzaFatturazione)
+                    .WithMany(s => s.BilanciCEE)
+                    .HasForeignKey(e => e.ScadenzaFatturazioneId)
+                    .OnDelete(DeleteBehavior.NoAction); // Evita cicli
+            });
+
+            // ContatoreDocumento configuration
+            modelBuilder.Entity<ContatoreDocumento>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.Anno, e.TipoDocumento }).IsUnique();
+            });
+
+            // IncassoFattura configuration
+            modelBuilder.Entity<IncassoFattura>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.ImportoIncassato).HasColumnType("decimal(18,2)");
+
+                entity.HasOne(e => e.ScadenzaFatturazione)
+                    .WithMany(s => s.Incassi)
+                    .HasForeignKey(e => e.ScadenzaFatturazioneId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // IncassoProfessionista configuration
+            modelBuilder.Entity<IncassoProfessionista>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Percentuale).HasColumnType("decimal(5,2)");
+                entity.Property(e => e.Importo).HasColumnType("decimal(18,2)");
+
+                entity.HasOne(e => e.IncassoFattura)
+                    .WithMany(i => i.SuddivisioneProfessionisti)
+                    .HasForeignKey(e => e.IncassoFatturaId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Utente)
+                    .WithMany()
+                    .HasForeignKey(e => e.UtenteId)
+                    .OnDelete(DeleteBehavior.NoAction);
+            });
+
             // ============ SEED DATA ============
 
             // Seed admin user (password: 123456)
@@ -317,6 +480,117 @@ namespace StudioCG.Web.Data
                     Icon = "fas fa-cogs",
                     Category = "ANAGRAFICA",
                     DisplayOrder = 12,
+                    ShowInMenu = true
+                },
+                // ============ PERMESSI AMMINISTRAZIONE ============
+                new Permission
+                {
+                    Id = 200,
+                    PageName = "Dashboard Fatturazione",
+                    PageUrl = "/Amministrazione",
+                    Description = "Dashboard riepilogo fatturazione",
+                    Icon = "fas fa-chart-line",
+                    Category = "AMMINISTRAZIONE",
+                    DisplayOrder = 20,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 201,
+                    PageName = "Mandati Clienti",
+                    PageUrl = "/Amministrazione/Mandati",
+                    Description = "Gestione mandati professionali",
+                    Icon = "fas fa-file-contract",
+                    Category = "AMMINISTRAZIONE",
+                    DisplayOrder = 21,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 202,
+                    PageName = "Scadenze Fatturazione",
+                    PageUrl = "/Amministrazione/Scadenze",
+                    Description = "Gestione scadenze e fatturazione",
+                    Icon = "fas fa-file-invoice-dollar",
+                    Category = "AMMINISTRAZIONE",
+                    DisplayOrder = 22,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 203,
+                    PageName = "Spese Pratiche",
+                    PageUrl = "/Amministrazione/SpesePratiche",
+                    Description = "Gestione spese pratiche mensili",
+                    Icon = "fas fa-receipt",
+                    Category = "AMMINISTRAZIONE",
+                    DisplayOrder = 23,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 204,
+                    PageName = "Accessi Clienti",
+                    PageUrl = "/Amministrazione/AccessiClienti",
+                    Description = "Registrazione accessi clienti",
+                    Icon = "fas fa-door-open",
+                    Category = "AMMINISTRAZIONE",
+                    DisplayOrder = 24,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 205,
+                    PageName = "Fatture in Cloud",
+                    PageUrl = "/Amministrazione/FattureCloud",
+                    Description = "Gestione Fatture in Cloud",
+                    Icon = "fas fa-cloud",
+                    Category = "AMMINISTRAZIONE",
+                    DisplayOrder = 25,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 206,
+                    PageName = "Bilanci CEE",
+                    PageUrl = "/Amministrazione/BilanciCEE",
+                    Description = "Gestione Bilanci CEE",
+                    Icon = "fas fa-balance-scale",
+                    Category = "AMMINISTRAZIONE",
+                    DisplayOrder = 26,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 207,
+                    PageName = "Incassi",
+                    PageUrl = "/Amministrazione/Incassi",
+                    Description = "Gestione incassi fatture",
+                    Icon = "fas fa-money-bill-wave",
+                    Category = "AMMINISTRAZIONE",
+                    DisplayOrder = 27,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 208,
+                    PageName = "Report Professionisti",
+                    PageUrl = "/Amministrazione/ReportProfessionisti",
+                    Description = "Report incassi per professionista",
+                    Icon = "fas fa-user-tie",
+                    Category = "AMMINISTRAZIONE",
+                    DisplayOrder = 28,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 209,
+                    PageName = "Gestione Anni",
+                    PageUrl = "/Amministrazione/GestioneAnni",
+                    Description = "Gestione anni di fatturazione",
+                    Icon = "fas fa-calendar-alt",
+                    Category = "AMMINISTRAZIONE",
+                    DisplayOrder = 29,
                     ShowInMenu = true
                 }
             );

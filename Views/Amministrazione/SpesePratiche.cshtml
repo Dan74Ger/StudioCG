@@ -1,0 +1,400 @@
+@model List<StudioCG.Web.Models.Fatturazione.SpesaPratica>
+@using StudioCG.Web.Models.Fatturazione
+@{
+    ViewData["Title"] = "Spese Pratiche";
+    var annoSelezionato = (int)ViewBag.AnnoSelezionato;
+    var anniDisponibili = (List<int>)ViewBag.AnniDisponibili;
+    var clienti = (List<StudioCG.Web.Models.Cliente>)ViewBag.Clienti;
+    var clienteIdSelezionato = (int?)ViewBag.ClienteIdSelezionato;
+}
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h4 class="mb-0"><i class="fas fa-receipt me-2 text-primary"></i>Spese Pratiche</h4>
+                <small class="text-muted">Gestione spese pratiche mensili - Anno @annoSelezionato</small>
+            </div>
+            <div class="d-flex gap-2">
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-calendar-alt me-2"></i>Anno @annoSelezionato
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        @foreach (var anno in anniDisponibili)
+                        {
+                            <li>
+                                <a class="dropdown-item @(anno == annoSelezionato ? "active" : "")" 
+                                   asp-action="SpesePratiche" asp-route-anno="@anno">@anno</a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuovaSpesa">
+                    <i class="fas fa-plus me-2"></i>Nuova Spesa
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiche -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="small opacity-75">Totale Spese</div>
+                            <div class="fs-4 fw-bold">@Model.Count</div>
+                        </div>
+                        <i class="fas fa-receipt fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="small opacity-75">Importo Totale</div>
+                            <div class="fs-4 fw-bold">@Model.Sum(s => s.Importo).ToString("C", new System.Globalization.CultureInfo("it-IT"))</div>
+                        </div>
+                        <i class="fas fa-euro-sign fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="small opacity-75">Clienti Coinvolti</div>
+                            <div class="fs-4 fw-bold">@Model.Select(s => s.ClienteId).Distinct().Count()</div>
+                        </div>
+                        <i class="fas fa-users fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtri -->
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <form asp-action="SpesePratiche" method="get" class="row g-2 align-items-end">
+                <input type="hidden" name="anno" value="@annoSelezionato" />
+                <div class="col-md-5">
+                    <label class="form-label small text-muted">Cliente</label>
+                    <select name="clienteId" class="form-select form-select-sm">
+                        <option value="">-- Tutti i clienti --</option>
+                        @foreach (var cliente in clienti)
+                        {
+                            <option value="@cliente.Id" selected="@(clienteIdSelezionato == cliente.Id)">@cliente.RagioneSociale</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-filter me-1"></i>Filtra
+                    </button>
+                    <a asp-action="SpesePratiche" asp-route-anno="@annoSelezionato" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-times me-1"></i>Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabella Spese -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Elenco Spese (@Model.Count)</h5>
+        </div>
+        <div class="card-body p-0">
+            @if (Model.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>Data</th>
+                                <th>Cliente</th>
+                                <th>Descrizione</th>
+                                <th class="text-end">Importo</th>
+                                <th>Scadenza Dest.</th>
+                                <th>Stato Scad.</th>
+                                <th>Inserito da</th>
+                                <th class="text-center">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var spesa in Model)
+                            {
+                                var isProtetta = spesa.ScadenzaFatturazione?.Stato != StatoScadenza.Aperta;
+                                <tr>
+                                    <td>@spesa.Data.ToString("dd/MM/yyyy")</td>
+                                    <td>
+                                        <strong>@spesa.Cliente?.RagioneSociale</strong>
+                                    </td>
+                                    <td>@spesa.Descrizione</td>
+                                    <td class="text-end fw-bold">@spesa.Importo.ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                    <td>
+                                        @if (spesa.ScadenzaFatturazione != null)
+                                        {
+                                            <span class="badge bg-light text-dark">
+                                                @spesa.ScadenzaFatturazione.DataScadenza.ToString("dd/MM/yyyy")
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (spesa.ScadenzaFatturazione != null)
+                                        {
+                                            @switch (spesa.ScadenzaFatturazione.Stato)
+                                            {
+                                                case StatoScadenza.Aperta:
+                                                    <span class="badge bg-secondary">Aperta</span>
+                                                    break;
+                                                case StatoScadenza.Proforma:
+                                                    <span class="badge bg-warning text-dark">Proforma</span>
+                                                    break;
+                                                case StatoScadenza.Fatturata:
+                                                    <span class="badge bg-success">Fatturata</span>
+                                                    break;
+                                            }
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (spesa.Utente != null)
+                                        {
+                                            <small class="text-muted">@spesa.Utente.Nome @spesa.Utente.Cognome</small>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @if (!isProtetta)
+                                        {
+                                            <div class="btn-group btn-group-sm">
+                                                <button type="button" class="btn btn-outline-primary" title="Modifica"
+                                                        data-bs-toggle="modal" data-bs-target="#modalEditSpesa"
+                                                        data-id="@spesa.Id"
+                                                        data-clienteid="@spesa.ClienteId"
+                                                        data-cliente="@spesa.Cliente?.RagioneSociale"
+                                                        data-descrizione="@spesa.Descrizione"
+                                                        data-importo="@spesa.Importo.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                        data-data="@spesa.Data.ToString("yyyy-MM-dd")"
+                                                        data-scadenzaid="@spesa.ScadenzaFatturazioneId">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <form asp-action="DeleteSpesaPratica" method="post" class="d-inline"
+                                                      onsubmit="return confirm('Eliminare questa spesa?');">
+                                                    <input type="hidden" name="id" value="@spesa.Id" />
+                                                    <input type="hidden" name="anno" value="@annoSelezionato" />
+                                                    <button type="submit" class="btn btn-outline-danger" title="Elimina">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted" title="Scadenza protetta (proforma/fattura emessa)">
+                                                <i class="fas fa-lock"></i>
+                                            </span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="bg-light">
+                            <tr class="fw-bold">
+                                <td colspan="3">TOTALE</td>
+                                <td class="text-end">@Model.Sum(s => s.Importo).ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                <td colspan="4"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <i class="fas fa-receipt fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">Nessuna spesa pratica</h5>
+                    <p class="text-muted">Clicca "Nuova Spesa" per iniziare</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nuova Spesa -->
+<div class="modal fade" id="modalNuovaSpesa" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CreateSpesaPratica" method="post">
+                <input type="hidden" name="anno" value="@annoSelezionato" />
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Nuova Spesa Pratica</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Cliente <span class="text-danger">*</span></label>
+                        <select name="clienteId" id="selectClienteNuovo" class="form-select" required>
+                            <option value="">-- Seleziona Cliente --</option>
+                            @foreach (var cliente in clienti)
+                            {
+                                <option value="@cliente.Id">@cliente.RagioneSociale</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Scadenza Destinazione <span class="text-danger">*</span></label>
+                        <select name="scadenzaFatturazioneId" id="selectScadenzaNuovo" class="form-select" required>
+                            <option value="">-- Prima seleziona un cliente --</option>
+                        </select>
+                        <small class="form-text text-muted">Seleziona la scadenza a cui addebitare la spesa</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descrizione <span class="text-danger">*</span></label>
+                        <input type="text" name="descrizione" class="form-control" required maxlength="200" 
+                               placeholder="Es: Spese postali, Visure camerali, ecc.">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Importo <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text">€</span>
+                                <input type="text" name="importo" class="form-control" required 
+                                       placeholder="0,00" pattern="[0-9]+([,\.][0-9]{1,2})?">
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Data <span class="text-danger">*</span></label>
+                            <input type="date" name="data" class="form-control" required 
+                                   value="@DateTime.Today.ToString("yyyy-MM-dd")">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-2"></i>Salva Spesa
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Modifica Spesa -->
+<div class="modal fade" id="modalEditSpesa" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="UpdateSpesaPratica" method="post">
+                <input type="hidden" name="id" id="editSpesaId" />
+                <input type="hidden" name="anno" value="@annoSelezionato" />
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Modifica Spesa</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Cliente</label>
+                        <input type="text" id="editClienteNome" class="form-control" readonly>
+                        <input type="hidden" name="clienteId" id="editClienteId">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Scadenza Destinazione <span class="text-danger">*</span></label>
+                        <select name="scadenzaFatturazioneId" id="editScadenzaId" class="form-select" required>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descrizione <span class="text-danger">*</span></label>
+                        <input type="text" name="descrizione" id="editDescrizione" class="form-control" required maxlength="200">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Importo <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text">€</span>
+                                <input type="text" name="importo" id="editImporto" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Data <span class="text-danger">*</span></label>
+                            <input type="date" name="data" id="editData" class="form-control" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Salva Modifiche
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    var annoCorrente = @annoSelezionato;
+    
+    // Carica scadenze per cliente (nuovo)
+    document.getElementById('selectClienteNuovo').addEventListener('change', function() {
+        var clienteId = this.value;
+        var selectScadenza = document.getElementById('selectScadenzaNuovo');
+        
+        if (!clienteId) {
+            selectScadenza.innerHTML = '<option value="">-- Prima seleziona un cliente --</option>';
+            return;
+        }
+        
+        fetch('/Amministrazione/GetScadenzeCliente?clienteId=' + clienteId + '&anno=' + annoCorrente)
+            .then(response => response.json())
+            .then(data => {
+                selectScadenza.innerHTML = '<option value="">-- Seleziona scadenza --</option>';
+                data.forEach(function(scad) {
+                    var opt = document.createElement('option');
+                    opt.value = scad.id;
+                    opt.textContent = scad.dataScadenza + ' - ' + scad.stato;
+                    selectScadenza.appendChild(opt);
+                });
+            });
+    });
+    
+    // Modal Modifica
+    document.getElementById('modalEditSpesa').addEventListener('show.bs.modal', function(event) {
+        var btn = event.relatedTarget;
+        var clienteId = btn.getAttribute('data-clienteid');
+        var scadenzaId = btn.getAttribute('data-scadenzaid');
+        
+        document.getElementById('editSpesaId').value = btn.getAttribute('data-id');
+        document.getElementById('editClienteId').value = clienteId;
+        document.getElementById('editClienteNome').value = btn.getAttribute('data-cliente');
+        document.getElementById('editDescrizione').value = btn.getAttribute('data-descrizione');
+        document.getElementById('editImporto').value = btn.getAttribute('data-importo').replace('.', ',');
+        document.getElementById('editData').value = btn.getAttribute('data-data');
+        
+        // Carica scadenze per il cliente
+        var selectScadenza = document.getElementById('editScadenzaId');
+        fetch('/Amministrazione/GetScadenzeCliente?clienteId=' + clienteId + '&anno=' + annoCorrente)
+            .then(response => response.json())
+            .then(data => {
+                selectScadenza.innerHTML = '';
+                data.forEach(function(scad) {
+                    var opt = document.createElement('option');
+                    opt.value = scad.id;
+                    opt.textContent = scad.dataScadenza + ' - ' + scad.stato;
+                    if (scad.id == scadenzaId) opt.selected = true;
+                    selectScadenza.appendChild(opt);
+                });
+            });
+    });
+</script>
+}
+

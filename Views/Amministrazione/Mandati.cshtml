@@ -1,0 +1,423 @@
+@model List<StudioCG.Web.Models.Fatturazione.MandatoCliente>
+@using StudioCG.Web.Models.Fatturazione
+@{
+    ViewData["Title"] = "Mandati Clienti";
+    var annoSelezionato = (int)ViewBag.AnnoSelezionato;
+    var anniDisponibili = (List<int>)ViewBag.AnniDisponibili;
+    var clientiSenzaMandato = (List<StudioCG.Web.Models.Cliente>)ViewBag.ClientiSenzaMandato;
+}
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h4 class="mb-0"><i class="fas fa-file-contract me-2 text-primary"></i>Mandati Clienti</h4>
+                <small class="text-muted">Gestione mandati professionali - Anno @annoSelezionato</small>
+            </div>
+            <div class="d-flex gap-2">
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-calendar-alt me-2"></i>Anno @annoSelezionato
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        @foreach (var anno in anniDisponibili)
+                        {
+                            <li>
+                                <a class="dropdown-item @(anno == annoSelezionato ? "active" : "")" asp-action="Mandati" asp-route-anno="@anno">
+                                    @anno
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuovoMandato">
+                    <i class="fas fa-plus me-2"></i>Nuovo Mandato
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiche -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="small opacity-75">Totale Mandati</div>
+                            <div class="fs-4 fw-bold">@Model.Count</div>
+                        </div>
+                        <i class="fas fa-file-contract fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="small opacity-75">Attivi</div>
+                            <div class="fs-4 fw-bold">@Model.Count(m => m.IsActive)</div>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="small opacity-75">Importo Totale</div>
+                            <div class="fs-5 fw-bold">@Model.Where(m => m.IsActive).Sum(m => m.ImportoAnnuo).ToString("C", new System.Globalization.CultureInfo("it-IT"))</div>
+                        </div>
+                        <i class="fas fa-euro-sign fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="small opacity-75">Clienti Senza Mandato</div>
+                            <div class="fs-4 fw-bold">@clientiSenzaMandato.Count</div>
+                        </div>
+                        <i class="fas fa-user-plus fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabella Mandati -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Elenco Mandati</h5>
+            <div class="input-group" style="width: 300px;">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" id="searchMandati" class="form-control" placeholder="Cerca cliente...">
+            </div>
+        </div>
+        <div class="card-body p-0">
+            @if (Model.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="tableMandati">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Tipo Soggetto</th>
+                                <th class="text-end">Importo Annuo</th>
+                                <th class="text-end">Rimb. Spese</th>
+                                <th>Tipo Scadenza</th>
+                                <th class="text-center">Rate</th>
+                                <th class="text-end">Importo Rata</th>
+                                <th class="text-center">Scadenze Generate</th>
+                                <th>Stato</th>
+                                <th class="text-center">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var mandato in Model)
+                            {
+                                <tr class="mandato-row">
+                                    <td class="cliente-nome">
+                                        <strong>@mandato.Cliente?.RagioneSociale</strong>
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(mandato.Cliente?.TipoSoggetto))
+                                        {
+                                            <span class="badge bg-secondary">@mandato.Cliente.TipoSoggetto</span>
+                                        }
+                                    </td>
+                                    <td class="text-end fw-bold">@mandato.ImportoAnnuo.ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                    <td class="text-end">
+                                        @if (mandato.RimborsoSpese > 0)
+                                        {
+                                            <span class="text-success">@mandato.RimborsoSpese.ToString("C", new System.Globalization.CultureInfo("it-IT"))</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @{
+                                            var tipoLabel = mandato.TipoScadenza switch
+                                            {
+                                                TipoScadenzaMandato.Mensile => "Mensile",
+                                                TipoScadenzaMandato.Bimestrale => "Bimestrale",
+                                                TipoScadenzaMandato.Trimestrale => "Trimestrale",
+                                                TipoScadenzaMandato.Semestrale => "Semestrale",
+                                                TipoScadenzaMandato.Annuale => "Annuale",
+                                                _ => "-"
+                                            };
+                                        }
+                                        <span class="badge bg-info">@tipoLabel</span>
+                                    </td>
+                                    <td class="text-center">@mandato.NumeroRate</td>
+                                    <td class="text-end">@mandato.ImportoRata.ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                    <td class="text-center">
+                                        @{
+                                            var scadenzeCount = mandato.Scadenze?.Count ?? 0;
+                                        }
+                                        @if (scadenzeCount > 0)
+                                        {
+                                            <span class="badge bg-success">@scadenzeCount / @mandato.NumeroRate</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark">Non generate</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (mandato.IsActive)
+                                        {
+                                            <span class="badge bg-success">Attivo</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Disattivo</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @{
+                                            var scadenzeEsistenti = mandato.Scadenze?.Count ?? 0;
+                                            var haScadenzeProtette = mandato.Scadenze?.Any(s => s.NumeroProforma.HasValue || s.NumeroFattura.HasValue) ?? false;
+                                        }
+                                        <div class="btn-group btn-group-sm">
+                                            @if (scadenzeEsistenti == 0)
+                                            {
+                                                <form asp-action="GeneraScadenze" method="post" class="d-inline">
+                                                    <input type="hidden" name="mandatoId" value="@mandato.Id" />
+                                                    <button type="submit" class="btn btn-success btn-sm" title="Genera Scadenze">
+                                                        <i class="fas fa-calendar-plus"></i>
+                                                    </button>
+                                                </form>
+                                            }
+                                            else if (!haScadenzeProtette)
+                                            {
+                                                <form asp-action="RigeneraScadenze" method="post" class="d-inline" onsubmit="return confirm('Rigenerare le scadenze? Le scadenze esistenti verranno eliminate e ricreate.');">
+                                                    <input type="hidden" name="mandatoId" value="@mandato.Id" />
+                                                    <button type="submit" class="btn btn-warning btn-sm" title="Rigenera Scadenze">
+                                                        <i class="fas fa-sync-alt"></i>
+                                                    </button>
+                                                </form>
+                                            }
+                                            <button type="button" class="btn btn-primary btn-sm" title="Modifica"
+                                                    data-bs-toggle="modal" data-bs-target="#modalEditMandato"
+                                                    data-id="@mandato.Id"
+                                                    data-cliente="@mandato.Cliente?.RagioneSociale"
+                                                    data-importo="@mandato.ImportoAnnuo.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                    data-rimborso="@mandato.RimborsoSpese.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                    data-tipo="@((int)mandato.TipoScadenza)"
+                                                    data-attivo="@mandato.IsActive.ToString().ToLower()"
+                                                    data-note="@mandato.Note">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            @if (!haScadenzeProtette)
+                                            {
+                                                <form asp-action="DeleteMandato" method="post" class="d-inline" onsubmit="return confirm('Eliminare questo mandato e tutte le scadenze collegate?');">
+                                                    <input type="hidden" name="id" value="@mandato.Id" />
+                                                    <input type="hidden" name="anno" value="@annoSelezionato" />
+                                                    <button type="submit" class="btn btn-danger btn-sm" title="Elimina Mandato">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="btn btn-secondary btn-sm" disabled title="Non eliminabile: scadenze con proforma/fattura">
+                                                    <i class="fas fa-lock"></i>
+                                                </button>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <i class="fas fa-file-contract fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">Nessun mandato per l'anno @annoSelezionato</h5>
+                    <p class="text-muted">Clicca "Nuovo Mandato" per iniziare</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nuovo Mandato -->
+<div class="modal fade" id="modalNuovoMandato" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CreateMandato" method="post">
+                <input type="hidden" name="anno" value="@annoSelezionato" />
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Nuovo Mandato</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Cliente <span class="text-danger">*</span></label>
+                        <select name="clienteId" class="form-select" required>
+                            <option value="">-- Seleziona Cliente --</option>
+                            @foreach (var cliente in clientiSenzaMandato)
+                            {
+                                <option value="@cliente.Id">@cliente.RagioneSociale @(string.IsNullOrEmpty(cliente.TipoSoggetto) ? "" : $"({cliente.TipoSoggetto})")</option>
+                            }
+                        </select>
+                        @if (!clientiSenzaMandato.Any())
+                        {
+                            <small class="text-warning"><i class="fas fa-info-circle me-1"></i>Tutti i clienti hanno già un mandato per quest'anno</small>
+                        }
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Importo Annuo <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="text" name="importoAnnuo" class="form-control" required placeholder="0,00"
+                                   pattern="[0-9]+([,\.][0-9]{1,2})?" title="Inserisci un importo valido (es: 1200,00)">
+                        </div>
+                        <small class="form-text text-muted">Usa la virgola come separatore decimale</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo Scadenza <span class="text-danger">*</span></label>
+                        <select name="tipoScadenza" class="form-select" required id="selectTipoScadenza">
+                            <option value="0">Mensile (12 rate)</option>
+                            <option value="1">Bimestrale (6 rate)</option>
+                            <option value="2">Trimestrale (4 rate)</option>
+                            <option value="3">Semestrale (2 rate)</option>
+                            <option value="4">Annuale (1 rata)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rimborso Spese (per ogni scadenza)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="text" name="rimborsoSpese" class="form-control" placeholder="0,00" value="0"
+                                   pattern="[0-9]+([,\.][0-9]{1,2})?" title="Inserisci un importo valido (es: 50,00)">
+                        </div>
+                        <small class="form-text text-muted">Questo importo viene aggiunto a ciascuna scadenza (non diviso)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Note</label>
+                        <textarea name="note" class="form-control" rows="2" maxlength="500"></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="generaScadenze" value="true" class="form-check-input" id="checkGeneraScadenze" checked>
+                        <label class="form-check-label" for="checkGeneraScadenze">
+                            Genera automaticamente le scadenze
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-success" @(clientiSenzaMandato.Any() ? "" : "disabled")>
+                        <i class="fas fa-save me-2"></i>Crea Mandato
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Modifica Mandato -->
+<div class="modal fade" id="modalEditMandato" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="UpdateMandato" method="post">
+                <input type="hidden" name="id" id="editMandatoId" />
+                <input type="hidden" name="anno" value="@annoSelezionato" />
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Modifica Mandato</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Cliente</label>
+                        <input type="text" class="form-control" id="editClienteNome" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Importo Annuo <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="text" name="importoAnnuo" id="editImportoAnnuo" class="form-control" required
+                                   pattern="[0-9]+([,\.][0-9]{1,2})?" title="Inserisci un importo valido">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo Scadenza <span class="text-danger">*</span></label>
+                        <select name="tipoScadenza" id="editTipoScadenza" class="form-select" required>
+                            <option value="0">Mensile (12 rate)</option>
+                            <option value="1">Bimestrale (6 rate)</option>
+                            <option value="2">Trimestrale (4 rate)</option>
+                            <option value="3">Semestrale (2 rate)</option>
+                            <option value="4">Annuale (1 rata)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rimborso Spese (per ogni scadenza)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="text" name="rimborsoSpese" id="editRimborsoSpese" class="form-control"
+                                   pattern="[0-9]+([,\.][0-9]{1,2})?" title="Inserisci un importo valido">
+                        </div>
+                        <small class="form-text text-muted">Questo importo viene aggiunto a ciascuna scadenza</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Note</label>
+                        <textarea name="note" id="editNote" class="form-control" rows="2" maxlength="500"></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="isActive" value="true" class="form-check-input" id="editIsActive">
+                        <label class="form-check-label" for="editIsActive">Mandato Attivo</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Salva Modifiche
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // Ricerca nella tabella
+    document.getElementById('searchMandati').addEventListener('keyup', function() {
+        var filter = this.value.toLowerCase();
+        var rows = document.querySelectorAll('.mandato-row');
+        rows.forEach(function(row) {
+            var nome = row.querySelector('.cliente-nome').textContent.toLowerCase();
+            row.style.display = nome.includes(filter) ? '' : 'none';
+        });
+    });
+
+    // Popola modal modifica
+    var modalEdit = document.getElementById('modalEditMandato');
+    modalEdit.addEventListener('show.bs.modal', function(event) {
+        var button = event.relatedTarget;
+        document.getElementById('editMandatoId').value = button.getAttribute('data-id');
+        document.getElementById('editClienteNome').value = button.getAttribute('data-cliente');
+        document.getElementById('editImportoAnnuo').value = button.getAttribute('data-importo').replace('.', ',');
+        document.getElementById('editRimborsoSpese').value = button.getAttribute('data-rimborso').replace('.', ',');
+        document.getElementById('editTipoScadenza').value = button.getAttribute('data-tipo');
+        document.getElementById('editNote').value = button.getAttribute('data-note') || '';
+        document.getElementById('editIsActive').checked = button.getAttribute('data-attivo') === 'true';
+    });
+</script>
+}
+

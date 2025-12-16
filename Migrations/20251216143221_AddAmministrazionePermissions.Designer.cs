@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StudioCG.Web.Data;
 
@@ -11,9 +12,11 @@ using StudioCG.Web.Data;
 namespace StudioCG.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251216143221_AddAmministrazionePermissions")]
+    partial class AddAmministrazionePermissions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -585,38 +588,6 @@ namespace StudioCG.Web.Migrations
                     b.ToTable("AccessiClienti");
                 });
 
-            modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.AnnoFatturazione", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("Anno")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsCurrent")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Note")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("AnniFatturazione");
-                });
-
             modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.BilancioCEE", b =>
                 {
                     b.Property<int>("Id")
@@ -824,9 +795,6 @@ namespace StudioCG.Web.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<decimal>("RimborsoSpese")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<int>("TipoScadenza")
                         .HasColumnType("int");
 
@@ -882,9 +850,6 @@ namespace StudioCG.Web.Migrations
 
                     b.Property<int?>("NumeroProforma")
                         .HasColumnType("int");
-
-                    b.Property<decimal>("RimborsoSpese")
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("Stato")
                         .HasColumnType("int");
@@ -1143,17 +1108,6 @@ namespace StudioCG.Web.Migrations
                             Icon = "fas fa-user-tie",
                             PageName = "Report Professionisti",
                             PageUrl = "/Amministrazione/ReportProfessionisti",
-                            ShowInMenu = true
-                        },
-                        new
-                        {
-                            Id = 209,
-                            Category = "AMMINISTRAZIONE",
-                            Description = "Gestione anni di fatturazione",
-                            DisplayOrder = 29,
-                            Icon = "fas fa-calendar-alt",
-                            PageName = "Gestione Anni",
-                            PageUrl = "/Amministrazione/GestioneAnni",
                             ShowInMenu = true
                         });
                 });

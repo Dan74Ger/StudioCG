@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StudioCG.Web.Data;
 
@@ -11,9 +12,11 @@ using StudioCG.Web.Data;
 namespace StudioCG.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251216143032_AddFatturazioneTables")]
+    partial class AddFatturazioneTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -585,38 +588,6 @@ namespace StudioCG.Web.Migrations
                     b.ToTable("AccessiClienti");
                 });
 
-            modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.AnnoFatturazione", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("Anno")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsCurrent")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Note")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("AnniFatturazione");
-                });
-
             modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.BilancioCEE", b =>
                 {
                     b.Property<int>("Id")
@@ -824,9 +795,6 @@ namespace StudioCG.Web.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<decimal>("RimborsoSpese")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<int>("TipoScadenza")
                         .HasColumnType("int");
 
@@ -882,9 +850,6 @@ namespace StudioCG.Web.Migrations
 
                     b.Property<int?>("NumeroProforma")
                         .HasColumnType("int");
-
-                    b.Property<decimal>("RimborsoSpese")
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("Stato")
                         .HasColumnType("int");
@@ -1044,116 +1009,6 @@ namespace StudioCG.Web.Migrations
                             Icon = "fas fa-cogs",
                             PageName = "Tipi Attività",
                             PageUrl = "/AttivitaTipi",
-                            ShowInMenu = true
-                        },
-                        new
-                        {
-                            Id = 200,
-                            Category = "AMMINISTRAZIONE",
-                            Description = "Dashboard riepilogo fatturazione",
-                            DisplayOrder = 20,
-                            Icon = "fas fa-chart-line",
-                            PageName = "Dashboard Fatturazione",
-                            PageUrl = "/Amministrazione",
-                            ShowInMenu = true
-                        },
-                        new
-                        {
-                            Id = 201,
-                            Category = "AMMINISTRAZIONE",
-                            Description = "Gestione mandati professionali",
-                            DisplayOrder = 21,
-                            Icon = "fas fa-file-contract",
-                            PageName = "Mandati Clienti",
-                            PageUrl = "/Amministrazione/Mandati",
-                            ShowInMenu = true
-                        },
-                        new
-                        {
-                            Id = 202,
-                            Category = "AMMINISTRAZIONE",
-                            Description = "Gestione scadenze e fatturazione",
-                            DisplayOrder = 22,
-                            Icon = "fas fa-file-invoice-dollar",
-                            PageName = "Scadenze Fatturazione",
-                            PageUrl = "/Amministrazione/Scadenze",
-                            ShowInMenu = true
-                        },
-                        new
-                        {
-                            Id = 203,
-                            Category = "AMMINISTRAZIONE",
-                            Description = "Gestione spese pratiche mensili",
-                            DisplayOrder = 23,
-                            Icon = "fas fa-receipt",
-                            PageName = "Spese Pratiche",
-                            PageUrl = "/Amministrazione/SpesePratiche",
-                            ShowInMenu = true
-                        },
-                        new
-                        {
-                            Id = 204,
-                            Category = "AMMINISTRAZIONE",
-                            Description = "Registrazione accessi clienti",
-                            DisplayOrder = 24,
-                            Icon = "fas fa-door-open",
-                            PageName = "Accessi Clienti",
-                            PageUrl = "/Amministrazione/AccessiClienti",
-                            ShowInMenu = true
-                        },
-                        new
-                        {
-                            Id = 205,
-                            Category = "AMMINISTRAZIONE",
-                            Description = "Gestione Fatture in Cloud",
-                            DisplayOrder = 25,
-                            Icon = "fas fa-cloud",
-                            PageName = "Fatture in Cloud",
-                            PageUrl = "/Amministrazione/FattureCloud",
-                            ShowInMenu = true
-                        },
-                        new
-                        {
-                            Id = 206,
-                            Category = "AMMINISTRAZIONE",
-                            Description = "Gestione Bilanci CEE",
-                            DisplayOrder = 26,
-                            Icon = "fas fa-balance-scale",
-                            PageName = "Bilanci CEE",
-                            PageUrl = "/Amministrazione/BilanciCEE",
-                            ShowInMenu = true
-                        },
-                        new
-                        {
-                            Id = 207,
-                            Category = "AMMINISTRAZIONE",
-                            Description = "Gestione incassi fatture",
-                            DisplayOrder = 27,
-                            Icon = "fas fa-money-bill-wave",
-                            PageName = "Incassi",
-                            PageUrl = "/Amministrazione/Incassi",
-                            ShowInMenu = true
-                        },
-                        new
-                        {
-                            Id = 208,
-                            Category = "AMMINISTRAZIONE",
-                            Description = "Report incassi per professionista",
-                            DisplayOrder = 28,
-                            Icon = "fas fa-user-tie",
-                            PageName = "Report Professionisti",
-                            PageUrl = "/Amministrazione/ReportProfessionisti",
-                            ShowInMenu = true
-                        },
-                        new
-                        {
-                            Id = 209,
-                            Category = "AMMINISTRAZIONE",
-                            Description = "Gestione anni di fatturazione",
-                            DisplayOrder = 29,
-                            Icon = "fas fa-calendar-alt",
-                            PageName = "Gestione Anni",
-                            PageUrl = "/Amministrazione/GestioneAnni",
                             ShowInMenu = true
                         });
                 });

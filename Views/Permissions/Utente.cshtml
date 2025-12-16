@@ -1,10 +1,56 @@
 @model StudioCG.Web.Models.ViewModels.UserPermissionsViewModel
 @{
     ViewData["Title"] = "Gestione Permessi Utente";
+    
+    // Raggruppa i permessi per categoria
+    var permissionsByCategory = Model.Permissions
+        .Select((p, index) => new { Permission = p, Index = index })
+        .GroupBy(x => GetCategory(x.Permission.PageUrl))
+        .OrderBy(g => GetCategoryOrder(g.Key))
+        .ToList();
+    
+    string GetCategory(string pageUrl)
+    {
+        if (pageUrl.StartsWith("/Amministrazione")) return "AMMINISTRAZIONE";
+        if (pageUrl.StartsWith("/DynamicData/")) return "DATI UTENZA";
+        if (pageUrl.StartsWith("/Attivita")) return "ATTIVITÀ";
+        if (pageUrl.StartsWith("/Clienti")) return "CLIENTI";
+        return "GENERALE";
+    }
+    
+    int GetCategoryOrder(string category) => category switch
+    {
+        "GENERALE" => 1,
+        "CLIENTI" => 2,
+        "ATTIVITÀ" => 3,
+        "DATI UTENZA" => 4,
+        "AMMINISTRAZIONE" => 5,
+        _ => 99
+    };
+    
+    string GetCategoryIcon(string category) => category switch
+    {
+        "GENERALE" => "fas fa-home",
+        "CLIENTI" => "fas fa-users",
+        "ATTIVITÀ" => "fas fa-tasks",
+        "DATI UTENZA" => "fas fa-magic",
+        "AMMINISTRAZIONE" => "fas fa-file-invoice-dollar",
+        _ => "fas fa-folder"
+    };
+    
+    string GetCategoryColor(string category) => category switch
+    {
+        "GENERALE" => "primary",
+        "CLIENTI" => "info",
+        "ATTIVITÀ" => "success",
+        "DATI UTENZA" => "warning",
+        "AMMINISTRAZIONE" => "danger",
+        _ => "secondary"
+    };
 }
 
 <div class="row justify-content-center">
-    <div class="col-lg-10">
+    <div class="col-lg-11">
         <div class="card">
             <div class="card-header">
                 <div class="d-flex justify-content-between align-items-center">
@@ -31,97 +77,126 @@
                     <input type="hidden" asp-for="Username" />
                     <input type="hidden" asp-for="NomeCompleto" />
 
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width: 30%;">Pagina</th>
-                                    <th class="text-center" style="width: 15%;">
-                                        <i class="fas fa-eye me-1"></i>Visualizza
-                                    </th>
-                                    <th class="text-center" style="width: 15%;">
-                                        <i class="fas fa-plus me-1"></i>Crea
-                                    </th>
-                                    <th class="text-center" style="width: 15%;">
-                                        <i class="fas fa-edit me-1"></i>Modifica
-                                    </th>
-                                    <th class="text-center" style="width: 15%;">
-                                        <i class="fas fa-trash me-1"></i>Elimina
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @for (int i = 0; i < Model.Permissions.Count; i++)
-                                {
-                                    var isDynamicPage = Model.Permissions[i].PageUrl.StartsWith("/DynamicData/");
-                                    <tr>
-                                        <td>
-                                            <input type="hidden" name="Permissions[@i].PermissionId" value="@Model.Permissions[i].PermissionId" />
-                                            <input type="hidden" name="Permissions[@i].PageName" value="@Model.Permissions[i].PageName" />
-                                            <input type="hidden" name="Permissions[@i].PageUrl" value="@Model.Permissions[i].PageUrl" />
-                                            <div class="d-flex align-items-center">
-                                                @if (!string.IsNullOrEmpty(Model.Permissions[i].Icon))
-                                                {
-                                                    <i class="@Model.Permissions[i].Icon me-2 text-primary"></i>
-                                                }
-                                                <div>
-                                                    <strong>@Model.Permissions[i].PageName</strong>
-                                                    @if (isDynamicPage)
-                                                    {
-                                                        <span class="badge bg-info ms-1" title="Pagina Dinamica DATI UTENZA">
-                                                            <i class="fas fa-magic"></i>
-                                                        </span>
-                                                    }
-                                                    <br />
-                                                    <small class="text-muted">@Model.Permissions[i].PageUrl</small>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="text-center">
-                                            <div class="form-check d-flex justify-content-center">
-                                                <input type="checkbox" 
-                                                       name="Permissions[@i].CanView" 
-                                                       value="true"
-                                                       class="form-check-input permission-checkbox view-checkbox"
-                                                       data-row="@i"
-                                                       @(Model.Permissions[i].CanView ? "checked" : "") />
-                                            </div>
-                                        </td>
-                                        <td class="text-center">
-                                            <div class="form-check d-flex justify-content-center">
-                                                <input type="checkbox" 
-                                                       name="Permissions[@i].CanCreate" 
-                                                       value="true"
-                                                       class="form-check-input permission-checkbox"
-                                                       data-row="@i"
-                                                       @(Model.Permissions[i].CanCreate ? "checked" : "") />
-                                            </div>
-                                        </td>
-                                        <td class="text-center">
-                                            <div class="form-check d-flex justify-content-center">
-                                                <input type="checkbox" 
-                                                       name="Permissions[@i].CanEdit" 
-                                                       value="true"
-                                                       class="form-check-input permission-checkbox"
-                                                       data-row="@i"
-                                                       @(Model.Permissions[i].CanEdit ? "checked" : "") />
-                                            </div>
-                                        </td>
-                                        <td class="text-center">
-                                            <div class="form-check d-flex justify-content-center">
-                                                <input type="checkbox" 
-                                                       name="Permissions[@i].CanDelete" 
-                                                       value="true"
-                                                       class="form-check-input permission-checkbox"
-                                                       data-row="@i"
-                                                       @(Model.Permissions[i].CanDelete ? "checked" : "") />
-                                            </div>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                    @foreach (var categoryGroup in permissionsByCategory)
+                    {
+                        var categoryName = categoryGroup.Key;
+                        var categoryIcon = GetCategoryIcon(categoryName);
+                        var categoryColor = GetCategoryColor(categoryName);
+                        
+                        <div class="card mb-3 border-@categoryColor">
+                            <div class="card-header bg-@categoryColor text-white py-2">
+                                <h6 class="mb-0">
+                                    <i class="@categoryIcon me-2"></i>@categoryName
+                                    <span class="badge bg-light text-dark ms-2">@categoryGroup.Count() pagine</span>
+                                </h6>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 35%;">Pagina</th>
+                                                <th class="text-center" style="width: 13%;">
+                                                    <i class="fas fa-eye me-1"></i>Visualizza
+                                                </th>
+                                                <th class="text-center" style="width: 13%;">
+                                                    <i class="fas fa-plus me-1"></i>Crea
+                                                </th>
+                                                <th class="text-center" style="width: 13%;">
+                                                    <i class="fas fa-edit me-1"></i>Modifica
+                                                </th>
+                                                <th class="text-center" style="width: 13%;">
+                                                    <i class="fas fa-trash me-1"></i>Elimina
+                                                </th>
+                                                <th class="text-center" style="width: 13%;">
+                                                    <button type="button" class="btn btn-sm btn-outline-success category-select-all" data-category="@categoryName" title="Seleziona tutto @categoryName">
+                                                        <i class="fas fa-check-double"></i>
+                                                    </button>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var item in categoryGroup)
+                                            {
+                                                var perm = item.Permission;
+                                                var i = item.Index;
+                                                var isDynamicPage = perm.PageUrl.StartsWith("/DynamicData/");
+                                                <tr data-category="@categoryName">
+                                                    <td>
+                                                        <input type="hidden" name="Permissions[@i].PermissionId" value="@perm.PermissionId" />
+                                                        <input type="hidden" name="Permissions[@i].PageName" value="@perm.PageName" />
+                                                        <input type="hidden" name="Permissions[@i].PageUrl" value="@perm.PageUrl" />
+                                                        <div class="d-flex align-items-center">
+                                                            @if (!string.IsNullOrEmpty(perm.Icon))
+                                                            {
+                                                                <i class="@perm.Icon me-2 text-@categoryColor"></i>
+                                                            }
+                                                            <div>
+                                                                <strong>@perm.PageName</strong>
+                                                                @if (isDynamicPage)
+                                                                {
+                                                                    <span class="badge bg-warning text-dark ms-1" title="Pagina Dinamica">
+                                                                        <i class="fas fa-magic"></i>
+                                                                    </span>
+                                                                }
+                                                                <br />
+                                                                <small class="text-muted">@perm.PageUrl</small>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <div class="form-check d-flex justify-content-center">
+                                                            <input type="checkbox" 
+                                                                   name="Permissions[@i].CanView" 
+                                                                   value="true"
+                                                                   class="form-check-input permission-checkbox view-checkbox"
+                                                                   data-row="@i"
+                                                                   data-category="@categoryName"
+                                                                   @(perm.CanView ? "checked" : "") />
+                                                        </div>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <div class="form-check d-flex justify-content-center">
+                                                            <input type="checkbox" 
+                                                                   name="Permissions[@i].CanCreate" 
+                                                                   value="true"
+                                                                   class="form-check-input permission-checkbox"
+                                                                   data-row="@i"
+                                                                   data-category="@categoryName"
+                                                                   @(perm.CanCreate ? "checked" : "") />
+                                                        </div>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <div class="form-check d-flex justify-content-center">
+                                                            <input type="checkbox" 
+                                                                   name="Permissions[@i].CanEdit" 
+                                                                   value="true"
+                                                                   class="form-check-input permission-checkbox"
+                                                                   data-row="@i"
+                                                                   data-category="@categoryName"
+                                                                   @(perm.CanEdit ? "checked" : "") />
+                                                        </div>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <div class="form-check d-flex justify-content-center">
+                                                            <input type="checkbox" 
+                                                                   name="Permissions[@i].CanDelete" 
+                                                                   value="true"
+                                                                   class="form-check-input permission-checkbox"
+                                                                   data-row="@i"
+                                                                   data-category="@categoryName"
+                                                                   @(perm.CanDelete ? "checked" : "") />
+                                                        </div>
+                                                    </td>
+                                                    <td></td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    }
 
                     <div class="d-flex gap-2 mt-4">
                         <button type="submit" class="btn btn-primary">
@@ -142,12 +217,24 @@
 
 @section Scripts {
 <script>
+    // Seleziona tutto globale
     document.getElementById('selectAll').addEventListener('click', function() {
         document.querySelectorAll('.permission-checkbox').forEach(cb => cb.checked = true);
     });
     
+    // Deseleziona tutto globale
     document.getElementById('deselectAll').addEventListener('click', function() {
         document.querySelectorAll('.permission-checkbox').forEach(cb => cb.checked = false);
+    });
+    
+    // Seleziona tutto per categoria
+    document.querySelectorAll('.category-select-all').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const category = this.getAttribute('data-category');
+            const checkboxes = document.querySelectorAll(`.permission-checkbox[data-category="${category}"]`);
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
+        });
     });
 </script>
 }
@@ -162,5 +249,10 @@
         background-color: #1a365d;
         border-color: #1a365d;
     }
+    .card.border-primary .card-header { background-color: #0d6efd !important; }
+    .card.border-info .card-header { background-color: #0dcaf0 !important; }
+    .card.border-success .card-header { background-color: #198754 !important; }
+    .card.border-warning .card-header { background-color: #ffc107 !important; color: #000 !important; }
+    .card.border-danger .card-header { background-color: #dc3545 !important; }
 </style>
 

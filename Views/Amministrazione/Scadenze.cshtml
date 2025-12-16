@@ -1,0 +1,611 @@
+@model List<StudioCG.Web.Models.Fatturazione.ScadenzaFatturazione>
+@using StudioCG.Web.Models.Fatturazione
+@{
+    ViewData["Title"] = "Scadenze Fatturazione";
+    var annoSelezionato = (int)ViewBag.AnnoSelezionato;
+    var anniDisponibili = (List<int>)ViewBag.AnniDisponibili;
+    var clienti = (List<StudioCG.Web.Models.Cliente>)ViewBag.Clienti;
+    var clienteIdSelezionato = (int?)ViewBag.ClienteIdSelezionato;
+    var statoSelezionato = (int?)ViewBag.StatoSelezionato;
+}
+
+<style>
+    .bg-orange { background-color: #fd7e14 !important; }
+    .text-orange { color: #fd7e14 !important; }
+    .border-orange { border-color: #fd7e14 !important; }
+</style>
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h4 class="mb-0"><i class="fas fa-file-invoice-dollar me-2 text-primary"></i>Scadenze Fatturazione</h4>
+                <small class="text-muted">Gestione scadenze, proforma e fatture - Anno @annoSelezionato</small>
+            </div>
+            <div class="d-flex gap-2">
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-calendar-alt me-2"></i>Anno @annoSelezionato
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        @foreach (var anno in anniDisponibili)
+                        {
+                            <li>
+                                <a class="dropdown-item @(anno == annoSelezionato ? "active" : "")" 
+                                   asp-action="Scadenze" asp-route-anno="@anno">@anno</a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiche -->
+    @{
+        var totAperte = Model.Count(s => s.Stato == StatoScadenza.Aperta);
+        var totProforma = Model.Count(s => s.Stato == StatoScadenza.Proforma);
+        var totFatturate = Model.Count(s => s.Stato == StatoScadenza.Fatturata);
+        var importoAperte = Model.Where(s => s.Stato == StatoScadenza.Aperta).Sum(s => s.TotaleScadenza);
+        var importoProforma = Model.Where(s => s.Stato == StatoScadenza.Proforma).Sum(s => s.TotaleScadenza);
+        var importoFatturate = Model.Where(s => s.Stato == StatoScadenza.Fatturata).Sum(s => s.TotaleScadenza);
+    }
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <a asp-action="Scadenze" asp-route-anno="@annoSelezionato" asp-route-stato="0" 
+               class="card text-decoration-none @(statoSelezionato == 0 ? "border-3 border-secondary" : "")">
+                <div class="card-body bg-secondary bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-secondary small">Aperte</div>
+                            <div class="fs-4 fw-bold text-secondary">@totAperte</div>
+                            <small class="text-muted">@importoAperte.ToString("C", new System.Globalization.CultureInfo("it-IT"))</small>
+                        </div>
+                        <i class="fas fa-clock fa-2x text-secondary opacity-50"></i>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a asp-action="Scadenze" asp-route-anno="@annoSelezionato" asp-route-stato="1" 
+               class="card text-decoration-none @(statoSelezionato == 1 ? "border-3 border-warning" : "")">
+                <div class="card-body bg-warning bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-warning small">Proforma</div>
+                            <div class="fs-4 fw-bold text-warning">@totProforma</div>
+                            <small class="text-muted">@importoProforma.ToString("C", new System.Globalization.CultureInfo("it-IT"))</small>
+                        </div>
+                        <i class="fas fa-file-alt fa-2x text-warning opacity-50"></i>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a asp-action="Scadenze" asp-route-anno="@annoSelezionato" asp-route-stato="2" 
+               class="card text-decoration-none @(statoSelezionato == 2 ? "border-3 border-success" : "")">
+                <div class="card-body bg-success bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-success small">Fatturate</div>
+                            <div class="fs-4 fw-bold text-success">@totFatturate</div>
+                            <small class="text-muted">@importoFatturate.ToString("C", new System.Globalization.CultureInfo("it-IT"))</small>
+                        </div>
+                        <i class="fas fa-file-invoice-dollar fa-2x text-success opacity-50"></i>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtri -->
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <form asp-action="Scadenze" method="get" class="row g-2 align-items-end">
+                <input type="hidden" name="anno" value="@annoSelezionato" />
+                <div class="col-md-4">
+                    <label class="form-label small text-muted">Cliente</label>
+                    <select name="clienteId" class="form-select form-select-sm">
+                        <option value="">-- Tutti i clienti --</option>
+                        @foreach (var cliente in clienti)
+                        {
+                            <option value="@cliente.Id" selected="@(clienteIdSelezionato == cliente.Id)">@cliente.RagioneSociale</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">Stato</label>
+                    <select name="stato" class="form-select form-select-sm">
+                        <option value="">-- Tutti --</option>
+                        <option value="0" selected="@(statoSelezionato == 0)">Aperta</option>
+                        <option value="1" selected="@(statoSelezionato == 1)">Proforma</option>
+                        <option value="2" selected="@(statoSelezionato == 2)">Fatturata</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-filter me-1"></i>Filtra
+                    </button>
+                    <a asp-action="Scadenze" asp-route-anno="@annoSelezionato" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-times me-1"></i>Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabella Scadenze -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Elenco Scadenze (@Model.Count)</h5>
+        </div>
+        <div class="card-body p-0">
+            @if (Model.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>Data Scad.</th>
+                                <th>Cliente</th>
+                                <th class="text-end">Mandato</th>
+                                <th class="text-end">Rimb.Spese</th>
+                                <th class="text-end">Spese Extra</th>
+                                <th class="text-end">Totale</th>
+                                <th>Proforma</th>
+                                <th>Fattura</th>
+                                <th>Stato</th>
+                                <th class="text-center">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var scad in Model)
+                            {
+                                var isScaduta = scad.DataScadenza < DateTime.Today && scad.Stato == StatoScadenza.Aperta;
+                                <tr class="@(isScaduta ? "table-danger" : "")">
+                                    <td>
+                                        <span class="@(isScaduta ? "text-danger fw-bold" : "")">
+                                            @scad.DataScadenza.ToString("dd/MM/yyyy")
+                                        </span>
+                                        @if (isScaduta)
+                                        {
+                                            <i class="fas fa-exclamation-triangle text-danger ms-1" title="Scaduta!"></i>
+                                        }
+                                    </td>
+                                    <td>
+                                        <strong>@scad.Cliente?.RagioneSociale</strong>
+                                        @if (!string.IsNullOrEmpty(scad.Cliente?.TipoSoggetto))
+                                        {
+                                            <span class="badge bg-light text-dark ms-1">@scad.Cliente.TipoSoggetto</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">@scad.ImportoMandato.ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                    <td class="text-end">
+                                        @if (scad.RimborsoSpese > 0)
+                                        {
+                                            <span class="text-success">@scad.RimborsoSpese.ToString("C", new System.Globalization.CultureInfo("it-IT"))</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        @if (scad.TotaleSpese > 0)
+                                        {
+                                            <span class="text-info">+@scad.TotaleSpese.ToString("C", new System.Globalization.CultureInfo("it-IT"))</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td class="text-end fw-bold">@scad.TotaleScadenza.ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                    <td>
+                                        @if (scad.NumeroProforma.HasValue)
+                                        {
+                                            <span class="badge bg-warning text-dark">@scad.NumeroProformaFormattato</span>
+                                            <small class="d-block text-muted">@scad.DataProforma?.ToString("dd/MM")</small>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (scad.NumeroFattura.HasValue)
+                                        {
+                                            <span class="badge bg-success">@scad.NumeroFatturaFormattato</span>
+                                            <small class="d-block text-muted">@scad.DataFattura?.ToString("dd/MM")</small>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @switch (scad.Stato)
+                                        {
+                                            case StatoScadenza.Aperta:
+                                                <span class="badge bg-secondary">Aperta</span>
+                                                break;
+                                            case StatoScadenza.Proforma:
+                                                <span class="badge bg-warning text-dark">Proforma</span>
+                                                break;
+                                            case StatoScadenza.Fatturata:
+                                                <span class="badge bg-success">Fatturata</span>
+                                                break;
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm">
+                                            @* Dettaglio/Spese *@
+                                            <button type="button" class="btn btn-outline-info" title="Dettaglio Scadenza"
+                                                    data-bs-toggle="modal" data-bs-target="#modalDettaglio"
+                                                    data-id="@scad.Id"
+                                                    data-cliente="@scad.Cliente?.RagioneSociale"
+                                                    data-data="@scad.DataScadenza.ToString("dd/MM/yyyy")"
+                                                    data-mandato="@scad.ImportoMandato.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                    data-spesepratiche="@scad.TotaleSpesePratiche.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                    data-accessi="@scad.TotaleAccessiClienti.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                    data-cloud="@scad.TotaleFattureCloud.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                    data-bilanci="@scad.TotaleBilanciCEE.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                    data-totale="@scad.TotaleScadenza.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+
+                                            @* Modifica Scadenza (solo se APERTA - no proforma, no fattura) *@
+                                            @if (scad.Stato == StatoScadenza.Aperta)
+                                            {
+                                                <button type="button" class="btn btn-primary" title="Modifica Data/Importo/Rimborso"
+                                                        data-bs-toggle="modal" data-bs-target="#modalModificaScadenza"
+                                                        data-id="@scad.Id"
+                                                        data-cliente="@scad.Cliente?.RagioneSociale"
+                                                        data-data="@scad.DataScadenza.ToString("yyyy-MM-dd")"
+                                                        data-importo="@scad.ImportoMandato.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                        data-rimborso="@scad.RimborsoSpese.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                            }
+
+                                            @* Emetti Proforma (solo se Aperta) *@
+                                            @if (scad.Stato == StatoScadenza.Aperta)
+                                            {
+                                                <button type="button" class="btn btn-warning" title="Emetti Proforma"
+                                                        data-bs-toggle="modal" data-bs-target="#modalProforma"
+                                                        data-id="@scad.Id"
+                                                        data-cliente="@scad.Cliente?.RagioneSociale"
+                                                        data-totale="@scad.TotaleScadenza.ToString("C", new System.Globalization.CultureInfo("it-IT"))">
+                                                    <i class="fas fa-file-alt"></i>
+                                                </button>
+                                            }
+
+                                            @* Emetti Fattura (se Aperta o Proforma) *@
+                                            @if (scad.Stato == StatoScadenza.Aperta || scad.Stato == StatoScadenza.Proforma)
+                                            {
+                                                <button type="button" class="btn btn-success" title="Emetti Fattura"
+                                                        data-bs-toggle="modal" data-bs-target="#modalFattura"
+                                                        data-id="@scad.Id"
+                                                        data-cliente="@scad.Cliente?.RagioneSociale"
+                                                        data-totale="@scad.TotaleScadenza.ToString("C", new System.Globalization.CultureInfo("it-IT"))"
+                                                        data-hasproforma="@(scad.NumeroProforma.HasValue ? "true" : "false")"
+                                                        data-proforma="@scad.NumeroProformaFormattato">
+                                                    <i class="fas fa-file-invoice-dollar"></i>
+                                                </button>
+                                            }
+
+                                            @* Annulla Proforma (solo se Proforma e NO Fattura) *@
+                                            @if (scad.Stato == StatoScadenza.Proforma && !scad.NumeroFattura.HasValue)
+                                            {
+                                                <form asp-action="AnnullaProforma" method="post" class="d-inline" 
+                                                      onsubmit="return confirm('Annullare la proforma @scad.NumeroProformaFormattato?');">
+                                                    <input type="hidden" name="id" value="@scad.Id" />
+                                                    <input type="hidden" name="anno" value="@annoSelezionato" />
+                                                    <button type="submit" class="btn btn-outline-warning btn-sm" title="Annulla Proforma">
+                                                        <i class="fas fa-undo"></i>
+                                                    </button>
+                                                </form>
+                                            }
+
+                                            @* Annulla Fattura (solo se ultima fattura e senza incassi) *@
+                                            @if (scad.Stato == StatoScadenza.Fatturata && !(scad.Incassi?.Any() ?? false))
+                                            {
+                                                <form asp-action="AnnullaFattura" method="post" class="d-inline"
+                                                      onsubmit="return confirm('Annullare la fattura @scad.NumeroFatturaFormattato? Verificare che sia l\'ultima emessa.');">
+                                                    <input type="hidden" name="id" value="@scad.Id" />
+                                                    <input type="hidden" name="anno" value="@annoSelezionato" />
+                                                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Annulla Fattura">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </form>
+                                            }
+
+                                            @* Elimina Scadenza (solo se Aperta) *@
+                                            @if (scad.Stato == StatoScadenza.Aperta)
+                                            {
+                                                <form asp-action="EliminaScadenza" method="post" class="d-inline"
+                                                      onsubmit="return confirm('Eliminare questa scadenza?');">
+                                                    <input type="hidden" name="id" value="@scad.Id" />
+                                                    <input type="hidden" name="anno" value="@annoSelezionato" />
+                                                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Elimina Scadenza">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="bg-light">
+                            <tr class="fw-bold">
+                                <td colspan="2">TOTALI</td>
+                                <td class="text-end">@Model.Sum(s => s.ImportoMandato).ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                <td class="text-end text-success">@Model.Sum(s => s.RimborsoSpese).ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                <td class="text-end text-info">@Model.Sum(s => s.TotaleSpese).ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                <td class="text-end">@Model.Sum(s => s.TotaleScadenza).ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                <td colspan="4"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <i class="fas fa-file-invoice fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">Nessuna scadenza trovata</h5>
+                    <p class="text-muted">Crea mandati per generare le scadenze</p>
+                    <a asp-action="Mandati" asp-route-anno="@annoSelezionato" class="btn btn-primary">
+                        <i class="fas fa-file-contract me-2"></i>Vai ai Mandati
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal Dettaglio -->
+<div class="modal fade" id="modalDettaglio" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-eye me-2"></i>Dettaglio Scadenza</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6 id="dettaglioCliente" class="fw-bold mb-3"></h6>
+                <p class="text-muted mb-3">Scadenza: <strong id="dettaglioData"></strong></p>
+                
+                <table class="table table-sm">
+                    <tbody>
+                        <tr>
+                            <td>Importo Mandato</td>
+                            <td class="text-end fw-bold" id="dettaglioMandato"></td>
+                        </tr>
+                        <tr>
+                            <td>Spese Pratiche</td>
+                            <td class="text-end text-info" id="dettaglioSpesePratiche"></td>
+                        </tr>
+                        <tr>
+                            <td>Accessi Clienti</td>
+                            <td class="text-end text-info" id="dettaglioAccessi"></td>
+                        </tr>
+                        <tr>
+                            <td>Fatture in Cloud</td>
+                            <td class="text-end text-info" id="dettaglioCloud"></td>
+                        </tr>
+                        <tr>
+                            <td>Bilanci CEE</td>
+                            <td class="text-end text-info" id="dettaglioBilanci"></td>
+                        </tr>
+                        <tr class="table-primary">
+                            <td class="fw-bold">TOTALE SCADENZA</td>
+                            <td class="text-end fw-bold fs-5" id="dettaglioTotale"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Emetti Proforma -->
+<div class="modal fade" id="modalProforma" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="EmettiProforma" method="post">
+                <input type="hidden" name="id" id="proformaId" />
+                <input type="hidden" name="anno" value="@annoSelezionato" />
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title"><i class="fas fa-file-alt me-2"></i>Emetti Proforma</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong id="proformaCliente"></strong></p>
+                    <p>Importo: <strong id="proformaTotale"></strong></p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Data Proforma</label>
+                        <input type="date" name="dataProforma" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Il numero proforma verrà assegnato automaticamente.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-check me-2"></i>Emetti Proforma
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Emetti Fattura -->
+<div class="modal fade" id="modalFattura" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="EmettiFattura" method="post">
+                <input type="hidden" name="id" id="fatturaId" />
+                <input type="hidden" name="anno" value="@annoSelezionato" />
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-file-invoice-dollar me-2"></i>Emetti Fattura</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong id="fatturaCliente"></strong></p>
+                    <p>Importo: <strong id="fatturaTotale"></strong></p>
+                    <p id="fatturaProformaInfo" class="text-warning" style="display:none;">
+                        <i class="fas fa-file-alt me-1"></i>Proforma: <span id="fatturaProforma"></span>
+                    </p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Data Fattura</label>
+                        <input type="date" name="dataFattura" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                    </div>
+                    
+                    <div class="alert alert-success">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Il numero fattura verrà assegnato automaticamente.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check me-2"></i>Emetti Fattura
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Modifica Scadenza -->
+<div class="modal fade" id="modalModificaScadenza" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="ModificaScadenza" method="post">
+                <input type="hidden" name="id" id="modificaScadenzaId" />
+                <input type="hidden" name="anno" value="@annoSelezionato" />
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Modifica Scadenza</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong id="modificaScadenzaCliente"></strong></p>
+                    
+                    <div id="modificaScadenzaProformaAlert" class="alert alert-warning" style="display:none;">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Attenzione: questa scadenza ha una proforma (<span id="modificaScadenzaProformaNum"></span>).
+                        <br><small>La modifica aggiornerà i dati ma la proforma rimarrà valida.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Data Scadenza <span class="text-danger">*</span></label>
+                        <input type="date" name="dataScadenza" id="modificaScadenzaData" class="form-control" required />
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Importo Mandato <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="text" name="importoMandato" id="modificaScadenzaImporto" class="form-control" required 
+                                   pattern="[0-9]+([,\.][0-9]{1,2})?" title="Inserisci un importo valido (es: 1200,00)" />
+                        </div>
+                        <small class="form-text text-muted">Usa la virgola come separatore decimale</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Rimborso Spese</label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="text" name="rimborsoSpese" id="modificaScadenzaRimborso" class="form-control" 
+                                   pattern="[0-9]+([,\.][0-9]{1,2})?" title="Inserisci un importo valido (es: 50,00)" value="0,00" />
+                        </div>
+                        <small class="form-text text-muted">Rimborso spese fisso per questa scadenza</small>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Le altre spese extra (Pratiche, Accessi, etc.) vengono gestite separatamente.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Salva Modifiche
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // Formato valuta italiano
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+    }
+
+    // Modal Dettaglio
+    document.getElementById('modalDettaglio').addEventListener('show.bs.modal', function(event) {
+        var btn = event.relatedTarget;
+        document.getElementById('dettaglioCliente').textContent = btn.getAttribute('data-cliente');
+        document.getElementById('dettaglioData').textContent = btn.getAttribute('data-data');
+        document.getElementById('dettaglioMandato').textContent = formatCurrency(parseFloat(btn.getAttribute('data-mandato')));
+        document.getElementById('dettaglioSpesePratiche').textContent = formatCurrency(parseFloat(btn.getAttribute('data-spesepratiche')));
+        document.getElementById('dettaglioAccessi').textContent = formatCurrency(parseFloat(btn.getAttribute('data-accessi')));
+        document.getElementById('dettaglioCloud').textContent = formatCurrency(parseFloat(btn.getAttribute('data-cloud')));
+        document.getElementById('dettaglioBilanci').textContent = formatCurrency(parseFloat(btn.getAttribute('data-bilanci')));
+        document.getElementById('dettaglioTotale').textContent = formatCurrency(parseFloat(btn.getAttribute('data-totale')));
+    });
+
+    // Modal Proforma
+    document.getElementById('modalProforma').addEventListener('show.bs.modal', function(event) {
+        var btn = event.relatedTarget;
+        document.getElementById('proformaId').value = btn.getAttribute('data-id');
+        document.getElementById('proformaCliente').textContent = btn.getAttribute('data-cliente');
+        document.getElementById('proformaTotale').textContent = btn.getAttribute('data-totale');
+    });
+
+    // Modal Fattura
+    document.getElementById('modalFattura').addEventListener('show.bs.modal', function(event) {
+        var btn = event.relatedTarget;
+        document.getElementById('fatturaId').value = btn.getAttribute('data-id');
+        document.getElementById('fatturaCliente').textContent = btn.getAttribute('data-cliente');
+        document.getElementById('fatturaTotale').textContent = btn.getAttribute('data-totale');
+        
+        var hasProforma = btn.getAttribute('data-hasproforma') === 'true';
+        document.getElementById('fatturaProformaInfo').style.display = hasProforma ? 'block' : 'none';
+        if (hasProforma) {
+            document.getElementById('fatturaProforma').textContent = btn.getAttribute('data-proforma');
+        }
+    });
+
+    // Modal Modifica Scadenza
+    document.getElementById('modalModificaScadenza').addEventListener('show.bs.modal', function(event) {
+        var btn = event.relatedTarget;
+        document.getElementById('modificaScadenzaId').value = btn.getAttribute('data-id');
+        document.getElementById('modificaScadenzaCliente').textContent = btn.getAttribute('data-cliente');
+        document.getElementById('modificaScadenzaData').value = btn.getAttribute('data-data');
+        document.getElementById('modificaScadenzaImporto').value = btn.getAttribute('data-importo').replace('.', ',');
+        document.getElementById('modificaScadenzaRimborso').value = btn.getAttribute('data-rimborso').replace('.', ',');
+        
+        var hasProforma = btn.getAttribute('data-hasproforma') === 'true';
+        document.getElementById('modificaScadenzaProformaAlert').style.display = hasProforma ? 'block' : 'none';
+        if (hasProforma) {
+            document.getElementById('modificaScadenzaProformaNum').textContent = btn.getAttribute('data-proforma');
+        }
+    });
+</script>
+}
+

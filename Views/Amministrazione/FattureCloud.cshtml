@@ -1,0 +1,317 @@
+@model List<StudioCG.Web.Models.Fatturazione.FatturaCloud>
+@using StudioCG.Web.Models.Fatturazione
+@{
+    ViewData["Title"] = "Fatture in Cloud";
+    var annoSelezionato = (int)ViewBag.AnnoSelezionato;
+    var anniDisponibili = (List<int>)ViewBag.AnniDisponibili;
+    var clientiSenza = (List<StudioCG.Web.Models.Cliente>)ViewBag.ClientiSenza;
+}
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h4 class="mb-0"><i class="fas fa-cloud me-2 text-info"></i>Fatture in Cloud</h4>
+                <small class="text-muted">Gestione servizio Fatture in Cloud - Anno @annoSelezionato</small>
+            </div>
+            <div class="d-flex gap-2">
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-calendar-alt me-2"></i>Anno @annoSelezionato
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        @foreach (var anno in anniDisponibili)
+                        {
+                            <li>
+                                <a class="dropdown-item @(anno == annoSelezionato ? "active" : "")" 
+                                   asp-action="FattureCloud" asp-route-anno="@anno">@anno</a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+                @if (clientiSenza.Any())
+                {
+                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuovo">
+                        <i class="fas fa-plus me-2"></i>Aggiungi Cliente
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiche -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="small opacity-75">Clienti con Servizio</div>
+                            <div class="fs-4 fw-bold">@Model.Count</div>
+                        </div>
+                        <i class="fas fa-users fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="small opacity-75">Importo Totale</div>
+                            <div class="fs-4 fw-bold">@Model.Sum(f => f.Importo).ToString("C", new System.Globalization.CultureInfo("it-IT"))</div>
+                        </div>
+                        <i class="fas fa-euro-sign fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-secondary text-white">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="small opacity-75">Clienti Senza Servizio</div>
+                            <div class="fs-4 fw-bold">@clientiSenza.Count</div>
+                        </div>
+                        <i class="fas fa-user-slash fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabella -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Clienti con Fatture in Cloud (@Model.Count)</h5>
+        </div>
+        <div class="card-body p-0">
+            @if (Model.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Tipo</th>
+                                <th class="text-end">Importo</th>
+                                <th>Scadenza</th>
+                                <th>Stato Scad.</th>
+                                <th class="text-center">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var fc in Model)
+                            {
+                                var isProtetta = fc.ScadenzaFatturazione?.Stato != StatoScadenza.Aperta;
+                                <tr>
+                                    <td><strong>@fc.Cliente?.RagioneSociale</strong></td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(fc.Cliente?.TipoSoggetto))
+                                        {
+                                            <span class="badge bg-light text-dark">@fc.Cliente.TipoSoggetto</span>
+                                        }
+                                    </td>
+                                    <td class="text-end fw-bold">@fc.Importo.ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                    <td>
+                                        @if (fc.ScadenzaFatturazione != null)
+                                        {
+                                            <span class="badge bg-light text-dark">
+                                                @fc.ScadenzaFatturazione.DataScadenza.ToString("dd/MM/yyyy")
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (fc.ScadenzaFatturazione != null)
+                                        {
+                                            @switch (fc.ScadenzaFatturazione.Stato)
+                                            {
+                                                case StatoScadenza.Aperta:
+                                                    <span class="badge bg-secondary">Aperta</span>
+                                                    break;
+                                                case StatoScadenza.Proforma:
+                                                    <span class="badge bg-warning text-dark">Proforma</span>
+                                                    break;
+                                                case StatoScadenza.Fatturata:
+                                                    <span class="badge bg-success">Fatturata</span>
+                                                    break;
+                                            }
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @if (!isProtetta)
+                                        {
+                                            <div class="btn-group btn-group-sm">
+                                                <button type="button" class="btn btn-outline-primary" title="Modifica"
+                                                        data-bs-toggle="modal" data-bs-target="#modalEdit"
+                                                        data-id="@fc.Id"
+                                                        data-cliente="@fc.Cliente?.RagioneSociale"
+                                                        data-importo="@fc.Importo.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                        data-scadenzaid="@fc.ScadenzaFatturazioneId">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <form asp-action="DeleteFatturaCloud" method="post" class="d-inline"
+                                                      onsubmit="return confirm('Rimuovere il servizio Fatture in Cloud per questo cliente?');">
+                                                    <input type="hidden" name="id" value="@fc.Id" />
+                                                    <input type="hidden" name="anno" value="@annoSelezionato" />
+                                                    <button type="submit" class="btn btn-outline-danger" title="Elimina">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted" title="Scadenza protetta (proforma/fattura emessa)">
+                                                <i class="fas fa-lock"></i>
+                                            </span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="bg-light">
+                            <tr class="fw-bold">
+                                <td colspan="2">TOTALE</td>
+                                <td class="text-end">@Model.Sum(f => f.Importo).ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                <td colspan="3"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <i class="fas fa-cloud fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">Nessun cliente con Fatture in Cloud</h5>
+                    <p class="text-muted">Clicca "Aggiungi Cliente" per iniziare</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nuovo -->
+<div class="modal fade" id="modalNuovo" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CreateFatturaCloud" method="post">
+                <input type="hidden" name="anno" value="@annoSelezionato" />
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Aggiungi Cliente</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Cliente <span class="text-danger">*</span></label>
+                        <select name="clienteId" id="selectClienteNuovo" class="form-select" required>
+                            <option value="">-- Seleziona Cliente --</option>
+                            @foreach (var cliente in clientiSenza)
+                            {
+                                <option value="@cliente.Id">@cliente.RagioneSociale (@cliente.TipoSoggetto)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Scadenza <span class="text-danger">*</span></label>
+                        <select name="scadenzaFatturazioneId" id="selectScadenzaNuovo" class="form-select" required>
+                            <option value="">-- Prima seleziona un cliente --</option>
+                        </select>
+                        <small class="form-text text-muted">Default: 31/10 (se disponibile)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Importo <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="text" name="importo" class="form-control" required 
+                                   value="240,00" placeholder="0,00">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-info text-white">
+                        <i class="fas fa-save me-2"></i>Salva
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Modifica -->
+<div class="modal fade" id="modalEdit" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="UpdateFatturaCloud" method="post">
+                <input type="hidden" name="id" id="editId" />
+                <input type="hidden" name="anno" value="@annoSelezionato" />
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Modifica</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Cliente</label>
+                        <input type="text" id="editCliente" class="form-control" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Importo <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="text" name="importo" id="editImporto" class="form-control" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Salva
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    var annoCorrente = @annoSelezionato;
+    
+    document.getElementById('selectClienteNuovo').addEventListener('change', function() {
+        var clienteId = this.value;
+        var selectScadenza = document.getElementById('selectScadenzaNuovo');
+        
+        if (!clienteId) {
+            selectScadenza.innerHTML = '<option value="">-- Prima seleziona un cliente --</option>';
+            return;
+        }
+        
+        fetch('/Amministrazione/GetScadenzeCliente?clienteId=' + clienteId + '&anno=' + annoCorrente)
+            .then(response => response.json())
+            .then(data => {
+                selectScadenza.innerHTML = '<option value="">-- Seleziona scadenza --</option>';
+                data.forEach(function(scad) {
+                    var opt = document.createElement('option');
+                    opt.value = scad.id;
+                    opt.textContent = scad.dataScadenza + ' - ' + scad.stato;
+                    // Default 31/10
+                    if (scad.dataScadenza.includes('31/10')) opt.selected = true;
+                    selectScadenza.appendChild(opt);
+                });
+            });
+    });
+    
+    document.getElementById('modalEdit').addEventListener('show.bs.modal', function(event) {
+        var btn = event.relatedTarget;
+        document.getElementById('editId').value = btn.getAttribute('data-id');
+        document.getElementById('editCliente').value = btn.getAttribute('data-cliente');
+        document.getElementById('editImporto').value = btn.getAttribute('data-importo').replace('.', ',');
+    });
+</script>
+}
+
