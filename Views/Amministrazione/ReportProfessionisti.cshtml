@@ -7,6 +7,7 @@
     var reportData = ViewBag.ReportData as IEnumerable<dynamic> ?? new List<dynamic>();
     var professionisti = ViewBag.Professionisti as List<StudioCG.Web.Models.User> ?? new List<StudioCG.Web.Models.User>();
     var totaleGenerale = (decimal)ViewBag.TotaleGenerale;
+    var cultura = new System.Globalization.CultureInfo("it-IT");
     
     var mesi = new[] { "", "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", 
                        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre" };
@@ -182,14 +183,14 @@
                                     <td>
                                         <strong>@item.NomeCompleto</strong>
                                     </td>
-                                    <td class="text-end fw-bold">@((decimal)item.TotaleIncassato).ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                    <td class="text-end fw-bold">@(((decimal)item.TotaleIncassato).ToString("C", new System.Globalization.CultureInfo("it-IT")))</td>
                                     <td>
                                         <div class="progress" style="height: 25px;">
                                             <div class="progress-bar @(pos == 1 ? "bg-success" : pos == 2 ? "bg-info" : "bg-primary")" 
                                                  role="progressbar" 
-                                                 style="width: @percentuale.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)%"
+                                                 style="width: @(percentuale.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture))%"
                                                  aria-valuenow="@percentuale" aria-valuemin="0" aria-valuemax="100">
-                                                @percentuale.ToString("0.1")%
+                                                @(percentuale.ToString("0.0"))%
                                             </div>
                                         </div>
                                     </td>
@@ -224,23 +225,101 @@
         </div>
     </div>
 
-    <!-- Legenda -->
+    <!-- ============================================ -->
+    <!-- GRIGLIA MENSILE PER PROFESSIONISTA -->
+    <!-- ============================================ -->
+    @{
+        var gridMensile = (IEnumerable<dynamic>)ViewBag.GridMensile;
+        var totaliMensili = (List<decimal>)ViewBag.TotaliMensili;
+        var totaleAnnuo = (decimal)ViewBag.TotaleAnnuo;
+        var mesiShort = new[] { "", "Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic" };
+    }
+    
     <div class="card mt-4">
-        <div class="card-body">
-            <h6><i class="fas fa-info-circle me-2"></i>Informazioni</h6>
-            <div class="row">
-                <div class="col-md-6">
-                    <p class="mb-1"><strong>Solo Mese:</strong> Mostra solo gli incassi del mese selezionato</p>
-                </div>
-                <div class="col-md-6">
-                    <p class="mb-1"><strong>Progressivo:</strong> Mostra gli incassi cumulativi da Gennaio al mese selezionato</p>
-                </div>
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-table me-2"></i>Dettaglio Mensile per Professionista - Anno @annoSelezionato
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover table-sm mb-0" id="gridMensileTable">
+                    <thead class="table-secondary">
+                        <tr class="text-center">
+                            <th style="min-width: 150px;">Professionista</th>
+                            @for (int m = 1; m <= 12; m++)
+                            {
+                                <th style="min-width: 70px;">@mesiShort[m]</th>
+                            }
+                            <th class="table-primary" style="min-width: 90px;">TOTALE</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in gridMensile)
+                        {
+                            var rowMesi = (List<decimal>)row.Mesi;
+                            var rowTotale = (decimal)row.Totale;
+                            <tr>
+                                <td class="fw-bold">@row.Professionista</td>
+                                @for (int m = 0; m < 12; m++)
+                                {
+                                    var importoMese = rowMesi[m];
+                                    <td class="text-end @(importoMese > 0 ? "text-success" : "text-muted")">
+                                        @if (importoMese > 0)
+                                        {
+                                            @importoMese.ToString("N0", cultura)
+                                        }
+                                        else
+                                        {
+                                            <span>-</span>
+                                        }
+                                    </td>
+                                }
+                                <td class="text-end fw-bold table-primary">@rowTotale.ToString("C0", cultura)</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot class="table-dark">
+                        <tr class="fw-bold">
+                            <td>TOTALE MESE</td>
+                            @for (int m = 0; m < 12; m++)
+                            {
+                                var totMese = totaliMensili[m];
+                                <td class="text-end @(totMese > 0 ? "" : "text-muted")">
+                                    @if (totMese > 0)
+                                    {
+                                        @totMese.ToString("N0", cultura)
+                                    }
+                                    else
+                                    {
+                                        <span>-</span>
+                                    }
+                                </td>
+                            }
+                            <td class="text-end fs-6 text-success">@totaleAnnuo.ToString("C0", cultura)</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grafico Andamento Mensile -->
+    <div class="card mt-4">
+        <div class="card-header bg-gradient text-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white !important;">
+            <h6 class="mb-0 text-white"><i class="fas fa-chart-area me-2"></i>Andamento Mensile Incassi - Anno @annoSelezionato</h6>
+        </div>
+        <div class="card-body py-3">
+            <div style="height: 100px;">
+                <canvas id="graficoMensile"></canvas>
             </div>
         </div>
     </div>
 </div>
 
 @section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <script>
     function exportToExcel() {
         var table = document.getElementById('reportTable');
@@ -251,6 +330,80 @@
         a.download = 'Report_Professionisti_@(progressivo ? "Progressivo" : "Mese")_@mesi[meseSelezionato]_@(annoSelezionato).xls';
         a.click();
     }
+
+    // Registra il plugin datalabels
+    Chart.register(ChartDataLabels);
+
+    // Grafico andamento mensile
+    var ctx = document.getElementById('graficoMensile').getContext('2d');
+    var datiMensili = [@string.Join(",", totaliMensili.Select(v => v.ToString(System.Globalization.CultureInfo.InvariantCulture)))];
+    var maxValore = Math.max(...datiMensili, 1);
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'],
+            datasets: [{
+                label: 'Incassato €',
+                data: datiMensili,
+                backgroundColor: datiMensili.map((v, i) => {
+                    if (i === @(meseSelezionato - 1)) return 'rgba(102, 126, 234, 0.9)';
+                    return v > 0 ? 'rgba(40, 167, 69, 0.7)' : 'rgba(200, 200, 200, 0.3)';
+                }),
+                borderColor: datiMensili.map((v, i) => {
+                    if (i === @(meseSelezionato - 1)) return '#667eea';
+                    return v > 0 ? '#28a745' : '#ccc';
+                }),
+                borderWidth: 2,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+                padding: { top: 20 }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return '€ ' + context.parsed.y.toLocaleString('it-IT', {minimumFractionDigits: 2});
+                        }
+                    }
+                },
+                datalabels: {
+                    anchor: 'end',
+                    align: 'top',
+                    formatter: function(value) {
+                        if (value > 0) {
+                            return '€ ' + value.toLocaleString('it-IT', {maximumFractionDigits: 0});
+                        }
+                        return '';
+                    },
+                    font: {
+                        weight: 'bold',
+                        size: 10
+                    },
+                    color: '#333'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    display: false,
+                    max: maxValore * 1.3
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { 
+                        font: { size: 10, weight: 'bold' }
+                    }
+                }
+            }
+        }
+    });
 </script>
 }
 

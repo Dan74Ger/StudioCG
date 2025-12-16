@@ -997,7 +997,7 @@ namespace StudioCG.Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RegistraIncasso(int scadenzaId, DateTime dataIncasso, 
-            string importo, string? note, Dictionary<int, ProfessionistaIncassoDto>? professionisti, int anno)
+            string importo, string? note, int anno)
         {
             try
             {
@@ -1051,26 +1051,33 @@ namespace StudioCG.Web.Controllers
                 _context.IncassiFatture.Add(incasso);
                 await _context.SaveChangesAsync();
 
-                // Suddivisione tra professionisti
-                if (professionisti != null)
+                // Suddivisione tra professionisti - leggi dal form
+                var professionistiIds = await _context.Users.Where(u => u.IsActive).Select(u => u.Id).ToListAsync();
+                foreach (var profId in professionistiIds)
                 {
-                    foreach (var prof in professionisti.Where(p => p.Value.Selezionato && !string.IsNullOrEmpty(p.Value.Importo)))
+                    var selezionatoKey = $"professionisti[{profId}].selezionato";
+                    var importoKey = $"professionisti[{profId}].importo";
+                    
+                    var isSelezionato = Request.Form.ContainsKey(selezionatoKey);
+                    var importoProfStr = Request.Form[importoKey].FirstOrDefault();
+                    
+                    if (isSelezionato && !string.IsNullOrEmpty(importoProfStr))
                     {
-                        var importoProf = decimal.Parse(prof.Value.Importo!.Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture);
-                        if (importoProf > 0)
+                        var importoProfDecimal = decimal.Parse(importoProfStr.Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture);
+                        if (importoProfDecimal > 0)
                         {
                             var suddivisione = new IncassoProfessionista
                             {
                                 IncassoFatturaId = incasso.Id,
-                                UtenteId = prof.Value.UtenteId,
-                                Importo = importoProf,
+                                UtenteId = profId,
+                                Importo = importoProfDecimal,
                                 CreatedAt = DateTime.Now
                             };
                             _context.IncassiProfessionisti.Add(suddivisione);
                         }
                     }
-                    await _context.SaveChangesAsync();
                 }
+                await _context.SaveChangesAsync();
 
                 // Aggiorna stato incasso della scadenza
                 var totaleIncassato = scadenza.Incassi!.Sum(i => i.ImportoIncassato) + importoDecimal;
@@ -1207,6 +1214,32 @@ namespace StudioCG.Web.Controllers
             if (!anniDisponibili.Contains(annoCorrente))
                 anniDisponibili.Add(annoCorrente);
 
+            // ==========================================
+            // GRIGLIA MENSILE PER PROFESSIONISTA
+            // ==========================================
+            var tuttiIncassiAnno = await _context.IncassiProfessionisti
+                .Include(ip => ip.IncassoFattura)
+                .Include(ip => ip.Utente)
+                .Where(ip => ip.IncassoFattura!.ScadenzaFatturazione!.Anno == annoCorrente)
+                .ToListAsync();
+
+            // Crea matrice: Professionista -> Mese -> Importo
+            var gridMensile = professionisti.Select(p => new {
+                Professionista = $"{p.Nome} {p.Cognome}",
+                ProfessionistaId = p.Id,
+                Mesi = Enumerable.Range(1, 12).Select(m => 
+                    tuttiIncassiAnno
+                        .Where(i => i.UtenteId == p.Id && i.IncassoFattura!.DataIncasso.Month == m)
+                        .Sum(i => i.Importo)
+                ).ToList(),
+                Totale = tuttiIncassiAnno.Where(i => i.UtenteId == p.Id).Sum(i => i.Importo)
+            }).Where(p => p.Totale > 0 || professionisti.Any()).ToList();
+
+            // Totali per mese
+            var totaliMensili = Enumerable.Range(1, 12).Select(m =>
+                tuttiIncassiAnno.Where(i => i.IncassoFattura!.DataIncasso.Month == m).Sum(i => i.Importo)
+            ).ToList();
+
             ViewBag.AnnoSelezionato = annoCorrente;
             ViewBag.MeseSelezionato = meseCorrente;
             ViewBag.Progressivo = progressivo;
@@ -1214,6 +1247,9 @@ namespace StudioCG.Web.Controllers
             ViewBag.ReportData = reportData;
             ViewBag.Professionisti = professionisti;
             ViewBag.TotaleGenerale = reportData.Sum(r => r.TotaleIncassato);
+            ViewBag.GridMensile = gridMensile;
+            ViewBag.TotaliMensili = totaliMensili;
+            ViewBag.TotaleAnnuo = tuttiIncassiAnno.Sum(i => i.Importo);
             ViewData["Title"] = "Report Professionisti";
             
             return View();

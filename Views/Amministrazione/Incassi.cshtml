@@ -149,6 +149,7 @@
                                 <th class="text-end">Importo</th>
                                 <th class="text-end">Incassato</th>
                                 <th>Data Incasso</th>
+                                <th>Professionisti</th>
                                 <th class="text-end">Residuo</th>
                                 <th>Stato</th>
                                 <th class="text-center">Azioni</th>
@@ -173,6 +174,33 @@
                                             @if (fat.Incassi.Count > 1)
                                             {
                                                 <br><small class="text-muted">(@fat.Incassi.Count incassi)</small>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (fat.Incassi?.Any() == true)
+                                        {
+                                            var tuttiProfessionisti = fat.Incassi
+                                                .SelectMany(i => i.SuddivisioneProfessionisti ?? new List<StudioCG.Web.Models.Fatturazione.IncassoProfessionista>())
+                                                .GroupBy(p => new { p.Utente?.Nome, p.Utente?.Cognome })
+                                                .Select(g => new { Nome = $"{g.Key.Nome} {g.Key.Cognome}", Totale = g.Sum(x => x.Importo) })
+                                                .ToList();
+
+                                            @if (tuttiProfessionisti.Any())
+                                            {
+                                                @foreach (var prof in tuttiProfessionisti)
+                                                {
+                                                    <span class="badge bg-primary me-1 mb-1">@prof.Nome</span>
+                                                    <small class="text-success">@prof.Totale.ToString("C", new System.Globalization.CultureInfo("it-IT"))</small><br>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning text-dark">Non assegnato</span>
                                             }
                                         }
                                         else
@@ -250,6 +278,7 @@
                                 <td colspan="3">TOTALI</td>
                                 <td class="text-end">@Model.Sum(f => f.TotaleScadenza).ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
                                 <td class="text-end text-success">@Model.Sum(f => f.TotaleIncassato).ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                <td></td>
                                 <td></td>
                                 <td class="text-end text-danger">@Model.Sum(f => f.ResiduoDaIncassare).ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
                                 <td colspan="2"></td>
