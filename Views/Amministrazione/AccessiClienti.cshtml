@@ -6,6 +6,14 @@
     var anniDisponibili = (List<int>)ViewBag.AnniDisponibili;
     var clienti = (List<StudioCG.Web.Models.Cliente>)ViewBag.Clienti;
     var clienteIdSelezionato = (int?)ViewBag.ClienteIdSelezionato;
+    var meseSelezionato = (int?)ViewBag.MeseSelezionato;
+    
+    var mesi = new Dictionary<int, string>
+    {
+        {1, "Gennaio"}, {2, "Febbraio"}, {3, "Marzo"}, {4, "Aprile"},
+        {5, "Maggio"}, {6, "Giugno"}, {7, "Luglio"}, {8, "Agosto"},
+        {9, "Settembre"}, {10, "Ottobre"}, {11, "Novembre"}, {12, "Dicembre"}
+    };
 }
 
 <div class="container-fluid">
@@ -27,6 +35,29 @@
                             <li>
                                 <a class="dropdown-item @(anno == annoSelezionato ? "active" : "")" 
                                    asp-action="AccessiClienti" asp-route-anno="@anno">@anno</a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-calendar-week me-2"></i>@(meseSelezionato.HasValue && meseSelezionato.Value > 0 ? mesi[meseSelezionato.Value] : "Tutti i mesi")
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item @(!meseSelezionato.HasValue || meseSelezionato.Value == 0 ? "active" : "")" 
+                               asp-action="AccessiClienti" asp-route-anno="@annoSelezionato" asp-route-clienteId="@clienteIdSelezionato" asp-route-mese="">
+                                Tutti i mesi
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        @foreach (var mese in mesi)
+                        {
+                            <li>
+                                <a class="dropdown-item @(meseSelezionato == mese.Key ? "active" : "")" 
+                                   asp-action="AccessiClienti" asp-route-anno="@annoSelezionato" asp-route-clienteId="@clienteIdSelezionato" asp-route-mese="@mese.Key">
+                                    @mese.Value
+                                </a>
                             </li>
                         }
                     </ul>
@@ -148,7 +179,7 @@
                         <tbody>
                             @foreach (var acc in Model)
                             {
-                                var isProtetta = acc.ScadenzaFatturazione?.Stato != StatoScadenza.Aperta;
+                                // Gli accessi clienti sono SEMPRE modificabili/cancellabili
                                 <tr>
                                     <td>@acc.Data.ToString("dd/MM/yyyy")</td>
                                     <td><strong>@acc.Cliente?.RagioneSociale</strong></td>
@@ -196,40 +227,32 @@
                                         }
                                     </td>
                                     <td class="text-center">
-                                        @if (!isProtetta)
-                                        {
-                                            <div class="btn-group btn-group-sm">
-                                                <button type="button" class="btn btn-outline-primary" title="Modifica"
-                                                        data-bs-toggle="modal" data-bs-target="#modalEdit"
-                                                        data-id="@acc.Id"
-                                                        data-clienteid="@acc.ClienteId"
-                                                        data-cliente="@acc.Cliente?.RagioneSociale"
-                                                        data-data="@acc.Data.ToString("yyyy-MM-dd")"
-                                                        data-orainiziomattina="@acc.OraInizioMattino?.ToString(@"hh\:mm")"
-                                                        data-orafinemattina="@acc.OraFineMattino?.ToString(@"hh\:mm")"
-                                                        data-orainiziopomeriggio="@acc.OraInizioPomeriggio?.ToString(@"hh\:mm")"
-                                                        data-orafinepomeriggio="@acc.OraFinePomeriggio?.ToString(@"hh\:mm")"
-                                                        data-tariffaoraria="@acc.TariffaOraria.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
-                                                        data-scadenzaid="@acc.ScadenzaFatturazioneId"
-                                                        data-note="@acc.Note">
-                                                    <i class="fas fa-edit"></i>
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-primary" title="Modifica"
+                                                    data-bs-toggle="modal" data-bs-target="#modalEdit"
+                                                    data-id="@acc.Id"
+                                                    data-clienteid="@acc.ClienteId"
+                                                    data-cliente="@acc.Cliente?.RagioneSociale"
+                                                    data-data="@acc.Data.ToString("yyyy-MM-dd")"
+                                                    data-orainiziomattina="@acc.OraInizioMattino?.ToString(@"hh\:mm")"
+                                                    data-orafinemattina="@acc.OraFineMattino?.ToString(@"hh\:mm")"
+                                                    data-orainiziopomeriggio="@acc.OraInizioPomeriggio?.ToString(@"hh\:mm")"
+                                                    data-orafinepomeriggio="@acc.OraFinePomeriggio?.ToString(@"hh\:mm")"
+                                                    data-tariffaoraria="@acc.TariffaOraria.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                    data-scadenzaid="@acc.ScadenzaFatturazioneId"
+                                                    data-note="@acc.Note">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <form asp-action="DeleteAccessoCliente" method="post" class="d-inline"
+                                                  onsubmit="return confirm('Eliminare questo accesso?');">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@acc.Id" />
+                                                <input type="hidden" name="anno" value="@annoSelezionato" />
+                                                <button type="submit" class="btn btn-outline-danger" title="Elimina">
+                                                    <i class="fas fa-trash"></i>
                                                 </button>
-                                                <form asp-action="DeleteAccessoCliente" method="post" class="d-inline"
-                                                      onsubmit="return confirm('Eliminare questo accesso?');">
-                                                    <input type="hidden" name="id" value="@acc.Id" />
-                                                    <input type="hidden" name="anno" value="@annoSelezionato" />
-                                                    <button type="submit" class="btn btn-outline-danger" title="Elimina">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted" title="Scadenza protetta">
-                                                <i class="fas fa-lock"></i>
-                                            </span>
-                                        }
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                             }

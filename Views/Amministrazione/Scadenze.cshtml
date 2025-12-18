@@ -7,6 +7,14 @@
     var clienti = (List<StudioCG.Web.Models.Cliente>)ViewBag.Clienti;
     var clienteIdSelezionato = (int?)ViewBag.ClienteIdSelezionato;
     var statoSelezionato = (int?)ViewBag.StatoSelezionato;
+    var meseSelezionato = (int?)ViewBag.MeseSelezionato;
+    
+    var mesi = new Dictionary<int, string>
+    {
+        {1, "Gennaio"}, {2, "Febbraio"}, {3, "Marzo"}, {4, "Aprile"},
+        {5, "Maggio"}, {6, "Giugno"}, {7, "Luglio"}, {8, "Agosto"},
+        {9, "Settembre"}, {10, "Ottobre"}, {11, "Novembre"}, {12, "Dicembre"}
+    };
 }
 
 <style>
@@ -34,6 +42,29 @@
                             <li>
                                 <a class="dropdown-item @(anno == annoSelezionato ? "active" : "")" 
                                    asp-action="Scadenze" asp-route-anno="@anno">@anno</a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-calendar-week me-2"></i>@(meseSelezionato.HasValue && meseSelezionato.Value > 0 ? mesi[meseSelezionato.Value] : "Tutti i mesi")
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item @(!meseSelezionato.HasValue || meseSelezionato.Value == 0 ? "active" : "")" 
+                               asp-action="Scadenze" asp-route-anno="@annoSelezionato" asp-route-clienteId="@clienteIdSelezionato" asp-route-stato="@statoSelezionato" asp-route-mese="">
+                                Tutti i mesi
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        @foreach (var mese in mesi)
+                        {
+                            <li>
+                                <a class="dropdown-item @(meseSelezionato == mese.Key ? "active" : "")" 
+                                   asp-action="Scadenze" asp-route-anno="@annoSelezionato" asp-route-clienteId="@clienteIdSelezionato" asp-route-stato="@statoSelezionato" asp-route-mese="@mese.Key">
+                                    @mese.Value
+                                </a>
                             </li>
                         }
                     </ul>
@@ -139,6 +170,9 @@
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="fas fa-list me-2"></i>Elenco Scadenze (@Model.Count)</h5>
+            <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuovaScadenza">
+                <i class="fas fa-plus me-1"></i>Nuova Scadenza
+            </button>
         </div>
         <div class="card-body p-0">
             @if (Model.Any())
@@ -195,6 +229,19 @@
                                         @if (scad.TotaleSpese > 0)
                                         {
                                             <span class="text-info">+@scad.TotaleSpese.ToString("C", new System.Globalization.CultureInfo("it-IT"))</span>
+                                            
+                                            @* Mostra badge con numero spese pratiche se > 1 *@
+                                            @if (scad.SpesePratiche != null && scad.SpesePratiche.Count > 0)
+                                            {
+                                                <span class="badge bg-info ms-1" title="Numero spese pratiche">@scad.SpesePratiche.Count</span>
+                                                <button type="button" class="btn btn-sm btn-link p-0 ms-1" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#modalDettaglioSpese"
+                                                        onclick="mostraDettaglioSpese(@scad.Id)"
+                                                        title="Vedi dettaglio spese">
+                                                    <i class="fas fa-search-plus text-info"></i>
+                                                </button>
+                                            }
                                         }
                                         else
                                         {
@@ -549,8 +596,87 @@
     </div>
 </div>
 
+<!-- Modal Nuova Scadenza Manuale -->
+<div class="modal fade" id="modalNuovaScadenza" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CreateScadenzaManuale" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="anno" value="@annoSelezionato" />
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i>Nuova Scadenza Manuale</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Cliente <span class="text-danger">*</span></label>
+                        <select name="clienteId" id="nuovaScadenzaCliente" class="form-select" required>
+                            <option value="">-- Seleziona cliente --</option>
+                            @foreach (var cliente in clienti.OrderBy(c => c.RagioneSociale))
+                            {
+                                <option value="@cliente.Id">@cliente.RagioneSociale</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Data Scadenza <span class="text-danger">*</span></label>
+                        <input type="date" name="dataScadenza" id="nuovaScadenzaData" class="form-control" required 
+                               value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Importo Mandato <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">€</span>
+                                    <input type="text" name="importoMandato" id="nuovaScadenzaImporto" class="form-control" required
+                                           placeholder="0,00" pattern="[0-9]+([,\.][0-9]{1,2})?" 
+                                           title="Inserisci un importo valido (es: 300,00)"
+                                           onchange="calcolaTotaleNuovaScadenza()" onkeyup="calcolaTotaleNuovaScadenza()" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Rimborso Spese</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">€</span>
+                                    <input type="text" name="rimborsoSpese" id="nuovaScadenzaRimborso" class="form-control"
+                                           placeholder="0,00" pattern="[0-9]+([,\.][0-9]{1,2})?" value="0,00"
+                                           title="Inserisci un importo valido (es: 50,00)"
+                                           onchange="calcolaTotaleNuovaScadenza()" onkeyup="calcolaTotaleNuovaScadenza()" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info mb-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-calculator me-2"></i><strong>Totale Scadenza:</strong></span>
+                            <span class="fs-4 fw-bold text-primary" id="nuovaScadenzaTotale">€ 0,00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-plus me-2"></i>Crea Scadenza
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
 <script>
+    // Calcola totale nuova scadenza
+    function calcolaTotaleNuovaScadenza() {
+        var importo = parseFloat(document.getElementById('nuovaScadenzaImporto').value.replace(',', '.')) || 0;
+        var rimborso = parseFloat(document.getElementById('nuovaScadenzaRimborso').value.replace(',', '.')) || 0;
+        var totale = importo + rimborso;
+        document.getElementById('nuovaScadenzaTotale').textContent = formatCurrency(totale);
+    }
+
     // Formato valuta italiano
     function formatCurrency(value) {
         return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
@@ -606,6 +732,118 @@
             document.getElementById('modificaScadenzaProformaNum').textContent = btn.getAttribute('data-proforma');
         }
     });
+
+    // Funzione per mostrare dettaglio spese
+    window.mostraDettaglioSpese = function(scadenzaId) {
+        fetch(`/Amministrazione/GetDettaglioSpese/${scadenzaId}`)
+            .then(response => response.json())
+            .then(data => {
+                var tbody = document.getElementById('dettaglioSpeseBody');
+                tbody.innerHTML = '';
+                
+                var totale = 0;
+                
+                // Spese Pratiche
+                if (data.spesePratiche && data.spesePratiche.length > 0) {
+                    data.spesePratiche.forEach(spesa => {
+                        var row = `<tr>
+                            <td><i class="fas fa-file-invoice text-primary me-2"></i>Spesa Pratica</td>
+                            <td>${spesa.descrizione}</td>
+                            <td class="text-end">${formatCurrency(spesa.importo)}</td>
+                        </tr>`;
+                        tbody.innerHTML += row;
+                        totale += spesa.importo;
+                    });
+                }
+                
+                // Accessi Clienti
+                if (data.accessiClienti && data.accessiClienti.length > 0) {
+                    data.accessiClienti.forEach(accesso => {
+                        var row = `<tr>
+                            <td><i class="fas fa-clock text-success me-2"></i>Accesso Cliente</td>
+                            <td>${accesso.ore}h × ${formatCurrency(accesso.tariffa)}/h (${accesso.data})</td>
+                            <td class="text-end">${formatCurrency(accesso.importo)}</td>
+                        </tr>`;
+                        tbody.innerHTML += row;
+                        totale += accesso.importo;
+                    });
+                }
+                
+                // Fatture Cloud
+                if (data.fattureCloud && data.fattureCloud.length > 0) {
+                    data.fattureCloud.forEach(fc => {
+                        var row = `<tr>
+                            <td><i class="fas fa-cloud text-info me-2"></i>Fatture in Cloud</td>
+                            <td>Servizio annuale</td>
+                            <td class="text-end">${formatCurrency(fc.importo)}</td>
+                        </tr>`;
+                        tbody.innerHTML += row;
+                        totale += fc.importo;
+                    });
+                }
+                
+                // Bilanci CEE
+                if (data.bilanciCEE && data.bilanciCEE.length > 0) {
+                    data.bilanciCEE.forEach(bil => {
+                        var row = `<tr>
+                            <td><i class="fas fa-balance-scale text-warning me-2"></i>Bilancio CEE</td>
+                            <td>Bilancio annuale</td>
+                            <td class="text-end">${formatCurrency(bil.importo)}</td>
+                        </tr>`;
+                        tbody.innerHTML += row;
+                        totale += bil.importo;
+                    });
+                }
+                
+                document.getElementById('dettaglioSpeseTotale').textContent = formatCurrency(totale);
+            })
+            .catch(error => {
+                console.error('Errore nel caricamento dettaglio spese:', error);
+                alert('Errore nel caricamento del dettaglio spese');
+            });
+    };
+    
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+    }
 </script>
+
+<!-- Modal Dettaglio Spese -->
+<div class="modal fade" id="modalDettaglioSpese" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-list-ul me-2"></i>Dettaglio Spese Extra</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Descrizione</th>
+                                <th class="text-end">Importo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dettaglioSpeseBody">
+                            <!-- Popolato da JavaScript -->
+                        </tbody>
+                        <tfoot class="table-light fw-bold">
+                            <tr>
+                                <td colspan="2">TOTALE SPESE EXTRA</td>
+                                <td class="text-end text-info" id="dettaglioSpeseTotale">€ 0,00</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 }
 

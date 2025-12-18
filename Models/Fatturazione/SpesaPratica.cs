@@ -17,9 +17,8 @@ namespace StudioCG.Web.Models.Fatturazione
         [ForeignKey("ClienteId")]
         public Cliente? Cliente { get; set; }
 
-        [Required]
         [Display(Name = "Scadenza Destinazione")]
-        public int ScadenzaFatturazioneId { get; set; }
+        public int? ScadenzaFatturazioneId { get; set; }
 
         [ForeignKey("ScadenzaFatturazioneId")]
         public ScadenzaFatturazione? ScadenzaFatturazione { get; set; }

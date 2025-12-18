@@ -5,6 +5,14 @@
     var annoSelezionato = (int)ViewBag.AnnoSelezionato;
     var anniDisponibili = (List<int>)ViewBag.AnniDisponibili;
     var clientiSC = (List<StudioCG.Web.Models.Cliente>)ViewBag.ClientiSC;
+    var meseSelezionato = (int?)ViewBag.MeseSelezionato;
+    
+    var mesi = new Dictionary<int, string>
+    {
+        {1, "Gennaio"}, {2, "Febbraio"}, {3, "Marzo"}, {4, "Aprile"},
+        {5, "Maggio"}, {6, "Giugno"}, {7, "Luglio"}, {8, "Agosto"},
+        {9, "Settembre"}, {10, "Ottobre"}, {11, "Novembre"}, {12, "Dicembre"}
+    };
 }
 
 <div class="container-fluid">
@@ -26,6 +34,29 @@
                             <li>
                                 <a class="dropdown-item @(anno == annoSelezionato ? "active" : "")" 
                                    asp-action="BilanciCEE" asp-route-anno="@anno">@anno</a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-calendar-week me-2"></i>@(meseSelezionato.HasValue && meseSelezionato.Value > 0 ? mesi[meseSelezionato.Value] : "Tutti i mesi")
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item @(!meseSelezionato.HasValue || meseSelezionato.Value == 0 ? "active" : "")" 
+                               asp-action="BilanciCEE" asp-route-anno="@annoSelezionato" asp-route-mese="">
+                                Tutti i mesi
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        @foreach (var mese in mesi)
+                        {
+                            <li>
+                                <a class="dropdown-item @(meseSelezionato == mese.Key ? "active" : "")" 
+                                   asp-action="BilanciCEE" asp-route-anno="@annoSelezionato" asp-route-mese="@mese.Key">
+                                    @mese.Value
+                                </a>
                             </li>
                         }
                     </ul>
@@ -105,7 +136,7 @@
                         <tbody>
                             @foreach (var b in Model)
                             {
-                                var isProtetta = b.ScadenzaFatturazione?.Stato != StatoScadenza.Aperta;
+                                // Bilanci CEE sono SEMPRE modificabili/cancellabili
                                 <tr>
                                     <td>
                                         <strong>@b.Cliente?.RagioneSociale</strong>
@@ -138,32 +169,24 @@
                                         }
                                     </td>
                                     <td class="text-center">
-                                        @if (!isProtetta)
-                                        {
-                                            <div class="btn-group btn-group-sm">
-                                                <button type="button" class="btn btn-outline-primary" title="Modifica"
-                                                        data-bs-toggle="modal" data-bs-target="#modalEdit"
-                                                        data-id="@b.Id"
-                                                        data-cliente="@b.Cliente?.RagioneSociale"
-                                                        data-importo="@b.Importo.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)">
-                                                    <i class="fas fa-edit"></i>
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-primary" title="Modifica"
+                                                    data-bs-toggle="modal" data-bs-target="#modalEdit"
+                                                    data-id="@b.Id"
+                                                    data-cliente="@b.Cliente?.RagioneSociale"
+                                                    data-importo="@b.Importo.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <form asp-action="DeleteBilancioCEE" method="post" class="d-inline"
+                                                  onsubmit="return confirm('Rimuovere il bilancio CEE per questo cliente?');">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@b.Id" />
+                                                <input type="hidden" name="anno" value="@annoSelezionato" />
+                                                <button type="submit" class="btn btn-outline-danger" title="Elimina">
+                                                    <i class="fas fa-trash"></i>
                                                 </button>
-                                                <form asp-action="DeleteBilancioCEE" method="post" class="d-inline"
-                                                      onsubmit="return confirm('Rimuovere il bilancio CEE per questo cliente?');">
-                                                    <input type="hidden" name="id" value="@b.Id" />
-                                                    <input type="hidden" name="anno" value="@annoSelezionato" />
-                                                    <button type="submit" class="btn btn-outline-danger" title="Elimina">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted" title="Scadenza protetta (proforma/fattura emessa)">
-                                                <i class="fas fa-lock"></i>
-                                            </span>
-                                        }
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                             }
@@ -215,11 +238,17 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Scadenza <span class="text-danger">*</span></label>
-                        <select name="scadenzaFatturazioneId" id="selectScadenzaNuovo" class="form-select" required>
-                            <option value="">-- Prima seleziona un cliente --</option>
+                        <label class="form-label">Data Scadenza <span class="text-danger">*</span></label>
+                        <input type="date" name="dataScadenza" class="form-control" required 
+                               value="@(new DateTime(annoSelezionato, 3, 31).ToString("yyyy-MM-dd"))">
+                        <small class="form-text text-muted">Default: 31/03 - Se esiste scadenza con questa data, verrà collegata automaticamente</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Scadenza (opzionale)</label>
+                        <select name="scadenzaFatturazioneId" id="selectScadenzaNuovo" class="form-select">
+                            <option value="">-- Collegamento automatico per data --</option>
                         </select>
-                        <small class="form-text text-muted">Default: 31/03 (se disponibile)</small>
+                        <small class="form-text text-muted">Lascia vuoto per collegamento automatico</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Importo <span class="text-danger">*</span></label>

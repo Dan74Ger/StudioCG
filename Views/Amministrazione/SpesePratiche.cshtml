@@ -6,6 +6,14 @@
     var anniDisponibili = (List<int>)ViewBag.AnniDisponibili;
     var clienti = (List<StudioCG.Web.Models.Cliente>)ViewBag.Clienti;
     var clienteIdSelezionato = (int?)ViewBag.ClienteIdSelezionato;
+    var meseSelezionato = (int?)ViewBag.MeseSelezionato;
+    
+    var mesi = new Dictionary<int, string>
+    {
+        {1, "Gennaio"}, {2, "Febbraio"}, {3, "Marzo"}, {4, "Aprile"},
+        {5, "Maggio"}, {6, "Giugno"}, {7, "Luglio"}, {8, "Agosto"},
+        {9, "Settembre"}, {10, "Ottobre"}, {11, "Novembre"}, {12, "Dicembre"}
+    };
 }
 
 <div class="container-fluid">
@@ -27,6 +35,29 @@
                             <li>
                                 <a class="dropdown-item @(anno == annoSelezionato ? "active" : "")" 
                                    asp-action="SpesePratiche" asp-route-anno="@anno">@anno</a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-calendar-week me-2"></i>@(meseSelezionato.HasValue && meseSelezionato.Value > 0 ? mesi[meseSelezionato.Value] : "Tutti i mesi")
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item @(!meseSelezionato.HasValue || meseSelezionato.Value == 0 ? "active" : "")" 
+                               asp-action="SpesePratiche" asp-route-anno="@annoSelezionato" asp-route-clienteId="@clienteIdSelezionato" asp-route-mese="">
+                                Tutti i mesi
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        @foreach (var mese in mesi)
+                        {
+                            <li>
+                                <a class="dropdown-item @(meseSelezionato == mese.Key ? "active" : "")" 
+                                   asp-action="SpesePratiche" asp-route-anno="@annoSelezionato" asp-route-clienteId="@clienteIdSelezionato" asp-route-mese="@mese.Key">
+                                    @mese.Value
+                                </a>
                             </li>
                         }
                     </ul>
@@ -133,7 +164,7 @@
                         <tbody>
                             @foreach (var spesa in Model)
                             {
-                                var isProtetta = spesa.ScadenzaFatturazione?.Stato != StatoScadenza.Aperta;
+                                // Le spese pratiche sono SEMPRE modificabili/cancellabili
                                 <tr>
                                     <td>@spesa.Data.ToString("dd/MM/yyyy")</td>
                                     <td>
@@ -173,36 +204,28 @@
                                         }
                                     </td>
                                     <td class="text-center">
-                                        @if (!isProtetta)
-                                        {
-                                            <div class="btn-group btn-group-sm">
-                                                <button type="button" class="btn btn-outline-primary" title="Modifica"
-                                                        data-bs-toggle="modal" data-bs-target="#modalEditSpesa"
-                                                        data-id="@spesa.Id"
-                                                        data-clienteid="@spesa.ClienteId"
-                                                        data-cliente="@spesa.Cliente?.RagioneSociale"
-                                                        data-descrizione="@spesa.Descrizione"
-                                                        data-importo="@spesa.Importo.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
-                                                        data-data="@spesa.Data.ToString("yyyy-MM-dd")"
-                                                        data-scadenzaid="@spesa.ScadenzaFatturazioneId">
-                                                    <i class="fas fa-edit"></i>
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-primary" title="Modifica"
+                                                    data-bs-toggle="modal" data-bs-target="#modalEditSpesa"
+                                                    data-id="@spesa.Id"
+                                                    data-clienteid="@spesa.ClienteId"
+                                                    data-cliente="@spesa.Cliente?.RagioneSociale"
+                                                    data-descrizione="@spesa.Descrizione"
+                                                    data-importo="@spesa.Importo.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                    data-data="@spesa.Data.ToString("yyyy-MM-dd")"
+                                                    data-scadenzaid="@spesa.ScadenzaFatturazioneId">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <form asp-action="DeleteSpesaPratica" method="post" class="d-inline"
+                                                  onsubmit="return confirm('Eliminare questa spesa?');">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@spesa.Id" />
+                                                <input type="hidden" name="anno" value="@annoSelezionato" />
+                                                <button type="submit" class="btn btn-outline-danger" title="Elimina">
+                                                    <i class="fas fa-trash"></i>
                                                 </button>
-                                                <form asp-action="DeleteSpesaPratica" method="post" class="d-inline"
-                                                      onsubmit="return confirm('Eliminare questa spesa?');">
-                                                    <input type="hidden" name="id" value="@spesa.Id" />
-                                                    <input type="hidden" name="anno" value="@annoSelezionato" />
-                                                    <button type="submit" class="btn btn-outline-danger" title="Elimina">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted" title="Scadenza protetta (proforma/fattura emessa)">
-                                                <i class="fas fa-lock"></i>
-                                            </span>
-                                        }
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                             }
@@ -234,6 +257,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <form asp-action="CreateSpesaPratica" method="post">
+                @Html.AntiForgeryToken()
                 <input type="hidden" name="anno" value="@annoSelezionato" />
                 <div class="modal-header bg-success text-white">
                     <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Nuova Spesa Pratica</h5>
@@ -251,11 +275,11 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Scadenza Destinazione <span class="text-danger">*</span></label>
-                        <select name="scadenzaFatturazioneId" id="selectScadenzaNuovo" class="form-select" required>
-                            <option value="">-- Prima seleziona un cliente --</option>
+                        <label class="form-label">Scadenza Destinazione</label>
+                        <select name="scadenzaFatturazioneId" id="selectScadenzaNuovo" class="form-select">
+                            <option value="">-- Seleziona scadenza --</option>
                         </select>
-                        <small class="form-text text-muted">Seleziona la scadenza a cui addebitare la spesa</small>
+                        <small class="form-text text-muted">Seleziona la scadenza a cui addebitare la spesa (opzionale)</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Descrizione <span class="text-danger">*</span></label>
@@ -294,6 +318,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <form asp-action="UpdateSpesaPratica" method="post">
+                @Html.AntiForgeryToken()
                 <input type="hidden" name="id" id="editSpesaId" />
                 <input type="hidden" name="anno" value="@annoSelezionato" />
                 <div class="modal-header bg-primary text-white">
@@ -307,9 +332,11 @@
                         <input type="hidden" name="clienteId" id="editClienteId">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Scadenza Destinazione <span class="text-danger">*</span></label>
-                        <select name="scadenzaFatturazioneId" id="editScadenzaId" class="form-select" required>
+                        <label class="form-label">Scadenza Destinazione</label>
+                        <select name="scadenzaFatturazioneId" id="editScadenzaId" class="form-select">
+                            <option value="">-- Nessuna scadenza --</option>
                         </select>
+                        <small class="form-text text-muted">Opzionale - lascia vuoto se usi solo la data</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Descrizione <span class="text-danger">*</span></label>
