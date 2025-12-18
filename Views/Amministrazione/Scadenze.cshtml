@@ -230,16 +230,18 @@
                                         {
                                             <span class="text-info">+@scad.TotaleSpese.ToString("C", new System.Globalization.CultureInfo("it-IT"))</span>
                                             
-                                            @* Mostra badge con numero spese pratiche se > 1 *@
-                                            @if (scad.SpesePratiche != null && scad.SpesePratiche.Count > 0)
-                                            {
-                                                <span class="badge bg-info ms-1" title="Numero spese pratiche">@scad.SpesePratiche.Count</span>
-                                                <button type="button" class="btn btn-sm btn-link p-0 ms-1" 
-                                                        onclick="mostraDettaglioSpese(@scad.Id)"
-                                                        title="Vedi dettaglio spese">
-                                                    <i class="fas fa-search-plus text-info"></i>
-                                                </button>
-                                            }
+                                            var countSpese = scad.SpesePratiche?.Count ?? 0;
+                                            var countAccessi = scad.AccessiClienti?.Count ?? 0;
+                                            var countCloud = scad.FattureCloud?.Count ?? 0;
+                                            var countBilanci = scad.BilanciCEE?.Count ?? 0;
+                                            var countExtra = countSpese + countAccessi + countCloud + countBilanci;
+
+                                            <span class="badge bg-info ms-1" title="Numero voci extra (Spese Pratiche + Accessi + Cloud + Bilanci)">@countExtra</span>
+                                            <button type="button" class="btn btn-sm btn-link p-0 ms-1" 
+                                                    onclick="mostraDettaglioSpese(@scad.Id)"
+                                                    title="Vedi dettaglio spese extra">
+                                                <i class="fas fa-search-plus text-info"></i>
+                                            </button>
                                         }
                                         else
                                         {
