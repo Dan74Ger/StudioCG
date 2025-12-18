@@ -235,8 +235,6 @@
                                             {
                                                 <span class="badge bg-info ms-1" title="Numero spese pratiche">@scad.SpesePratiche.Count</span>
                                                 <button type="button" class="btn btn-sm btn-link p-0 ms-1" 
-                                                        data-bs-toggle="modal" 
-                                                        data-bs-target="#modalDettaglioSpese"
                                                         onclick="mostraDettaglioSpese(@scad.Id)"
                                                         title="Vedi dettaglio spese">
                                                     <i class="fas fa-search-plus text-info"></i>
@@ -584,6 +582,7 @@
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle me-2"></i>
                         Le altre spese extra (Pratiche, Accessi, etc.) vengono gestite separatamente.
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
@@ -667,8 +666,50 @@
     </div>
 </div>
 
+<!-- Modal Dettaglio Spese -->
+<div class="modal fade" id="modalDettaglioSpese" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-list-ul me-2"></i>Dettaglio Spese Extra</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Descrizione</th>
+                                <th class="text-end">Importo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dettaglioSpeseBody">
+                            <!-- Popolato da JavaScript -->
+                        </tbody>
+                        <tfoot class="table-light fw-bold">
+                            <tr>
+                                <td colspan="2">TOTALE SPESE EXTRA</td>
+                                <td class="text-end text-info" id="dettaglioSpeseTotale">€ 0,00</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
 <script>
+    // Formato valuta italiano (funzione globale)
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+    }
+
     // Calcola totale nuova scadenza
     function calcolaTotaleNuovaScadenza() {
         var importo = parseFloat(document.getElementById('nuovaScadenzaImporto').value.replace(',', '.')) || 0;
@@ -677,63 +718,7 @@
         document.getElementById('nuovaScadenzaTotale').textContent = formatCurrency(totale);
     }
 
-    // Formato valuta italiano
-    function formatCurrency(value) {
-        return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
-    }
-
-    // Modal Dettaglio
-    document.getElementById('modalDettaglio').addEventListener('show.bs.modal', function(event) {
-        var btn = event.relatedTarget;
-        document.getElementById('dettaglioCliente').textContent = btn.getAttribute('data-cliente');
-        document.getElementById('dettaglioData').textContent = btn.getAttribute('data-data');
-        document.getElementById('dettaglioMandato').textContent = formatCurrency(parseFloat(btn.getAttribute('data-mandato')));
-        document.getElementById('dettaglioSpesePratiche').textContent = formatCurrency(parseFloat(btn.getAttribute('data-spesepratiche')));
-        document.getElementById('dettaglioAccessi').textContent = formatCurrency(parseFloat(btn.getAttribute('data-accessi')));
-        document.getElementById('dettaglioCloud').textContent = formatCurrency(parseFloat(btn.getAttribute('data-cloud')));
-        document.getElementById('dettaglioBilanci').textContent = formatCurrency(parseFloat(btn.getAttribute('data-bilanci')));
-        document.getElementById('dettaglioTotale').textContent = formatCurrency(parseFloat(btn.getAttribute('data-totale')));
-    });
-
-    // Modal Proforma
-    document.getElementById('modalProforma').addEventListener('show.bs.modal', function(event) {
-        var btn = event.relatedTarget;
-        document.getElementById('proformaId').value = btn.getAttribute('data-id');
-        document.getElementById('proformaCliente').textContent = btn.getAttribute('data-cliente');
-        document.getElementById('proformaTotale').textContent = btn.getAttribute('data-totale');
-    });
-
-    // Modal Fattura
-    document.getElementById('modalFattura').addEventListener('show.bs.modal', function(event) {
-        var btn = event.relatedTarget;
-        document.getElementById('fatturaId').value = btn.getAttribute('data-id');
-        document.getElementById('fatturaCliente').textContent = btn.getAttribute('data-cliente');
-        document.getElementById('fatturaTotale').textContent = btn.getAttribute('data-totale');
-        
-        var hasProforma = btn.getAttribute('data-hasproforma') === 'true';
-        document.getElementById('fatturaProformaInfo').style.display = hasProforma ? 'block' : 'none';
-        if (hasProforma) {
-            document.getElementById('fatturaProforma').textContent = btn.getAttribute('data-proforma');
-        }
-    });
-
-    // Modal Modifica Scadenza
-    document.getElementById('modalModificaScadenza').addEventListener('show.bs.modal', function(event) {
-        var btn = event.relatedTarget;
-        document.getElementById('modificaScadenzaId').value = btn.getAttribute('data-id');
-        document.getElementById('modificaScadenzaCliente').textContent = btn.getAttribute('data-cliente');
-        document.getElementById('modificaScadenzaData').value = btn.getAttribute('data-data');
-        document.getElementById('modificaScadenzaImporto').value = btn.getAttribute('data-importo').replace('.', ',');
-        document.getElementById('modificaScadenzaRimborso').value = btn.getAttribute('data-rimborso').replace('.', ',');
-        
-        var hasProforma = btn.getAttribute('data-hasproforma') === 'true';
-        document.getElementById('modificaScadenzaProformaAlert').style.display = hasProforma ? 'block' : 'none';
-        if (hasProforma) {
-            document.getElementById('modificaScadenzaProformaNum').textContent = btn.getAttribute('data-proforma');
-        }
-    });
-
-    // Funzione per mostrare dettaglio spese
+    // Funzione per mostrare dettaglio spese (definita PRIMA dei listener)
     window.mostraDettaglioSpese = function(scadenzaId) {
         fetch(`/Amministrazione/GetDettaglioSpese/${scadenzaId}`)
             .then(response => response.json())
@@ -796,54 +781,91 @@
                 }
                 
                 document.getElementById('dettaglioSpeseTotale').textContent = formatCurrency(totale);
+                
+                // Apri il modale dopo aver caricato i dati
+                var modal = new bootstrap.Modal(document.getElementById('modalDettaglioSpese'));
+                modal.show();
             })
             .catch(error => {
                 console.error('Errore nel caricamento dettaglio spese:', error);
                 alert('Errore nel caricamento del dettaglio spese');
             });
     };
-    
-    function formatCurrency(value) {
-        return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+
+    // Modal Dettaglio (solo se esiste)
+    var modalDettaglio = document.getElementById('modalDettaglio');
+    if (modalDettaglio) {
+        modalDettaglio.addEventListener('show.bs.modal', function(event) {
+            var btn = event.relatedTarget;
+            if (!btn) return;
+            
+            document.getElementById('dettaglioCliente').textContent = btn.getAttribute('data-cliente') || '';
+            document.getElementById('dettaglioData').textContent = btn.getAttribute('data-data') || '';
+            document.getElementById('dettaglioMandato').textContent = formatCurrency(parseFloat(btn.getAttribute('data-mandato')) || 0);
+            document.getElementById('dettaglioSpesePratiche').textContent = formatCurrency(parseFloat(btn.getAttribute('data-spesepratiche')) || 0);
+            document.getElementById('dettaglioAccessi').textContent = formatCurrency(parseFloat(btn.getAttribute('data-accessi')) || 0);
+            document.getElementById('dettaglioCloud').textContent = formatCurrency(parseFloat(btn.getAttribute('data-cloud')) || 0);
+            document.getElementById('dettaglioBilanci').textContent = formatCurrency(parseFloat(btn.getAttribute('data-bilanci')) || 0);
+            document.getElementById('dettaglioTotale').textContent = formatCurrency(parseFloat(btn.getAttribute('data-totale')) || 0);
+        });
+    }
+
+    // Modal Proforma (solo se esiste)
+    var modalProforma = document.getElementById('modalProforma');
+    if (modalProforma) {
+        modalProforma.addEventListener('show.bs.modal', function(event) {
+            var btn = event.relatedTarget;
+            if (!btn) return;
+            
+            document.getElementById('proformaId').value = btn.getAttribute('data-id') || '';
+            document.getElementById('proformaCliente').textContent = btn.getAttribute('data-cliente') || '';
+            document.getElementById('proformaTotale').textContent = btn.getAttribute('data-totale') || '0';
+        });
+    }
+
+    // Modal Fattura (solo se esiste)
+    var modalFattura = document.getElementById('modalFattura');
+    if (modalFattura) {
+        modalFattura.addEventListener('show.bs.modal', function(event) {
+            var btn = event.relatedTarget;
+            if (!btn) return;
+            
+            document.getElementById('fatturaId').value = btn.getAttribute('data-id') || '';
+            document.getElementById('fatturaCliente').textContent = btn.getAttribute('data-cliente') || '';
+            document.getElementById('fatturaTotale').textContent = btn.getAttribute('data-totale') || '0';
+            
+            var hasProforma = btn.getAttribute('data-hasproforma') === 'true';
+            document.getElementById('fatturaProformaInfo').style.display = hasProforma ? 'block' : 'none';
+            if (hasProforma) {
+                document.getElementById('fatturaProforma').textContent = btn.getAttribute('data-proforma') || '';
+            }
+        });
+    }
+
+    // Modal Modifica Scadenza (solo se esiste)
+    var modalModificaScadenza = document.getElementById('modalModificaScadenza');
+    if (modalModificaScadenza) {
+        modalModificaScadenza.addEventListener('show.bs.modal', function(event) {
+            var btn = event.relatedTarget;
+            if (!btn) return;
+            
+            document.getElementById('modificaScadenzaId').value = btn.getAttribute('data-id');
+            document.getElementById('modificaScadenzaCliente').textContent = btn.getAttribute('data-cliente');
+            document.getElementById('modificaScadenzaData').value = btn.getAttribute('data-data');
+            
+            var importo = btn.getAttribute('data-importo');
+            var rimborso = btn.getAttribute('data-rimborso');
+            document.getElementById('modificaScadenzaImporto').value = importo ? importo.replace('.', ',') : '0,00';
+            document.getElementById('modificaScadenzaRimborso').value = rimborso ? rimborso.replace('.', ',') : '0,00';
+            
+            var hasProforma = btn.getAttribute('data-hasproforma') === 'true';
+            document.getElementById('modificaScadenzaProformaAlert').style.display = hasProforma ? 'block' : 'none';
+            if (hasProforma) {
+                document.getElementById('modificaScadenzaProformaNum').textContent = btn.getAttribute('data-proforma');
+            }
+        });
     }
 </script>
-
-<!-- Modal Dettaglio Spese -->
-<div class="modal fade" id="modalDettaglioSpese" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-info text-white">
-                <h5 class="modal-title"><i class="fas fa-list-ul me-2"></i>Dettaglio Spese Extra</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Tipo</th>
-                                <th>Descrizione</th>
-                                <th class="text-end">Importo</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dettaglioSpeseBody">
-                            <!-- Popolato da JavaScript -->
-                        </tbody>
-                        <tfoot class="table-light fw-bold">
-                            <tr>
-                                <td colspan="2">TOTALE SPESE EXTRA</td>
-                                <td class="text-end text-info" id="dettaglioSpeseTotale">€ 0,00</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 }
+
 
