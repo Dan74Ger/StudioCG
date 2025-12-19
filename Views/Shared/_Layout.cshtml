@@ -49,8 +49,20 @@
             background: rgba(0, 0, 0, 0.1);
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
             gap: 8px;
+        }
+        
+        .sidebar-logo {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 5px;
+            border-radius: 8px;
+        }
+        
+        .sidebar-logo:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.02);
         }
         
         .sidebar-header img {
@@ -59,47 +71,67 @@
             flex-shrink: 1;
         }
 
-        .sidebar-toggle-btn {
-            width: 28px;
-            height: 28px;
-            min-width: 28px;
-            border-radius: 6px;
-            border: 1px solid rgba(255, 255, 255, 0.25);
-            background: rgba(255, 255, 255, 0.12);
-            color: #fff;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s ease;
-            font-size: 0.75rem;
-            flex-shrink: 0;
-        }
-
-        .sidebar-toggle-btn:hover {
-            background: rgba(255, 255, 255, 0.22);
-        }
-
         body.sidebar-collapsed .sidebar-header {
             justify-content: center;
             padding: 12px 8px;
         }
 
         body.sidebar-collapsed .sidebar-header img {
-            max-width: 38px;
+            max-width: 42px;
         }
-
-        body.sidebar-collapsed .sidebar-toggle-btn {
-            display: none;
-        }
-
+        
         body.sidebar-collapsed .nav-item {
             margin: 5px 8px;
         }
 
+        /* Menu compatto: stili e tooltip */
         body.sidebar-collapsed .nav-link {
+            position: relative;
             justify-content: center;
             padding: 12px 12px;
             gap: 0;
+        }
+        
+        body.sidebar-collapsed .nav-link::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #2d3748;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            z-index: 1100;
+            margin-left: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            pointer-events: none;
+        }
+        
+        body.sidebar-collapsed .nav-link::before {
+            content: '';
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            border: 6px solid transparent;
+            border-right-color: #2d3748;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            margin-left: -2px;
+            pointer-events: none;
+        }
+        
+        body.sidebar-collapsed .nav-link:hover::after,
+        body.sidebar-collapsed .nav-link:hover::before {
+            opacity: 1;
+            visibility: visible;
         }
 
         body.sidebar-collapsed .nav-link span,
@@ -335,10 +367,9 @@
         <!-- Sidebar -->
         <div class="sidebar">
             <div class="sidebar-header">
-                <img src="~/images/CONSULTING GRANDE.png" alt="Consulting Group" class="img-fluid" />
-                <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Mostra/Nascondi menu">
-                    <i class="fas fa-bars"></i>
-                </button>
+                <div class="sidebar-logo" id="sidebarLogoToggle" title="Clicca per espandere/comprimere menu">
+                    <img src="~/images/CONSULTING GRANDE.png" alt="Consulting Group" class="img-fluid" />
+                </div>
             </div>
             <nav class="sidebar-nav">
                 <ul class="nav flex-column">
@@ -755,22 +786,32 @@
         (function () {
             const KEY = 'studiocg_sidebar_collapsed';
             const body = document.body;
-            const btn = document.getElementById('sidebarToggleBtn');
+            const logoToggle = document.getElementById('sidebarLogoToggle');
 
-            // Restore
+            // Restore stato salvato
             try {
                 const saved = localStorage.getItem(KEY);
                 if (saved === '1') body.classList.add('sidebar-collapsed');
             } catch { }
 
-            if (btn) {
-                btn.addEventListener('click', function () {
+            // Toggle al click sul logo
+            if (logoToggle) {
+                logoToggle.addEventListener('click', function () {
                     body.classList.toggle('sidebar-collapsed');
                     try {
                         localStorage.setItem(KEY, body.classList.contains('sidebar-collapsed') ? '1' : '0');
                     } catch { }
                 });
             }
+            
+            // Aggiungi data-tooltip dinamicamente ai nav-link
+            document.querySelectorAll('.sidebar-nav .nav-link').forEach(function(link) {
+                // Prendi il testo dalla span o section-title
+                var textEl = link.querySelector('span, .section-title');
+                if (textEl) {
+                    link.setAttribute('data-tooltip', textEl.textContent.trim());
+                }
+            });
         })();
     </script>
     @RenderSection("Scripts", required: false)
