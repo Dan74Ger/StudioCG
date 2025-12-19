@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StudioCG.Web.Models;
+using StudioCG.Web.Models.BudgetStudio;
 using StudioCG.Web.Models.Fatturazione;
 
 namespace StudioCG.Web.Data
@@ -44,6 +45,10 @@ namespace StudioCG.Web.Data
         public DbSet<ContatoreDocumento> ContatoriDocumenti { get; set; }
         public DbSet<IncassoFattura> IncassiFatture { get; set; }
         public DbSet<IncassoProfessionista> IncassiProfessionisti { get; set; }
+
+        // Tabelle Budget Studio
+        public DbSet<VoceSpesaBudget> VociSpesaBudget { get; set; }
+        public DbSet<BudgetSpesaMensile> BudgetSpeseMensili { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -410,6 +415,30 @@ namespace StudioCG.Web.Data
                     .OnDelete(DeleteBehavior.NoAction);
             });
 
+            // ============ TABELLE BUDGET STUDIO ============
+
+            modelBuilder.Entity<VoceSpesaBudget>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.CodiceSpesa).IsUnique();
+                entity.Property(e => e.CodiceSpesa).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Descrizione).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.NoteDefault).HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<BudgetSpesaMensile>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.VoceSpesaBudgetId, e.Anno, e.Mese }).IsUnique();
+                entity.Property(e => e.Importo).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.Note).HasMaxLength(500);
+
+                entity.HasOne(e => e.VoceSpesaBudget)
+                    .WithMany(v => v.BudgetMensile)
+                    .HasForeignKey(e => e.VoceSpesaBudgetId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
             // ============ SEED DATA ============
 
             // Seed admin user (password: 123456)
@@ -591,6 +620,17 @@ namespace StudioCG.Web.Data
                     Icon = "fas fa-calendar-alt",
                     Category = "AMMINISTRAZIONE",
                     DisplayOrder = 29,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 210,
+                    PageName = "Budget Studio",
+                    PageUrl = "/BudgetStudio",
+                    Description = "Budget Studio - pianificazione spese mensili",
+                    Icon = "fas fa-coins",
+                    Category = null,
+                    DisplayOrder = 30,
                     ShowInMenu = true
                 }
             );

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StudioCG.Web.Data;
 
@@ -11,9 +12,11 @@ using StudioCG.Web.Data;
 namespace StudioCG.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251219161925_AddBudgetStudioTables")]
+    partial class AddBudgetStudioTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1245,11 +1248,12 @@ namespace StudioCG.Web.Migrations
                         new
                         {
                             Id = 210,
+                            Category = "AMMINISTRAZIONE",
                             Description = "Budget Studio - pianificazione spese mensili",
                             DisplayOrder = 30,
                             Icon = "fas fa-coins",
                             PageName = "Budget Studio",
-                            PageUrl = "/BudgetStudio",
+                            PageUrl = "/Amministrazione/BudgetStudio",
                             ShowInMenu = true
                         });
                 });

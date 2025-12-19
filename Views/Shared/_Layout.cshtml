@@ -1,4 +1,4 @@
-﻿@using StudioCG.Web.Services
+@using StudioCG.Web.Services
 @inject IPermissionService PermissionService
 <!DOCTYPE html>
 <html lang="it">
@@ -16,12 +16,18 @@
             --accent-color: #e8af30;
             --text-light: #f7fafc;
             --sidebar-width: 260px;
+            --sidebar-collapsed-width: 74px;
         }
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f0f4f8;
             min-height: 100vh;
+        }
+
+        /* Sidebar collapsed mode (for wide pages like Budget Studio) */
+        body.sidebar-collapsed {
+            --sidebar-width: var(--sidebar-collapsed-width);
         }
         
         .sidebar {
@@ -37,15 +43,75 @@
         }
         
         .sidebar-header {
-            padding: 20px;
+            padding: 15px 10px;
             text-align: center;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             background: rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
         }
         
         .sidebar-header img {
-            max-width: 180px;
+            max-width: 160px;
             height: auto;
+            flex-shrink: 1;
+        }
+
+        .sidebar-toggle-btn {
+            width: 28px;
+            height: 28px;
+            min-width: 28px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            font-size: 0.75rem;
+            flex-shrink: 0;
+        }
+
+        .sidebar-toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.22);
+        }
+
+        body.sidebar-collapsed .sidebar-header {
+            justify-content: center;
+            padding: 12px 8px;
+        }
+
+        body.sidebar-collapsed .sidebar-header img {
+            max-width: 38px;
+        }
+
+        body.sidebar-collapsed .sidebar-toggle-btn {
+            display: none;
+        }
+
+        body.sidebar-collapsed .nav-item {
+            margin: 5px 8px;
+        }
+
+        body.sidebar-collapsed .nav-link {
+            justify-content: center;
+            padding: 12px 12px;
+            gap: 0;
+        }
+
+        body.sidebar-collapsed .nav-link span,
+        body.sidebar-collapsed .section-title,
+        body.sidebar-collapsed .section-arrow,
+        body.sidebar-collapsed .nav-section-title {
+            display: none !important;
+        }
+
+        body.sidebar-collapsed .submenu,
+        body.sidebar-collapsed .submenu-inner {
+            padding-left: 0;
         }
         
         .sidebar-nav {
@@ -270,6 +336,9 @@
         <div class="sidebar">
             <div class="sidebar-header">
                 <img src="~/images/CONSULTING GRANDE.png" alt="Consulting Group" class="img-fluid" />
+                <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Mostra/Nascondi menu">
+                    <i class="fas fa-bars"></i>
+                </button>
             </div>
             <nav class="sidebar-nav">
                 <ul class="nav flex-column">
@@ -508,6 +577,19 @@
                     }
                     
                     @{
+                        // Budget Studio - voce principale autonoma
+                        var userHasBudgetStudio = isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/BudgetStudio");
+                        if (userHasBudgetStudio)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link @(currentController == "BudgetStudio" ? "active" : "")"
+                                   asp-controller="BudgetStudio" asp-action="Index">
+                                    <i class="fas fa-coins"></i>
+                                    <span>Budget Studio</span>
+                                </a>
+                            </li>
+                        }
+
                         <!-- Menu AMMINISTRAZIONE -->
                         var isInAmministrazione = currentController == "Amministrazione";
                         var userHasAmministrazione = isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione");
@@ -669,6 +751,28 @@
     }
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        (function () {
+            const KEY = 'studiocg_sidebar_collapsed';
+            const body = document.body;
+            const btn = document.getElementById('sidebarToggleBtn');
+
+            // Restore
+            try {
+                const saved = localStorage.getItem(KEY);
+                if (saved === '1') body.classList.add('sidebar-collapsed');
+            } catch { }
+
+            if (btn) {
+                btn.addEventListener('click', function () {
+                    body.classList.toggle('sidebar-collapsed');
+                    try {
+                        localStorage.setItem(KEY, body.classList.contains('sidebar-collapsed') ? '1' : '0');
+                    } catch { }
+                });
+            }
+        })();
+    </script>
     @RenderSection("Scripts", required: false)
 </body>
 </html>

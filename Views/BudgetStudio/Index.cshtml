@@ -1,0 +1,995 @@
+@model StudioCG.Web.Models.ViewModels.BudgetStudioViewModel
+@using StudioCG.Web.Models.BudgetStudio
+@using StudioCG.Web.Models.ViewModels
+@{
+    ViewData["Title"] = "Budget Studio";
+    var activeTab = (ViewBag.ActiveTab as string) ?? "anagrafica";
+
+    var mesi = new Dictionary<int, string>
+    {
+        {1, "Gen"}, {2, "Feb"}, {3, "Mar"}, {4, "Apr"},
+        {5, "Mag"}, {6, "Giu"}, {7, "Lug"}, {8, "Ago"},
+        {9, "Set"}, {10, "Ott"}, {11, "Nov"}, {12, "Dic"}
+    };
+}
+
+<style>
+    /* Override sidebar nav-link styles (global in _Layout) for Bootstrap tabs in this page */
+    #budgetTabs .nav-link {
+        color: var(--primary-color) !important;
+        background: transparent !important;
+        transform: none !important;
+        border: 1px solid #e2e8f0 !important;
+        border-bottom: none !important;
+        border-radius: 10px 10px 0 0 !important;
+        padding: 10px 16px !important;
+        display: inline-flex !important;
+        gap: 8px !important;
+    }
+
+    #budgetTabs .nav-link:hover {
+        color: var(--primary-color) !important;
+        background: #f7fafc !important;
+        transform: none !important;
+    }
+
+    #budgetTabs .nav-link.active {
+        color: var(--primary-color) !important;
+        background: #ffffff !important;
+        border-bottom: 1px solid #ffffff !important;
+        box-shadow: 0 -1px 0 rgba(0,0,0,0.02);
+    }
+
+    #budgetTabsContent {
+        border-color: #e2e8f0 !important;
+        border-radius: 0 12px 12px 12px;
+    }
+
+    /* Prospetto: tutto visibile in una schermata */
+    .budget-grid-wrap {
+        overflow-x: auto;
+        overflow-y: visible;
+        padding-bottom: 6px;
+    }
+
+    table.budget-grid {
+        border-collapse: collapse;
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    table.budget-grid th,
+    table.budget-grid td {
+        vertical-align: middle;
+        background: #fff;
+        border: 1px solid #dee2e6;
+        text-align: center;
+        padding: 4px 3px;
+    }
+
+    table.budget-grid thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #f8fafc;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    /* Prima colonna (Voce) */
+    table.budget-grid th:first-child,
+    table.budget-grid td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 3;
+        background: #ffffff;
+        width: 180px;
+        text-align: left;
+        padding: 4px 6px;
+    }
+
+    table.budget-grid thead th:first-child {
+        background: #f8fafc;
+    }
+
+    /* Ultima colonna (Totale) */
+    table.budget-grid th:last-child,
+    table.budget-grid td:last-child {
+        background: #f0f4f8;
+        width: 70px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+
+    /* Celle mesi */
+    .budget-cell {
+        width: 100%;
+        padding: 2px 1px !important;
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-align: center;
+        border: none;
+        background: transparent;
+    }
+
+    /* Celle pagate - verde chiaro */
+    td.cell-pagata {
+        background-color: #d4edda !important;
+    }
+    td.cell-pagata .budget-cell {
+        background: transparent;
+    }
+
+    /* Celle da pagare (con importo) - rosso chiaro */
+    td.cell-da-pagare {
+        background-color: #ffe5e5 !important;
+    }
+    td.cell-da-pagare .budget-cell {
+        background: transparent;
+    }
+
+    /* Azioni voce: codice + descrizione */
+    .budget-voce-actions {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .budget-voce-actions .voce-info {
+        overflow: hidden;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .budget-voce-actions .fw-bold {
+        font-size: 0.8rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .budget-voce-actions .text-muted {
+        font-size: 0.65rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+    }
+
+    .budget-voce-actions .btn-sm {
+        padding: 2px 4px;
+        font-size: 0.65rem;
+        flex-shrink: 0;
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h4 class="mb-0"><i class="fas fa-coins me-2 text-warning"></i>Budget Studio</h4>
+                <small class="text-muted">Prospetto spese previste Gen–Dic</small>
+            </div>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs" id="budgetTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(activeTab == "anagrafica" ? "active" : "")" id="tab-anagrafica" data-bs-toggle="tab" data-bs-target="#pane-anagrafica" type="button" role="tab">
+                <i class="fas fa-list me-2"></i>Anagrafica Voci
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(activeTab == "prospetto" ? "active" : "")" id="tab-prospetto" data-bs-toggle="tab" data-bs-target="#pane-prospetto" type="button" role="tab">
+                <i class="fas fa-table me-2"></i>Prospetto (@Model.Anno)
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content border border-top-0 p-3 bg-white" id="budgetTabsContent">
+        <!-- ===================== TAB ANAGRAFICA ===================== -->
+        <div class="tab-pane fade @(activeTab == "anagrafica" ? "show active" : "")" id="pane-anagrafica" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <div class="text-muted small">Crea le voci che appariranno come righe nel prospetto.</div>
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuovaVoce">
+                    <i class="fas fa-plus me-2"></i>Nuova voce
+                </button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Codice</th>
+                            <th>Descrizione</th>
+                            <th>Metodo</th>
+                            <th class="text-center">Attiva</th>
+                            <th class="text-end">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var v in Model.Voci)
+                        {
+                            <tr>
+                                <td class="fw-bold">@v.CodiceSpesa</td>
+                                <td>@v.Descrizione</td>
+                                <td>@v.MetodoPagamentoDefault</td>
+                                <td class="text-center">
+                                    @if (v.IsActive)
+                                    {
+                                        <span class="badge bg-success">SI</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">NO</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-primary"
+                                                data-bs-toggle="modal" data-bs-target="#modalEditVoce"
+                                                data-id="@v.Id"
+                                                data-codice="@v.CodiceSpesa"
+                                                data-descrizione="@v.Descrizione"
+                                                data-metodo="@((int)v.MetodoPagamentoDefault)"
+                                                data-note="@v.NoteDefault"
+                                                data-active="@(v.IsActive ? "true" : "false")">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <form asp-action="DeleteVoceSpesaBudget" method="post" class="d-inline"
+                                              onsubmit="return confirm('Eliminare la voce @v.CodiceSpesa?');">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@v.Id" />
+                                            <input type="hidden" name="anno" value="@Model.Anno" />
+                                            <button type="submit" class="btn btn-outline-danger">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ===================== TAB PROSPETTO ===================== -->
+        <div class="tab-pane fade @(activeTab == "prospetto" ? "show active" : "")" id="pane-prospetto" role="tabpanel">
+            
+            <!-- Selettore Anno stile calendario -->
+            <div class="d-flex align-items-center justify-content-center gap-3 mb-3 py-2 bg-light rounded">
+                <a href="@Url.Action("Index", new { anno = Model.Anno - 1, meseDa = Model.MeseDa, meseA = Model.MeseA, pagate = Model.PagateFiltro, nascondiVuote = Model.NascondiVuote, tab = "prospetto" })" 
+                   class="btn btn-outline-primary" title="Anno precedente">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                <h4 class="mb-0 fw-bold text-primary" style="min-width: 80px; text-align: center;">@Model.Anno</h4>
+                <a href="@Url.Action("Index", new { anno = Model.Anno + 1, meseDa = Model.MeseDa, meseA = Model.MeseA, pagate = Model.PagateFiltro, nascondiVuote = Model.NascondiVuote, tab = "prospetto" })" 
+                   class="btn btn-outline-primary" title="Anno successivo">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                @if (Model.Anno != DateTime.Today.Year)
+                {
+                    <a href="@Url.Action("Index", new { anno = DateTime.Today.Year, meseDa = Model.MeseDa, meseA = Model.MeseA, pagate = Model.PagateFiltro, nascondiVuote = Model.NascondiVuote, tab = "prospetto" })" 
+                       class="btn btn-sm btn-outline-secondary ms-2" title="Torna all'anno corrente">
+                        <i class="fas fa-calendar-day me-1"></i>Oggi
+                    </a>
+                }
+            </div>
+
+            <form class="row g-2 align-items-end mb-3" method="get" asp-action="Index">
+                <input type="hidden" name="tab" value="prospetto" />
+                <input type="hidden" name="anno" value="@Model.Anno" />
+                <div class="col-sm-2">
+                    <label class="form-label small text-muted">Mese da</label>
+                    <select class="form-select form-select-sm" name="meseDa">
+                        @foreach (var m in mesi)
+                        {
+                            <option value="@m.Key" selected="@(Model.MeseDa == m.Key)">@m.Value</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-sm-2">
+                    <label class="form-label small text-muted">Mese a</label>
+                    <select class="form-select form-select-sm" name="meseA">
+                        @foreach (var m in mesi)
+                        {
+                            <option value="@m.Key" selected="@(Model.MeseA == m.Key)">@m.Value</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-sm-2">
+                    <label class="form-label small text-muted">Pagate</label>
+                    <select class="form-select form-select-sm" name="pagate">
+                        <option value="@BudgetPagateFiltro.NonPagate" selected="@(Model.PagateFiltro == BudgetPagateFiltro.NonPagate)">Non pagate</option>
+                        <option value="@BudgetPagateFiltro.Pagate" selected="@(Model.PagateFiltro == BudgetPagateFiltro.Pagate)">Pagate</option>
+                        <option value="@BudgetPagateFiltro.Tutte" selected="@(Model.PagateFiltro == BudgetPagateFiltro.Tutte)">Tutte</option>
+                    </select>
+                </div>
+                <div class="col-sm-2 d-flex align-items-end">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="nascondiVuote" value="true" id="chkNascondiVuote" @(Model.NascondiVuote ? "checked" : "") />
+                        <label class="form-check-label small" for="chkNascondiVuote">
+                            Nascondi vuote
+                        </label>
+                    </div>
+                </div>
+                <div class="col-sm-2">
+                    <button class="btn btn-primary btn-sm w-100" type="submit">
+                        <i class="fas fa-filter me-1"></i>Filtri
+                    </button>
+                </div>
+                <div class="col-sm-2 text-end d-flex gap-1 justify-content-end">
+                    <a href="@Url.Action("ExportExcel", new { anno = Model.Anno, meseDa = Model.MeseDa, meseA = Model.MeseA, pagate = Model.PagateFiltro, nascondiVuote = Model.NascondiVuote })" 
+                       class="btn btn-success btn-sm" title="Esporta in Excel">
+                        <i class="fas fa-file-excel"></i>
+                    </a>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCopyFromYear">
+                        <i class="fas fa-copy me-1"></i>Da @(Model.Anno - 1)
+                    </button>
+                </div>
+            </form>
+
+            @Html.AntiForgeryToken()
+
+            <div class="budget-grid-wrap">
+                <table class="table table-bordered align-middle budget-grid">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Voce</th>
+                            @for (int m = Model.MeseDa; m <= Model.MeseA; m++)
+                            {
+                                <th>@mesi[m]</th>
+                            }
+                            <th>Tot.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var v in Model.Voci)
+                        {
+                            decimal totRiga = 0;
+                            <tr>
+                                <td>
+                                    <div class="budget-voce-actions">
+                                        <div class="voce-info" title="@v.CodiceSpesa - @v.Descrizione">
+                                            <div class="fw-bold">@v.CodiceSpesa</div>
+                                            <div class="text-muted">@v.Descrizione</div>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                title="Azioni rapide"
+                                                onclick="openAzioniVoce(@v.Id, '@v.CodiceSpesa', '@v.Descrizione')">
+                                            <i class="fas fa-bolt"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                @for (int m = Model.MeseDa; m <= Model.MeseA; m++)
+                                {
+                                    Model.Map.TryGetValue((v.Id, m), out var cell);
+                                    var value = cell?.Importo ?? 0m;
+                                    if (value != 0) totRiga += value;
+                                    var isPagata = cell?.Pagata ?? false;
+                                    var cellClass = isPagata ? "cell-pagata" : (value != 0 ? "cell-da-pagare" : "");
+
+                                    <td class="@cellClass">
+                                        <input type="text"
+                                               class="form-control form-control-sm text-center budget-cell"
+                                               value="@(value == 0 ? "" : ((int)value).ToString("N0", new System.Globalization.CultureInfo("it-IT")))"
+                                               data-voceid="@v.Id"
+                                               data-anno="@Model.Anno"
+                                               data-mese="@m"
+                                               data-pagata="@(isPagata ? "true" : "false")"
+                                               placeholder="0" />
+                                    </td>
+                                }
+                                <td class="fw-bold">@totRiga.ToString("N0", new System.Globalization.CultureInfo("it-IT"))€</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot class="table-light fw-bold">
+                        <tr>
+                            <td>Tot.</td>
+                            @for (int m = Model.MeseDa; m <= Model.MeseA; m++)
+                            {
+                                <td>@Model.TotaliMese.GetValueOrDefault(m).ToString("N0", new System.Globalization.CultureInfo("it-IT"))€</td>
+                            }
+                            <td>@Model.TotaleAnno.ToString("N0", new System.Globalization.CultureInfo("it-IT"))€</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-2">
+                <small class="text-muted">Suggerimento: modifica importo in cella → esci dalla cella per salvare. Doppio click apre dettaglio (pagata/metodo/note).</small>
+                @if (Model.NascondiVuote)
+                {
+                    <a href="@Url.Action("Index", new { anno = Model.Anno, meseDa = Model.MeseDa, meseA = Model.MeseA, pagate = Model.PagateFiltro, nascondiVuote = false, tab = "prospetto" })" 
+                       class="btn btn-sm btn-outline-info">
+                        <i class="fas fa-eye me-1"></i>Mostra tutte le voci
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL AZIONI VOCE (NON tagliato dallo scroll) ===================== -->
+<div class="modal fade" id="modalAzioniVoce" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title"><i class="fas fa-bolt me-2"></i>Azioni voce</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="fw-bold" id="azioniVoceLabel"></div>
+                <input type="hidden" id="azioniVoceId" />
+                <div class="d-grid gap-2 mt-3">
+                    <button type="button" class="btn btn-outline-dark"
+                            onclick="openBulkRange(parseInt(document.getElementById('azioniVoceId').value,10), azioniVoceCodice, azioniVoceDescr, 1, 12)">
+                        <i class="fas fa-copy me-2"></i>Compila tutto l'anno
+                    </button>
+                    <button type="button" class="btn btn-outline-dark"
+                            onclick="openBulkRange(parseInt(document.getElementById('azioniVoceId').value,10), azioniVoceCodice, azioniVoceDescr, @Model.MeseDa, @Model.MeseA)">
+                        <i class="fas fa-arrows-alt-h me-2"></i>Compila intervallo (visibile)
+                    </button>
+                    <button type="button" class="btn btn-outline-dark"
+                            onclick="openBulkMonths(parseInt(document.getElementById('azioniVoceId').value,10), azioniVoceCodice, azioniVoceDescr)">
+                        <i class="fas fa-calendar-check me-2"></i>Compila mesi selezionati
+                    </button>
+                    <button type="button" class="btn btn-outline-danger"
+                            onclick="openClearVoce(parseInt(document.getElementById('azioniVoceId').value,10), azioniVoceCodice, azioniVoceDescr)">
+                        <i class="fas fa-eraser me-2"></i>Azzera voce (anno)
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL BULK RANGE ===================== -->
+<div class="modal fade" id="modalBulkRange" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="ApplyBudgetVoce" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="voceId" id="bulkRangeVoceId" />
+                <input type="hidden" name="anno" value="@Model.Anno" />
+                <input type="hidden" name="ritornoMeseDa" value="@Model.MeseDa" />
+                <input type="hidden" name="ritornoMeseA" value="@Model.MeseA" />
+                <input type="hidden" name="ritornoPagate" value="@Model.PagateFiltro" />
+                <input type="hidden" name="tab" value="prospetto" />
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title"><i class="fas fa-copy me-2"></i>Compila intervallo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="small text-muted mb-2" id="bulkRangeVoceLabel"></div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label">Da mese</label>
+                            <select class="form-select" name="meseDa" id="bulkRangeMeseDa">
+                                @foreach (var m in mesi)
+                                {
+                                    <option value="@m.Key">@m.Value</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">A mese</label>
+                            <select class="form-select" name="meseA" id="bulkRangeMeseA">
+                                @foreach (var m in mesi)
+                                {
+                                    <option value="@m.Key">@m.Value</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label">Importo</label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="text" class="form-control" name="importo" placeholder="0,00" required />
+                        </div>
+                        <small class="text-muted">Inserisci un importo: verrà copiato su tutti i mesi selezionati</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-dark">Applica</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL BULK MONTHS ===================== -->
+<div class="modal fade" id="modalBulkMonths" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="ApplyBudgetVoceMesi" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="voceId" id="bulkMonthsVoceId" />
+                <input type="hidden" name="anno" value="@Model.Anno" />
+                <input type="hidden" name="mesiCsv" id="bulkMonthsCsv" />
+                <input type="hidden" name="ritornoMeseDa" value="@Model.MeseDa" />
+                <input type="hidden" name="ritornoMeseA" value="@Model.MeseA" />
+                <input type="hidden" name="ritornoPagate" value="@Model.PagateFiltro" />
+                <input type="hidden" name="tab" value="prospetto" />
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title"><i class="fas fa-calendar-check me-2"></i>Compila mesi selezionati</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="small text-muted mb-2" id="bulkMonthsVoceLabel"></div>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        @foreach (var m in mesi)
+                        {
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input bulk-month-check" type="checkbox" value="@m.Key" id="bm_@m.Key">
+                                <label class="form-check-label" for="bm_@m.Key">@m.Value</label>
+                            </div>
+                        }
+                    </div>
+                    <div>
+                        <label class="form-label">Importo</label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="text" class="form-control" name="importo" placeholder="0,00" required />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-dark" onclick="buildMonthsCsv()">Applica</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL CLEAR VOCE ===================== -->
+<div class="modal fade" id="modalClearVoce" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="ClearBudgetVoce" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="voceId" id="clearVoceId" />
+                <input type="hidden" name="anno" value="@Model.Anno" />
+                <input type="hidden" name="ritornoMeseDa" value="@Model.MeseDa" />
+                <input type="hidden" name="ritornoMeseA" value="@Model.MeseA" />
+                <input type="hidden" name="ritornoPagate" value="@Model.PagateFiltro" />
+                <input type="hidden" name="tab" value="prospetto" />
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="fas fa-eraser me-2"></i>Azzera voce</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">Confermi azzeramento budget per:</p>
+                    <div class="fw-bold" id="clearVoceLabel"></div>
+                    <small class="text-muted">Verranno eliminate tutte le righe mensili dell'anno selezionato.</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-danger">Azzera</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL NUOVA VOCE ===================== -->
+<div class="modal fade" id="modalNuovaVoce" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CreateVoceSpesaBudget" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="anno" value="@Model.Anno" />
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Nuova voce di spesa</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Codice spesa <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="codiceSpesa" required maxlength="50" placeholder="Es: AFFITTO" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descrizione <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="descrizione" required maxlength="200" placeholder="Es: Affitto ufficio" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Metodo pagamento default</label>
+                        <select class="form-select" name="metodoPagamentoDefault">
+                            @foreach (var m in Enum.GetValues<MetodoPagamentoBudget>())
+                            {
+                                <option value="@((int)m)">@m</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Note default (opzionale)</label>
+                        <textarea class="form-control" name="noteDefault" rows="2" maxlength="500"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-success">Salva</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL EDIT VOCE ===================== -->
+<div class="modal fade" id="modalEditVoce" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="UpdateVoceSpesaBudget" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="anno" value="@Model.Anno" />
+                <input type="hidden" name="id" id="editVoceId" />
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Modifica voce</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Codice spesa</label>
+                        <input type="text" class="form-control" name="codiceSpesa" id="editVoceCodice" required maxlength="50" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descrizione</label>
+                        <input type="text" class="form-control" name="descrizione" id="editVoceDescrizione" required maxlength="200" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Metodo pagamento default</label>
+                        <select class="form-select" name="metodoPagamentoDefault" id="editVoceMetodo">
+                            @foreach (var m in Enum.GetValues<MetodoPagamentoBudget>())
+                            {
+                                <option value="@((int)m)">@m</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Note default</label>
+                        <textarea class="form-control" name="noteDefault" id="editVoceNote" rows="2" maxlength="500"></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="true" id="editVoceActive" name="isActive" />
+                        <label class="form-check-label" for="editVoceActive">Attiva</label>
+                    </div>
+                    <input type="hidden" name="isActive" value="false" />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">Salva</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL DETTAGLIO CELLA ===================== -->
+<div class="modal fade" id="modalDettaglioCella" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="formDettaglioCella">
+                @Html.AntiForgeryToken()
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="fas fa-info-circle me-2"></i>Dettaglio cella</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="small text-muted mb-2">
+                        <span class="fw-bold" id="detVoceLabel"></span> - <span id="detMeseLabel"></span> @Model.Anno
+                    </div>
+                    <input type="hidden" id="detVoceId" />
+                    <input type="hidden" id="detAnno" value="@Model.Anno" />
+                    <input type="hidden" id="detMese" />
+                    <div class="mb-3">
+                        <label class="form-label">Importo</label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="text" class="form-control" id="detImporto" placeholder="0,00" />
+                        </div>
+                        <small class="text-muted">Usa la virgola come separatore decimale</small>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="detPagata">
+                        <label class="form-check-label" for="detPagata">Pagata</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Metodo pagamento</label>
+                        <select class="form-select" id="detMetodoPagamento">
+                            <option value="">(default voce)</option>
+                            @foreach (var m in Enum.GetValues<MetodoPagamentoBudget>())
+                            {
+                                <option value="@((int)m)">@m</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Note</label>
+                        <textarea class="form-control" id="detNote" rows="2" maxlength="500"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+                    <button type="submit" class="btn btn-info text-white"><i class="fas fa-save me-2"></i>Salva</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL COPIA DA ANNO PRECEDENTE ===================== -->
+<div class="modal fade" id="modalCopyFromYear" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CopyFromPreviousYear" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="anno" value="@Model.Anno" />
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title"><i class="fas fa-copy me-2"></i>Copia da anno precedente</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Questa operazione copierà tutti i dati del budget dall'anno <strong>@(Model.Anno - 1)</strong> all'anno <strong>@Model.Anno</strong>.
+                    </div>
+                    <p class="mb-2">Verranno copiati:</p>
+                    <ul class="mb-3">
+                        <li>Tutti gli importi mensili</li>
+                        <li>Metodi di pagamento e note</li>
+                    </ul>
+                    <div class="alert alert-warning mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Attenzione:</strong> Se ci sono già dati nell'anno @Model.Anno, verranno <strong>sovrascritti</strong>.
+                        <br>Le celle copiate saranno impostate come "non pagate".
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-copy me-2"></i>Copia da @(Model.Anno - 1)
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const mesiLabel = {
+        1: 'Gen', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'Mag', 6: 'Giu',
+        7: 'Lug', 8: 'Ago', 9: 'Set', 10: 'Ott', 11: 'Nov', 12: 'Dic'
+    };
+
+    // Funzione per parsare un valore formattato italiano (1.234 -> 1234)
+    function parseItalianNumber(str) {
+        if (!str || str.trim() === '') return 0;
+        // Rimuove punti delle migliaia e sostituisce virgola con punto per decimali
+        return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+    }
+
+    // Funzione per formattare un numero in stile italiano (1234 -> 1.234)
+    function formatItalianNumber(num) {
+        if (num === 0) return '0';
+        return Math.round(num).toLocaleString('it-IT');
+    }
+
+    // Aggiorna tutti i totali (riga, colonna, generale)
+    function updateAllTotals() {
+        const table = document.querySelector('table.budget-grid');
+        if (!table) return;
+
+        const tbody = table.querySelector('tbody');
+        const tfoot = table.querySelector('tfoot');
+        if (!tbody || !tfoot) return;
+
+        const rows = tbody.querySelectorAll('tr');
+        const footerRow = tfoot.querySelector('tr');
+        const footerCells = footerRow.querySelectorAll('td');
+
+        // Numero di colonne mesi (esclusa prima e ultima)
+        const numMesi = footerCells.length - 2; // -1 per "Tot." e -1 per totale generale
+
+        // Array per totali colonne
+        const totaliColonne = new Array(numMesi).fill(0);
+        let totaleGenerale = 0;
+
+        // Calcola totali per ogni riga
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            let totaleRiga = 0;
+
+            // Scorre le celle dei mesi (dalla 2a all'ultima-1)
+            for (let i = 1; i < cells.length - 1; i++) {
+                const input = cells[i].querySelector('.budget-cell');
+                if (input) {
+                    const val = parseItalianNumber(input.value);
+                    totaleRiga += val;
+                    totaliColonne[i - 1] += val;
+                }
+            }
+
+            // Aggiorna totale riga (ultima cella)
+            const lastCell = cells[cells.length - 1];
+            if (lastCell) {
+                lastCell.textContent = formatItalianNumber(totaleRiga) + '€';
+            }
+
+            totaleGenerale += totaleRiga;
+        });
+
+        // Aggiorna totali colonne nel footer
+        for (let i = 0; i < numMesi; i++) {
+            footerCells[i + 1].textContent = formatItalianNumber(totaliColonne[i]) + '€';
+        }
+
+        // Aggiorna totale generale (ultima cella footer)
+        footerCells[footerCells.length - 1].textContent = formatItalianNumber(totaleGenerale) + '€';
+    }
+
+    // Modal edit voce: preload data
+    document.getElementById('modalEditVoce')?.addEventListener('show.bs.modal', function (event) {
+        const btn = event.relatedTarget;
+        if (!btn) return;
+        document.getElementById('editVoceId').value = btn.getAttribute('data-id');
+        document.getElementById('editVoceCodice').value = btn.getAttribute('data-codice');
+        document.getElementById('editVoceDescrizione').value = btn.getAttribute('data-descrizione');
+        document.getElementById('editVoceMetodo').value = btn.getAttribute('data-metodo');
+        document.getElementById('editVoceNote').value = btn.getAttribute('data-note') || '';
+        document.getElementById('editVoceActive').checked = btn.getAttribute('data-active') === 'true';
+    });
+
+    // Anti-forgery token for fetch
+    function getAntiForgery() {
+        const input = document.querySelector('input[name="__RequestVerificationToken"]');
+        return input ? input.value : '';
+    }
+
+    // Inline save on blur + aggiornamento totali in tempo reale
+    document.querySelectorAll('.budget-cell').forEach(inp => {
+        // Aggiorna totali quando l'utente digita
+        inp.addEventListener('input', function () {
+            updateAllTotals();
+        });
+
+        // Formatta il valore quando esce dalla cella
+        inp.addEventListener('blur', async function () {
+            const voceId = this.getAttribute('data-voceid');
+            const anno = this.getAttribute('data-anno');
+            const mese = this.getAttribute('data-mese');
+            
+            // Parsa e riformatta il valore
+            const numValue = parseItalianNumber(this.value);
+            this.value = numValue === 0 ? '' : formatItalianNumber(numValue);
+            
+            // Invia al server
+            const importo = numValue.toString().replace('.', ',');
+
+            const form = new URLSearchParams();
+            form.append('voceId', voceId);
+            form.append('anno', anno);
+            form.append('mese', mese);
+            form.append('importo', importo);
+            form.append('__RequestVerificationToken', getAntiForgery());
+
+            const res = await fetch('@Url.Action("SaveBudgetCell", "BudgetStudio")', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: form.toString()
+            });
+            if (!res.ok) {
+                console.error('Errore salvataggio cella', await res.text());
+            }
+        });
+
+        // Double click: open detail modal
+        inp.addEventListener('dblclick', async function () {
+            const voceId = this.getAttribute('data-voceid');
+            const anno = this.getAttribute('data-anno');
+            const mese = this.getAttribute('data-mese');
+
+            const url = '@Url.Action("GetBudgetCell", "BudgetStudio")' + `?voceId=${voceId}&anno=${anno}&mese=${mese}`;
+            const res = await fetch(url);
+            const data = await res.json();
+
+            document.getElementById('detVoceId').value = voceId;
+            document.getElementById('detAnno').value = anno;
+            document.getElementById('detMese').value = mese;
+            document.getElementById('detVoceLabel').textContent = `${data.voceCodice} - ${data.voceDescrizione}`;
+            document.getElementById('detMeseLabel').textContent = mesiLabel[parseInt(mese, 10)] || mese;
+            document.getElementById('detImporto').value = (data.importo || 0).toString().replace('.', ',');
+            document.getElementById('detPagata').checked = data.pagata === true;
+            document.getElementById('detMetodoPagamento').value = data.metodoPagamento ?? '';
+            document.getElementById('detNote').value = data.note ?? '';
+
+            const modal = new bootstrap.Modal(document.getElementById('modalDettaglioCella'));
+            modal.show();
+        });
+    });
+
+    // Save detail modal
+    document.getElementById('formDettaglioCella')?.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const voceId = document.getElementById('detVoceId').value;
+        const anno = document.getElementById('detAnno').value;
+        const mese = document.getElementById('detMese').value;
+
+        const form = new URLSearchParams();
+        form.append('voceId', voceId);
+        form.append('anno', anno);
+        form.append('mese', mese);
+        form.append('importo', document.getElementById('detImporto').value);
+        form.append('pagata', document.getElementById('detPagata').checked ? 'true' : 'false');
+        const mp = document.getElementById('detMetodoPagamento').value;
+        if (mp !== '') form.append('metodoPagamento', mp);
+        form.append('note', document.getElementById('detNote').value);
+        form.append('__RequestVerificationToken', getAntiForgery());
+
+        const res = await fetch('@Url.Action("SaveBudgetCellDetail", "BudgetStudio")', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: form.toString()
+        });
+
+        if (!res.ok) {
+            console.error('Errore salvataggio dettaglio', await res.text());
+            return;
+        }
+        // Rimani nel prospetto dopo salvataggio
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', 'prospetto');
+        window.location.href = url.toString();
+    });
+
+    // Bulk helpers
+    window.openBulkRange = function (voceId, codice, descr, meseDa, meseA) {
+        document.getElementById('bulkRangeVoceId').value = voceId;
+        document.getElementById('bulkRangeVoceLabel').textContent = `${codice} - ${descr}`;
+        document.getElementById('bulkRangeMeseDa').value = meseDa;
+        document.getElementById('bulkRangeMeseA').value = meseA;
+        new bootstrap.Modal(document.getElementById('modalBulkRange')).show();
+    };
+
+    window.openBulkMonths = function (voceId, codice, descr) {
+        document.getElementById('bulkMonthsVoceId').value = voceId;
+        document.getElementById('bulkMonthsVoceLabel').textContent = `${codice} - ${descr}`;
+        document.querySelectorAll('.bulk-month-check').forEach(c => c.checked = false);
+        document.getElementById('bulkMonthsCsv').value = '';
+        new bootstrap.Modal(document.getElementById('modalBulkMonths')).show();
+    };
+
+    window.buildMonthsCsv = function () {
+        const mesi = Array.from(document.querySelectorAll('.bulk-month-check'))
+            .filter(c => c.checked)
+            .map(c => c.value);
+        document.getElementById('bulkMonthsCsv').value = mesi.join(',');
+    };
+
+    window.openClearVoce = function (voceId, codice, descr) {
+        document.getElementById('clearVoceId').value = voceId;
+        document.getElementById('clearVoceLabel').textContent = `${codice} - ${descr}`;
+        new bootstrap.Modal(document.getElementById('modalClearVoce')).show();
+    };
+
+    // Azioni voce (modale)
+    let azioniVoceCodice = '';
+    let azioniVoceDescr = '';
+    window.openAzioniVoce = function (voceId, codice, descr) {
+        azioniVoceCodice = codice;
+        azioniVoceDescr = descr;
+        document.getElementById('azioniVoceId').value = voceId;
+        document.getElementById('azioniVoceLabel').textContent = `${codice} - ${descr}`;
+        new bootstrap.Modal(document.getElementById('modalAzioniVoce')).show();
+    };
+</script>
+}

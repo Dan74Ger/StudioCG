@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StudioCG.Web.Data;
 using StudioCG.Web.Models.Fatturazione;
+using StudioCG.Web.Models.ViewModels;
+using System.Globalization;
 
 namespace StudioCG.Web.Controllers
 {
