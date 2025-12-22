@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using StudioCG.Web.Models;
 using StudioCG.Web.Models.BudgetStudio;
+using StudioCG.Web.Models.Documenti;
 using StudioCG.Web.Models.Fatturazione;
 
 namespace StudioCG.Web.Data
@@ -52,6 +53,12 @@ namespace StudioCG.Web.Data
         public DbSet<BudgetSpesaMensile> BudgetSpeseMensili { get; set; }
         public DbSet<BancaBudget> BancheBudget { get; set; }
         public DbSet<SaldoBancaMese> SaldiBancheMese { get; set; }
+
+        // Tabelle Sistema Documenti
+        public DbSet<ConfigurazioneStudio> ConfigurazioniStudio { get; set; }
+        public DbSet<ClausolaDocumento> ClausoleDocumenti { get; set; }
+        public DbSet<TemplateDocumento> TemplateDocumenti { get; set; }
+        public DbSet<DocumentoGenerato> DocumentiGenerati { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -667,8 +674,142 @@ namespace StudioCG.Web.Data
                     Category = null,
                     DisplayOrder = 30,
                     ShowInMenu = true
+                },
+                // Permessi Documenti
+                new Permission
+                {
+                    Id = 301,
+                    PageName = "Documenti",
+                    PageUrl = "/Documenti",
+                    Description = "Sistema gestione documenti e template",
+                    Icon = "fas fa-file-alt",
+                    Category = "DOCUMENTI",
+                    DisplayOrder = 40,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 302,
+                    PageName = "Impostazioni Studio",
+                    PageUrl = "/Documenti/ImpostazioniStudio",
+                    Description = "Configurazione dati e logo studio",
+                    Icon = "fas fa-building",
+                    Category = "DOCUMENTI",
+                    DisplayOrder = 41,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 303,
+                    PageName = "Clausole",
+                    PageUrl = "/Documenti/Clausole",
+                    Description = "Gestione clausole riutilizzabili",
+                    Icon = "fas fa-paragraph",
+                    Category = "DOCUMENTI",
+                    DisplayOrder = 42,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 304,
+                    PageName = "Template",
+                    PageUrl = "/Documenti/Template",
+                    Description = "Gestione template documenti",
+                    Icon = "fas fa-file-signature",
+                    Category = "DOCUMENTI",
+                    DisplayOrder = 43,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 305,
+                    PageName = "Genera Documento",
+                    PageUrl = "/Documenti/Genera",
+                    Description = "Genera documento da template",
+                    Icon = "fas fa-file-export",
+                    Category = "DOCUMENTI",
+                    DisplayOrder = 44,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 306,
+                    PageName = "Archivio Documenti",
+                    PageUrl = "/Documenti/Archivio",
+                    Description = "Archivio documenti generati",
+                    Icon = "fas fa-archive",
+                    Category = "DOCUMENTI",
+                    DisplayOrder = 45,
+                    ShowInMenu = true
                 }
             );
+
+            // Configurazione Sistema Documenti
+            modelBuilder.Entity<ConfigurazioneStudio>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.NomeStudio).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Indirizzo).HasMaxLength(200);
+                entity.Property(e => e.Citta).HasMaxLength(100);
+                entity.Property(e => e.CAP).HasMaxLength(10);
+                entity.Property(e => e.Provincia).HasMaxLength(50);
+                entity.Property(e => e.PIVA).HasMaxLength(16);
+                entity.Property(e => e.CF).HasMaxLength(16);
+                entity.Property(e => e.Email).HasMaxLength(100);
+                entity.Property(e => e.PEC).HasMaxLength(100);
+                entity.Property(e => e.Telefono).HasMaxLength(20);
+            });
+
+            modelBuilder.Entity<ClausolaDocumento>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Categoria).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Descrizione).HasMaxLength(500);
+                entity.Property(e => e.Contenuto).IsRequired();
+                entity.HasIndex(e => e.Categoria);
+            });
+
+            modelBuilder.Entity<TemplateDocumento>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Categoria).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Descrizione).HasMaxLength(500);
+                entity.Property(e => e.Contenuto).IsRequired();
+                entity.HasIndex(e => e.Categoria);
+            });
+
+            modelBuilder.Entity<DocumentoGenerato>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.NomeFile).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.ContentType).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Note).HasMaxLength(500);
+
+                entity.HasOne(e => e.TemplateDocumento)
+                    .WithMany(t => t.DocumentiGenerati)
+                    .HasForeignKey(e => e.TemplateDocumentoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Cliente)
+                    .WithMany()
+                    .HasForeignKey(e => e.ClienteId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.MandatoCliente)
+                    .WithMany()
+                    .HasForeignKey(e => e.MandatoClienteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.GeneratoDa)
+                    .WithMany()
+                    .HasForeignKey(e => e.GeneratoDaUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasIndex(e => e.ClienteId);
+                entity.HasIndex(e => e.GeneratoIl);
+            });
 
             // Seed anno fiscale corrente
             modelBuilder.Entity<AnnualitaFiscale>().HasData(new AnnualitaFiscale

@@ -1,0 +1,741 @@
+@model StudioCG.Web.Models.Documenti.TemplateDocumento
+@{
+    ViewData["Title"] = Model.Id == 0 ? "Nuovo Template" : "Modifica Template";
+    var categorie = ViewBag.Categorie as List<string>;
+    var clausole = ViewBag.Clausole as List<StudioCG.Web.Models.Documenti.ClausolaDocumento>;
+    var isNew = Model.Id == 0;
+}
+
+@section Styles {
+<style>
+    .tox-tinymce {
+        border-radius: 0.375rem !important;
+        width: 100% !important;
+    }
+    .tox-editor-container {
+        width: 100% !important;
+    }
+    .editor-container {
+        width: 100%;
+    }
+    .editor-container .card-body {
+        padding: 0 !important;
+    }
+    #templateEditor {
+        width: 100%;
+    }
+    .campo-btn {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+    }
+    .campo-group-title {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+    .editor-card-header {
+        transition: all 0.3s ease;
+    }
+    .editor-card-header.editor-active {
+        box-shadow: 0 0 0 3px #ffc107 !important;
+        position: relative;
+    }
+    .editor-card-header.editor-active::before {
+        content: '✎ ATTIVO';
+        position: absolute;
+        left: 10px;
+        top: -10px;
+        font-size: 0.65rem;
+        background: #ffc107;
+        color: #000;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-weight: bold;
+        z-index: 10;
+    }
+</style>
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="fas fa-@(isNew ? "plus" : "edit") me-2"></i>
+            @(isNew ? "Nuovo Template" : "Modifica Template")
+        </h2>
+        <a href="@Url.Action("Template")" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Torna ai Template
+        </a>
+    </div>
+
+    <form asp-action="SaveTemplate" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="CreatedAt" />
+        <input type="hidden" asp-for="IsActive" value="true" />
+
+        <div class="row">
+            <!-- Colonna sinistra: Metadati -->
+            <div class="col-lg-3">
+                <div class="card mb-4 sticky-top" style="top: 20px;">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0"><i class="fas fa-cog me-2"></i>Proprietà Template</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label asp-for="Nome" class="form-label">Nome Template *</label>
+                            <input asp-for="Nome" class="form-control" required placeholder="Es: Mandato Professionale" />
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="Categoria" class="form-label">Categoria *</label>
+                            <select asp-for="Categoria" class="form-select" required>
+                                @foreach (var cat in categorie!)
+                                {
+                                    <option value="@cat">@cat</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="Descrizione" class="form-label">Descrizione</label>
+                            <textarea asp-for="Descrizione" class="form-control" rows="2" placeholder="Breve descrizione..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="TipoOutputDefault" class="form-label">Output Default</label>
+                            <select asp-for="TipoOutputDefault" class="form-select">
+                                <option value="0">PDF</option>
+                                <option value="1">Word</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input asp-for="RichiestaMandato" class="form-check-input" type="checkbox" />
+                                <label asp-for="RichiestaMandato" class="form-check-label">
+                                    Richiede selezione Mandato
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="Ordine" class="form-label">Ordine</label>
+                            <input asp-for="Ordine" type="number" class="form-control" />
+                        </div>
+
+                        <hr />
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-save me-1"></i>Salva Template
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colonna centrale: Editor -->
+            <div class="col-lg-6">
+                <!-- Intestazione -->
+                <div class="card mb-3">
+                    <div class="card-header bg-secondary text-white py-2 editor-card-header" id="header-header">
+                        <h6 class="mb-0"><i class="fas fa-heading me-2"></i>Intestazione (Header)</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <textarea asp-for="Intestazione" id="headerEditor" style="width: 100%;"></textarea>
+                    </div>
+                </div>
+
+                <!-- Contenuto principale -->
+                <div class="card mb-3 editor-container">
+                    <div class="card-header bg-primary text-white py-2 editor-card-header editor-active" id="header-contenuto">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0"><i class="fas fa-file-alt me-2"></i>Contenuto Principale</h6>
+                            <button type="button" class="btn btn-sm btn-outline-light" onclick="toggleSourceView()" title="Mostra/Nascondi HTML">
+                                <i class="fas fa-code"></i>
+                            </button>
+                        </div>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-warning w-100" onclick="anteprimaCompleta()" title="Anteprima Documento Completo">
+                                <i class="fas fa-eye me-1"></i>Anteprima Documento Completo
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <textarea asp-for="Contenuto" id="templateEditor" style="width: 100%;"></textarea>
+                    </div>
+                </div>
+
+                <!-- Piè di Pagina -->
+                <div class="card mb-3">
+                    <div class="card-header bg-secondary text-white py-2 editor-card-header" id="header-footer">
+                        <h6 class="mb-0"><i class="fas fa-shoe-prints me-2"></i>Piè di Pagina (Footer)</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <textarea asp-for="PiePagina" id="footerEditor" style="width: 100%;"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colonna destra: Campi e Clausole -->
+            <div class="col-lg-3">
+                <!-- Campi Dinamici -->
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0"><i class="fas fa-tag me-2"></i>Campi Dinamici</h6>
+                            <small id="editorReadyIndicator"><i class="fas fa-spinner fa-spin"></i> Caricamento...</small>
+                        </div>
+                        <div class="mt-1">
+                            <small><i class="fas fa-arrow-right me-1"></i>Inserisci in: <strong id="activeEditorIndicator">Contenuto</strong></small>
+                        </div>
+                    </div>
+                    <div class="card-body p-2" style="max-height: 300px; overflow-y: auto;">
+                        <div class="accordion accordion-flush" id="accordionCampi">
+                            <!-- Studio -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#campiStudio">
+                                        <i class="fas fa-building me-2"></i>Studio
+                                    </button>
+                                </h2>
+                                <div id="campiStudio" class="accordion-collapse collapse">
+                                    <div class="accordion-body p-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Studio.Logo}}')">Logo</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Studio.Nome}}')">Nome</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Studio.Indirizzo}}')">Indirizzo</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Studio.Citta}}')">Città</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Studio.PIVA}}')">P.IVA</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Studio.CF}}')">CF</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Studio.Email}}')">Email</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Studio.PEC}}')">PEC</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Studio.Telefono}}')">Telefono</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Studio.Firma}}')">Firma</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Cliente -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#campiCliente">
+                                        <i class="fas fa-user me-2"></i>Cliente
+                                    </button>
+                                </h2>
+                                <div id="campiCliente" class="accordion-collapse collapse">
+                                    <div class="accordion-body p-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Cliente.RagioneSociale}}')">Ragione Sociale</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Cliente.Indirizzo}}')">Indirizzo</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Cliente.Citta}}')">Città</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Cliente.CAP}}')">CAP</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Cliente.CF}}')">CF</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Cliente.PIVA}}')">P.IVA</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Cliente.Email}}')">Email</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Cliente.PEC}}')">PEC</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Cliente.Telefono}}')">Telefono</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Mandato -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#campiMandato">
+                                        <i class="fas fa-file-contract me-2"></i>Mandato
+                                    </button>
+                                </h2>
+                                <div id="campiMandato" class="accordion-collapse collapse">
+                                    <div class="accordion-body p-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Mandato.Oggetto}}')">Oggetto</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Mandato.ImportoAnnuo}}')">Importo Annuo</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Mandato.ImportoLettere}}')">Importo in Lettere</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Mandato.TipoScadenza}}')">Tipo Scadenza</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Mandato.DataInizio}}')">Data Inizio</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Soggetti -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#campiSoggetti">
+                                        <i class="fas fa-users me-2"></i>Soggetti
+                                    </button>
+                                </h2>
+                                <div id="campiSoggetti" class="accordion-collapse collapse">
+                                    <div class="accordion-body p-2">
+                                        <p class="campo-group-title mb-1 text-primary"><i class="fas fa-user-tie me-1"></i>Legale Rappresentante</p>
+                                        <button type="button" class="btn btn-sm btn-outline-primary mb-1 w-100 text-start" onclick="insertTag('{{LegaleRapp.NomeCompleto}}')">Nome Completo</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary mb-1 w-100 text-start" onclick="insertTag('{{LegaleRapp.Nome}}')">Nome</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary mb-1 w-100 text-start" onclick="insertTag('{{LegaleRapp.Cognome}}')">Cognome</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary mb-1 w-100 text-start" onclick="insertTag('{{LegaleRapp.CF}}')">Codice Fiscale</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary mb-1 w-100 text-start" onclick="insertTag('{{LegaleRapp.Indirizzo}}')">Indirizzo</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary mb-1 w-100 text-start" onclick="insertTag('{{LegaleRapp.Citta}}')">Città</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary mb-1 w-100 text-start" onclick="insertTag('{{LegaleRapp.Provincia}}')">Provincia</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary mb-1 w-100 text-start" onclick="insertTag('{{LegaleRapp.CAP}}')">CAP</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary mb-1 w-100 text-start" onclick="insertTag('{{LegaleRapp.Email}}')">Email</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary mb-1 w-100 text-start" onclick="insertTag('{{LegaleRapp.Telefono}}')">Telefono</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary mb-1 w-100 text-start" onclick="insertTag('{{LegaleRapp.IndirizzoCompleto}}')">Indirizzo Completo</button>
+                                        
+                                        <p class="campo-group-title mb-1 mt-2 text-info"><i class="fas fa-users-cog me-1"></i>Consiglieri</p>
+                                        <button type="button" class="btn btn-sm btn-outline-info mb-1 w-100 text-start" onclick="insertTag('{{Consiglieri.Elenco}}')">Elenco Consiglieri</button>
+                                        <button type="button" class="btn btn-sm btn-outline-info mb-1 w-100 text-start" onclick="insertTag('{{Consiglieri.ElencoCompleto}}')">Elenco con Dati</button>
+                                        
+                                        <p class="campo-group-title mb-1 mt-2 text-success"><i class="fas fa-user-friends me-1"></i>Soci</p>
+                                        <button type="button" class="btn btn-sm btn-outline-success mb-1 w-100 text-start" onclick="insertTag('{{Soci.Elenco}}')">Elenco Soci</button>
+                                        <button type="button" class="btn btn-sm btn-outline-success mb-1 w-100 text-start" onclick="insertTag('{{Soci.ElencoConQuote}}')">Elenco con Quote</button>
+                                        <button type="button" class="btn btn-sm btn-outline-success mb-1 w-100 text-start" onclick="insertTag('{{Soci.ElencoCompleto}}')">Elenco Completo</button>
+                                        <button type="button" class="btn btn-sm btn-outline-success mb-1 w-100 text-start" onclick="insertTag('{{Soci.TotaleQuote}}')">Totale Quote %</button>
+                                        
+                                        <p class="campo-group-title mb-1 mt-2"><i class="fas fa-list me-1"></i>Tutti i Soggetti</p>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Soggetti.TuttiElenco}}')">Elenco Tutti</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Soggetti.Tabella}}')">Tabella Completa</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Data/Varie -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#campiVarie">
+                                        <i class="fas fa-calendar me-2"></i>Data/Varie
+                                    </button>
+                                </h2>
+                                <div id="campiVarie" class="accordion-collapse collapse">
+                                    <div class="accordion-body p-2">
+                                        <p class="campo-group-title mb-1">Date</p>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{Oggi}}')">Data Oggi</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{OggiEstesa}}')">Data Estesa</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{AnnoCorrente}}')">Anno Corrente</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1 w-100 text-start" onclick="insertTag('{{LuogoData}}')">Luogo e Data</button>
+                                        <p class="campo-group-title mb-1 mt-2">Numerazione Pagine</p>
+                                        <button type="button" class="btn btn-sm btn-outline-warning mb-1 w-100 text-start" onclick="insertTag('{{Pagina}}')"><i class="fas fa-file me-1"></i>N° Pagina</button>
+                                        <button type="button" class="btn btn-sm btn-outline-warning mb-1 w-100 text-start" onclick="insertTag('{{TotalePagine}}')"><i class="fas fa-files me-1"></i>Totale Pagine</button>
+                                        <button type="button" class="btn btn-sm btn-outline-warning mb-1 w-100 text-start" onclick="insertTag('{{PaginaDi}}')"><i class="fas fa-pager me-1"></i>Pagina X di Y</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Clausole -->
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0"><i class="fas fa-paragraph me-2"></i>Inserisci Clausola</h6>
+                    </div>
+                    <div class="card-body p-2" style="max-height: 250px; overflow-y: auto;">
+                        @if (clausole != null && clausole.Any())
+                        {
+                            @foreach (var clausola in clausole)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-info mb-1 w-100 text-start text-truncate" 
+                                        onclick="insertClausola('@System.Web.HttpUtility.JavaScriptStringEncode(clausola.Contenuto)')"
+                                        title="@clausola.Contenuto">
+                                    <i class="fas fa-plus me-1"></i>@clausola.Nome
+                                </button>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted small mb-0">Nessuna clausola. <a href="@Url.Action("Clausole")">Creane una</a></p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+<!-- TinyMCE CDN con API Key -->
+<script src="https://cdn.tiny.cloud/1/i61liiro91s3mxajvsxb5q8bi7vfdkwoi203jkcs33twu66i/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<script>
+    var tinyEditor = null;
+    var headerEditor = null;
+    var footerEditor = null;
+    var activeEditor = null; // Editor attualmente attivo (ultimo con focus)
+    var editorReady = false;
+    
+    // Aspetta che TinyMCE sia caricato
+    function initEditor() {
+        if (typeof tinymce === 'undefined') {
+            console.log('TinyMCE non ancora caricato, riprovo...');
+            setTimeout(initEditor, 500);
+            return;
+        }
+        
+        // Editor Intestazione (piccolo)
+        tinymce.init({
+            selector: '#headerEditor',
+            width: '100%',
+            height: 150,
+            menubar: false,
+            plugins: ['lists', 'link', 'image', 'table'],
+            toolbar: 'bold italic underline | alignleft aligncenter alignright | bullist | link image table',
+            content_style: 'body { font-family: Arial, sans-serif; font-size: 11pt; padding: 10px; }',
+            setup: function(editor) {
+                editor.on('init', function() {
+                    headerEditor = editor;
+                    console.log('Header Editor pronto');
+                });
+                editor.on('focus', function() {
+                    activeEditor = editor;
+                    updateActiveIndicator('header');
+                    console.log('Focus su Header Editor');
+                });
+            }
+        });
+        
+        // Editor Piè di Pagina (piccolo)
+        tinymce.init({
+            selector: '#footerEditor',
+            width: '100%',
+            height: 120,
+            menubar: false,
+            plugins: ['lists', 'link'],
+            toolbar: 'bold italic underline | alignleft aligncenter alignright | bullist | link',
+            content_style: 'body { font-family: Arial, sans-serif; font-size: 10pt; padding: 10px; text-align: center; }',
+            setup: function(editor) {
+                editor.on('init', function() {
+                    footerEditor = editor;
+                    console.log('Footer Editor pronto');
+                });
+                editor.on('focus', function() {
+                    activeEditor = editor;
+                    updateActiveIndicator('footer');
+                    console.log('Focus su Footer Editor');
+                });
+            }
+        });
+        
+        // Editor Contenuto Principale
+        tinymce.init({
+        selector: '#templateEditor',
+        width: '100%',
+        height: 450,
+        resize: 'both',
+        language: 'it',
+        plugins: [
+            'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+            'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+            'insertdatetime', 'media', 'table', 'help', 'wordcount', 'pagebreak'
+        ],
+        toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | ' +
+                 'forecolor backcolor | alignleft aligncenter alignright alignjustify | ' +
+                 'bullist numlist outdent indent | table link image | pagebreak | removeformat code fullscreen help',
+        menubar: 'file edit view insert format tools table help',
+        content_style: `
+            body { 
+                font-family: Arial, sans-serif; 
+                font-size: 11pt; 
+                line-height: 1.5;
+                padding: 40px;
+                text-align: justify;
+                background: white;
+                margin: 0;
+            }
+            p, div {
+                text-align: justify;
+                margin-bottom: 10px;
+            }
+            .mce-pagebreak {
+                border-top: 2px dashed #dc3545 !important;
+                margin: 20px 0 !important;
+                padding-top: 20px !important;
+                page-break-before: always;
+            }
+            .mce-pagebreak::before {
+                content: '--- INTERRUZIONE PAGINA ---';
+                display: block;
+                text-align: center;
+                color: #dc3545;
+                font-size: 10px;
+                font-weight: bold;
+                margin-top: -10px;
+            }
+            .campo-dinamico {
+                background-color: #e3f2fd;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-family: monospace;
+                color: #1565c0;
+            }
+        `,
+        // Permetti copia/incolla da Word
+        paste_data_images: true,
+        paste_webkit_styles: 'all',
+        paste_merge_formats: true,
+        paste_auto_cleanup_on_paste: true,
+        // Formattazione tabelle
+        table_default_styles: {
+            'border-collapse': 'collapse',
+            'width': '100%'
+        },
+        table_default_attributes: {
+            'border': '1'
+        },
+        // Setup iniziale
+        setup: function(editor) {
+            tinyEditor = editor;
+            
+            // Quando l'editor è completamente inizializzato
+            editor.on('init', function() {
+                console.log('TinyMCE Editor principale pronto!');
+                tinyEditor = editor;
+                activeEditor = editor; // Default: editor principale attivo
+                editorReady = true;
+                // Mostra indicatore
+                var indicator = document.getElementById('editorReadyIndicator');
+                if (indicator) {
+                    indicator.innerHTML = '<i class="fas fa-check-circle text-success"></i> Pronto';
+                    indicator.className = 'text-white';
+                }
+            });
+            
+            // Quando l'editor ottiene il focus
+            editor.on('focus', function() {
+                activeEditor = editor;
+                updateActiveIndicator('contenuto');
+                console.log('Focus su Editor Principale');
+            });
+            
+            // Menu custom per campi dinamici
+            editor.ui.registry.addMenuButton('campiDinamici', {
+                text: 'Campi',
+                icon: 'template',
+                fetch: function(callback) {
+                    var items = [
+                        {
+                            type: 'nestedmenuitem',
+                            text: 'Studio',
+                            getSubmenuItems: function() {
+                                return [
+                                    { type: 'menuitem', text: 'Logo', onAction: function() { insertCampo('{{Studio.Logo}}'); } },
+                                    { type: 'menuitem', text: 'Nome', onAction: function() { insertCampo('{{Studio.Nome}}'); } },
+                                    { type: 'menuitem', text: 'Indirizzo', onAction: function() { insertCampo('{{Studio.Indirizzo}}'); } },
+                                    { type: 'menuitem', text: 'Città', onAction: function() { insertCampo('{{Studio.Citta}}'); } },
+                                    { type: 'menuitem', text: 'P.IVA', onAction: function() { insertCampo('{{Studio.PIVA}}'); } },
+                                    { type: 'menuitem', text: 'CF', onAction: function() { insertCampo('{{Studio.CF}}'); } },
+                                    { type: 'menuitem', text: 'Email', onAction: function() { insertCampo('{{Studio.Email}}'); } },
+                                    { type: 'menuitem', text: 'PEC', onAction: function() { insertCampo('{{Studio.PEC}}'); } },
+                                    { type: 'menuitem', text: 'Telefono', onAction: function() { insertCampo('{{Studio.Telefono}}'); } },
+                                    { type: 'menuitem', text: 'Firma', onAction: function() { insertCampo('{{Studio.Firma}}'); } }
+                                ];
+                            }
+                        },
+                        {
+                            type: 'nestedmenuitem',
+                            text: 'Cliente',
+                            getSubmenuItems: function() {
+                                return [
+                                    { type: 'menuitem', text: 'Ragione Sociale', onAction: function() { insertCampo('{{Cliente.RagioneSociale}}'); } },
+                                    { type: 'menuitem', text: 'Indirizzo', onAction: function() { insertCampo('{{Cliente.Indirizzo}}'); } },
+                                    { type: 'menuitem', text: 'Città', onAction: function() { insertCampo('{{Cliente.Citta}}'); } },
+                                    { type: 'menuitem', text: 'CAP', onAction: function() { insertCampo('{{Cliente.CAP}}'); } },
+                                    { type: 'menuitem', text: 'CF', onAction: function() { insertCampo('{{Cliente.CF}}'); } },
+                                    { type: 'menuitem', text: 'P.IVA', onAction: function() { insertCampo('{{Cliente.PIVA}}'); } },
+                                    { type: 'menuitem', text: 'Email', onAction: function() { insertCampo('{{Cliente.Email}}'); } },
+                                    { type: 'menuitem', text: 'PEC', onAction: function() { insertCampo('{{Cliente.PEC}}'); } },
+                                    { type: 'menuitem', text: 'Telefono', onAction: function() { insertCampo('{{Cliente.Telefono}}'); } }
+                                ];
+                            }
+                        },
+                        {
+                            type: 'nestedmenuitem',
+                            text: 'Mandato',
+                            getSubmenuItems: function() {
+                                return [
+                                    { type: 'menuitem', text: 'Oggetto', onAction: function() { insertCampo('{{Mandato.Oggetto}}'); } },
+                                    { type: 'menuitem', text: 'Importo Annuo', onAction: function() { insertCampo('{{Mandato.ImportoAnnuo}}'); } },
+                                    { type: 'menuitem', text: 'Importo in Lettere', onAction: function() { insertCampo('{{Mandato.ImportoLettere}}'); } },
+                                    { type: 'menuitem', text: 'Tipo Scadenza', onAction: function() { insertCampo('{{Mandato.TipoScadenza}}'); } },
+                                    { type: 'menuitem', text: 'Data Inizio', onAction: function() { insertCampo('{{Mandato.DataInizio}}'); } }
+                                ];
+                            }
+                        },
+                        {
+                            type: 'nestedmenuitem',
+                            text: 'Soggetti',
+                            getSubmenuItems: function() {
+                                return [
+                                    { type: 'menuitem', text: 'Elenco Soci', onAction: function() { insertCampo('{{Soggetti.Elenco}}'); } },
+                                    { type: 'menuitem', text: 'Legale Rappresentante', onAction: function() { insertCampo('{{Soggetti.LegaleRapp}}'); } },
+                                    { type: 'menuitem', text: 'Titolare', onAction: function() { insertCampo('{{Soggetti.Titolare}}'); } }
+                                ];
+                            }
+                        },
+                        {
+                            type: 'nestedmenuitem',
+                            text: 'Data/Varie',
+                            getSubmenuItems: function() {
+                                return [
+                                    { type: 'menuitem', text: 'Data Oggi', onAction: function() { insertCampo('{{Oggi}}'); } },
+                                    { type: 'menuitem', text: 'Data Estesa', onAction: function() { insertCampo('{{OggiEstesa}}'); } },
+                                    { type: 'menuitem', text: 'Anno Corrente', onAction: function() { insertCampo('{{AnnoCorrente}}'); } },
+                                    { type: 'menuitem', text: 'Luogo e Data', onAction: function() { insertCampo('{{LuogoData}}'); } },
+                                    { type: 'separator' },
+                                    { type: 'menuitem', text: 'N° Pagina', onAction: function() { insertCampo('{{Pagina}}'); } },
+                                    { type: 'menuitem', text: 'Totale Pagine', onAction: function() { insertCampo('{{TotalePagine}}'); } },
+                                    { type: 'menuitem', text: 'Pagina X di Y', onAction: function() { insertCampo('{{PaginaDi}}'); } }
+                                ];
+                            }
+                        }
+                    ];
+                    callback(items);
+                }
+            });
+            
+            // Aggiungi bottone campi alla toolbar
+            editor.ui.registry.addButton('inserisciCampo', {
+                text: 'Inserisci Campo',
+                icon: 'template',
+                onAction: function() {
+                    // Mostra panel campi
+                    document.getElementById('campiStudio').classList.add('show');
+                }
+            });
+        },
+        // Aggiungi menu campi dinamici al menubar
+        menu: {
+            campi: { title: 'Campi Dinamici', items: 'campiDinamici' }
+        },
+        toolbar_mode: 'sliding'
+        });
+    }
+    
+    // Avvia l'inizializzazione quando il documento è pronto
+    if (document.readyState === 'complete') {
+        initEditor();
+    } else {
+        window.addEventListener('load', initEditor);
+    }
+    
+    // Aggiorna indicatore visivo dell'editor attivo
+    function updateActiveIndicator(editorType) {
+        // Rimuovi classe attiva da tutti gli header delle card editor
+        document.querySelectorAll('.editor-card-header').forEach(function(el) {
+            el.classList.remove('editor-active');
+        });
+        // Aggiungi classe attiva all'editor corrente
+        var activeHeader = document.getElementById('header-' + editorType);
+        if (activeHeader) {
+            activeHeader.classList.add('editor-active');
+        }
+        // Aggiorna l'indicatore nel pannello campi
+        var indicator = document.getElementById('activeEditorIndicator');
+        if (indicator) {
+            var labels = { 'header': 'Intestazione', 'contenuto': 'Contenuto', 'footer': 'Piè di Pagina' };
+            indicator.textContent = labels[editorType] || editorType;
+        }
+    }
+
+    function getEditor() {
+        // Usa l'editor attivo (ultimo con focus)
+        if (activeEditor) return activeEditor;
+        // Fallback al contenuto principale
+        if (tinyEditor && editorReady) return tinyEditor;
+        if (typeof tinymce !== 'undefined' && tinymce.activeEditor) return tinymce.activeEditor;
+        return null;
+    }
+
+    function insertCampo(tag) {
+        var editor = getEditor();
+        if (editor) {
+            editor.focus();
+            setTimeout(function() {
+                editor.insertContent('<span style="background-color: #fff3cd; padding: 2px 4px; border-radius: 3px; font-weight: bold;">' + tag + '</span>&nbsp;');
+            }, 100);
+        } else {
+            alert('Clicca prima nell\'editor dove vuoi inserire il campo.');
+        }
+    }
+
+    function insertTag(tag) {
+        insertCampo(tag);
+    }
+
+    function insertClausola(contenuto) {
+        var editor = getEditor();
+        if (editor) {
+            editor.focus();
+            setTimeout(function() {
+                editor.insertContent('<div style="border-left: 3px solid #0d6efd; padding-left: 10px; margin: 10px 0;">' + contenuto + '</div>');
+            }, 100);
+        } else {
+            alert('Attendere il caricamento dell\'editor (indicatore verde).');
+        }
+    }
+    
+    function toggleSourceView() {
+        if (tinyEditor) {
+            tinyEditor.execCommand('mceCodeEditor');
+        }
+    }
+    
+    function anteprimaCompleta() {
+        // Ottieni contenuto da tutti e tre gli editor usando tinymce.get() che è più affidabile
+        var headerContent = '';
+        var mainContent = '';
+        var footerContent = '';
+        
+        // Header
+        var hEditor = tinymce.get('headerEditor');
+        if (hEditor) {
+            headerContent = hEditor.getContent();
+        }
+        
+        // Contenuto principale
+        var mEditor = tinymce.get('templateEditor');
+        if (mEditor) {
+            mainContent = mEditor.getContent();
+        }
+        
+        // Footer
+        var fEditor = tinymce.get('footerEditor');
+        if (fEditor) {
+            footerContent = fEditor.getContent();
+        }
+        
+        // Debug: mostra cosa abbiamo
+        console.log('Header:', headerContent ? 'SI' : 'NO', headerContent.length);
+        console.log('Main:', mainContent ? 'SI' : 'NO', mainContent.length);
+        console.log('Footer:', footerContent ? 'SI' : 'NO', footerContent.length);
+        
+        // Crea il documento completo formato A4
+        var documentoCompleto = '<!DOCTYPE html>' +
+        '<html><head><meta charset="utf-8"><title>Anteprima A4</title>' +
+        '<style>' +
+        '* { margin: 0; padding: 0; box-sizing: border-box; }' +
+        'body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.5; background: #404040; }' +
+        '.toolbar { background: #222; color: white; padding: 15px; text-align: center; position: fixed; top: 0; left: 0; right: 0; z-index: 100; }' +
+        '.toolbar button { padding: 10px 20px; margin: 0 5px; font-size: 14px; cursor: pointer; border: none; border-radius: 5px; }' +
+        '.btn-print { background: #28a745; color: white; }' +
+        '.btn-close { background: #dc3545; color: white; }' +
+        '.page-container { padding: 80px 20px 20px; display: flex; flex-direction: column; align-items: center; }' +
+        '.a4-page { background: white; width: 794px; min-height: 1123px; padding: 60px; margin-bottom: 30px; box-shadow: 0 5px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; }' +
+        '.a4-header { border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 25px; text-align: center; min-height: 60px; }' +
+        '.a4-content { flex: 1; text-align: justify; }' +
+        '.a4-content p, .a4-content div { margin-bottom: 10px; }' +
+        '.a4-footer { border-top: 2px solid #333; padding-top: 20px; margin-top: 25px; text-align: center; font-size: 10pt; min-height: 40px; }' +
+        '.empty-section { color: #bbb; font-style: italic; }' +
+        'span[style*="background-color"] { background-color: #fff3cd !important; padding: 2px 5px; border-radius: 3px; }' +
+        '</style></head><body>' +
+        '<div class="toolbar">' +
+        '<strong>📄 ANTEPRIMA DOCUMENTO A4</strong> &nbsp;&nbsp;&nbsp;' +
+        '<button class="btn-print" onclick="window.print()">🖨️ Stampa / Salva PDF</button>' +
+        '<button class="btn-close" onclick="window.close()">✖️ Chiudi</button>' +
+        '</div>' +
+        '<div class="page-container">' +
+        '<div class="a4-page">' +
+        '<div class="a4-header">' + (headerContent || '<span class="empty-section">[INTESTAZIONE]</span>') + '</div>' +
+        '<div class="a4-content">' + (mainContent || '<span class="empty-section">[CONTENUTO PRINCIPALE]</span>') + '</div>' +
+        '<div class="a4-footer">' + (footerContent || '<span class="empty-section">[PIÈ DI PAGINA]</span>') + '</div>' +
+        '</div>' +
+        '</div>' +
+        '</body></html>';
+        
+        // Apri in nuova finestra
+        var previewWindow = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
+        previewWindow.document.write(documentoCompleto);
+        previewWindow.document.close();
+    }
+    
+    // Prima del submit, assicurati che il contenuto sia aggiornato
+    document.querySelector('form').addEventListener('submit', function() {
+        if (tinyEditor) {
+            tinyEditor.save();
+        }
+    });
+</script>
+}
+

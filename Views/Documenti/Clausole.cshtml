@@ -1,0 +1,225 @@
+@model List<StudioCG.Web.Models.Documenti.ClausolaDocumento>
+@{
+    ViewData["Title"] = "Gestione Clausole";
+    var categorie = ViewBag.Categorie as List<string>;
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-paragraph me-2"></i>Clausole Riutilizzabili</h2>
+        <div>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNuovaClausola">
+                <i class="fas fa-plus me-1"></i>Nuova Clausola
+            </button>
+            <a href="@Url.Action("Index")" class="btn btn-outline-secondary ms-2">
+                <i class="fas fa-arrow-left me-1"></i>Dashboard
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="card">
+        <div class="card-body p-0">
+            @if (Model.Any())
+            {
+                <div class="accordion" id="accordionClausole">
+                    @foreach (var categoria in categorie!)
+                    {
+                        var clausoleCategoria = Model.Where(c => c.Categoria == categoria).ToList();
+                        if (!clausoleCategoria.Any()) continue;
+
+                        var catId = categoria.Replace(" ", "");
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse@(catId)">
+                                    <strong>@categoria</strong>
+                                    <span class="badge bg-secondary ms-2">@clausoleCategoria.Count</span>
+                                </button>
+                            </h2>
+                            <div id="collapse@(catId)" class="accordion-collapse collapse" data-bs-parent="#accordionClausole">
+                                <div class="accordion-body p-0">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 50px;">Ord.</th>
+                                                <th>Nome</th>
+                                                <th>Descrizione</th>
+                                                <th style="width: 200px;">Anteprima</th>
+                                                <th style="width: 120px;" class="text-end">Azioni</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var clausola in clausoleCategoria.OrderBy(c => c.Ordine).ThenBy(c => c.Nome))
+                                            {
+                                                <tr>
+                                                    <td><span class="badge bg-light text-dark">@clausola.Ordine</span></td>
+                                                    <td><strong>@clausola.Nome</strong></td>
+                                                    <td class="text-muted">@(clausola.Descrizione ?? "-")</td>
+                                                    <td>
+                                                        <small class="text-truncate d-block" style="max-width: 200px;">
+                                                            @(clausola.Contenuto.Length > 100 ? clausola.Contenuto.Substring(0, 100) + "..." : clausola.Contenuto)
+                                                        </small>
+                                                    </td>
+                                                    <td class="text-end">
+                                                        <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                                onclick="openEditClausola(@clausola.Id, '@System.Web.HttpUtility.JavaScriptStringEncode(clausola.Nome)', '@clausola.Categoria', '@System.Web.HttpUtility.JavaScriptStringEncode(clausola.Descrizione ?? "")', '@System.Web.HttpUtility.JavaScriptStringEncode(clausola.Contenuto)', @clausola.Ordine)">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <form asp-action="DeleteClausola" method="post" class="d-inline" onsubmit="return confirm('Eliminare questa clausola?')">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="id" value="@clausola.Id" />
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5 text-muted">
+                    <i class="fas fa-paragraph fa-3x mb-3"></i>
+                    <p>Nessuna clausola creata.</p>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNuovaClausola">
+                        <i class="fas fa-plus me-1"></i>Crea la prima clausola
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nuova Clausola -->
+<div class="modal fade" id="modalNuovaClausola" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form asp-action="CreateClausola" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Nuova Clausola</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Nome Clausola *</label>
+                            <input type="text" name="Nome" class="form-control" required placeholder="Es: Clausola Privacy Base" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Categoria *</label>
+                            <select name="Categoria" class="form-select" required>
+                                @foreach (var cat in categorie!)
+                                {
+                                    <option value="@cat">@cat</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Descrizione</label>
+                            <input type="text" name="Descrizione" class="form-control" placeholder="Breve descrizione della clausola" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Contenuto *</label>
+                            <textarea name="Contenuto" class="form-control" rows="8" required placeholder="Inserisci il testo della clausola. Puoi usare tag come {{Cliente.Nome}}, {{Studio.Nome}}, ecc."></textarea>
+                            <small class="text-muted">Puoi usare campi dinamici: {{Cliente.Nome}}, {{Cliente.CF}}, {{Studio.Nome}}, {{Oggi}}, ecc.</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Ordine</label>
+                            <input type="number" name="Ordine" class="form-control" value="0" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Salva</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Modifica Clausola -->
+<div class="modal fade" id="modalEditClausola" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form asp-action="UpdateClausola" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" id="editClausolaId" />
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Modifica Clausola</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Nome Clausola *</label>
+                            <input type="text" name="nome" id="editClausolaNome" class="form-control" required />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Categoria *</label>
+                            <select name="categoria" id="editClausolaCategoria" class="form-select" required>
+                                @foreach (var cat in categorie!)
+                                {
+                                    <option value="@cat">@cat</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Descrizione</label>
+                            <input type="text" name="descrizione" id="editClausolaDescrizione" class="form-control" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Contenuto *</label>
+                            <textarea name="contenuto" id="editClausolaContenuto" class="form-control" rows="8" required></textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Ordine</label>
+                            <input type="number" name="ordine" id="editClausolaOrdine" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Salva Modifiche</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function openEditClausola(id, nome, categoria, descrizione, contenuto, ordine) {
+    document.getElementById('editClausolaId').value = id;
+    document.getElementById('editClausolaNome').value = nome;
+    document.getElementById('editClausolaCategoria').value = categoria;
+    document.getElementById('editClausolaDescrizione').value = descrizione;
+    document.getElementById('editClausolaContenuto').value = contenuto;
+    document.getElementById('editClausolaOrdine').value = ordine;
+    new bootstrap.Modal(document.getElementById('modalEditClausola')).show();
+}
+</script>
+}
+

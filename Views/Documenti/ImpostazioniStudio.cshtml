@@ -1,0 +1,177 @@
+@model StudioCG.Web.Models.Documenti.ConfigurazioneStudio
+@{
+    ViewData["Title"] = "Impostazioni Studio";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-building me-2"></i>Impostazioni Studio</h2>
+        <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Torna alla Dashboard
+        </a>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <form asp-action="SalvaImpostazioniStudio" method="post" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="CreatedAt" />
+
+        <div class="row">
+            <!-- Colonna sinistra: Dati Studio -->
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Dati dello Studio</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label asp-for="NomeStudio" class="form-label">Nome Studio / Ragione Sociale *</label>
+                                <input asp-for="NomeStudio" class="form-control" placeholder="Es: Studio Commercialista Rossi" />
+                                <span asp-validation-for="NomeStudio" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-8">
+                                <label asp-for="Indirizzo" class="form-label">Indirizzo</label>
+                                <input asp-for="Indirizzo" class="form-control" placeholder="Via Roma, 123" />
+                            </div>
+                            <div class="col-md-4">
+                                <label asp-for="CAP" class="form-label">CAP</label>
+                                <input asp-for="CAP" class="form-control" placeholder="00100" />
+                            </div>
+                            <div class="col-md-8">
+                                <label asp-for="Citta" class="form-label">Città</label>
+                                <input asp-for="Citta" class="form-control" placeholder="Roma" />
+                            </div>
+                            <div class="col-md-4">
+                                <label asp-for="Provincia" class="form-label">Provincia</label>
+                                <input asp-for="Provincia" class="form-control" placeholder="RM" />
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="PIVA" class="form-label">Partita IVA</label>
+                                <input asp-for="PIVA" class="form-control" placeholder="12345678901" />
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="CF" class="form-label">Codice Fiscale</label>
+                                <input asp-for="CF" class="form-control" placeholder="RSSMRA80A01H501Z" />
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Email" class="form-label">Email</label>
+                                <input asp-for="Email" type="email" class="form-control" placeholder="info@studio.it" />
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="PEC" class="form-label">PEC</label>
+                                <input asp-for="PEC" type="email" class="form-control" placeholder="studio@pec.it" />
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Telefono" class="form-label">Telefono</label>
+                                <input asp-for="Telefono" class="form-control" placeholder="+39 06 1234567" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colonna destra: Logo e Firma -->
+            <div class="col-lg-4">
+                <!-- Logo -->
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-image me-2"></i>Logo Studio</h5>
+                    </div>
+                    <div class="card-body text-center">
+                        @if (Model.Logo != null)
+                        {
+                            <div class="mb-3">
+                                <img src="@Url.Action("Logo")" alt="Logo Studio" class="img-fluid" style="max-height: 150px;" />
+                            </div>
+                            <form asp-action="RimuoviLogo" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Rimuovere il logo?')">
+                                    <i class="fas fa-trash me-1"></i>Rimuovi
+                                </button>
+                            </form>
+                        }
+                        else
+                        {
+                            <div class="text-muted mb-3">
+                                <i class="fas fa-image fa-3x mb-2"></i>
+                                <p>Nessun logo caricato</p>
+                            </div>
+                        }
+                        <div class="mt-3">
+                            <label class="form-label">Carica nuovo logo</label>
+                            <input type="file" name="logoFile" class="form-control" accept="image/*" />
+                            <small class="text-muted">Formati: PNG, JPG, SVG (max 5MB)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Firma -->
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-signature me-2"></i>Firma Digitalizzata</h5>
+                    </div>
+                    <div class="card-body text-center">
+                        @if (Model.Firma != null)
+                        {
+                            <div class="mb-3">
+                                <img src="@Url.Action("Firma")" alt="Firma" class="img-fluid" style="max-height: 100px;" />
+                            </div>
+                            <form asp-action="RimuoviFirma" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Rimuovere la firma?')">
+                                    <i class="fas fa-trash me-1"></i>Rimuovi
+                                </button>
+                            </form>
+                        }
+                        else
+                        {
+                            <div class="text-muted mb-3">
+                                <i class="fas fa-signature fa-3x mb-2"></i>
+                                <p>Nessuna firma caricata</p>
+                            </div>
+                        }
+                        <div class="mt-3">
+                            <label class="form-label">Carica firma</label>
+                            <input type="file" name="firmaFile" class="form-control" accept="image/*" />
+                            <small class="text-muted">Immagine trasparente consigliata (PNG)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottone Salva -->
+        <div class="card">
+            <div class="card-body bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-muted">
+                        @if (Model.UpdatedAt.HasValue)
+                        {
+                            <small>Ultimo aggiornamento: @Model.UpdatedAt.Value.ToString("dd/MM/yyyy HH:mm")</small>
+                        }
+                    </span>
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fas fa-save me-2"></i>Salva Impostazioni
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<style>
+    .form-label {
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+</style>
+

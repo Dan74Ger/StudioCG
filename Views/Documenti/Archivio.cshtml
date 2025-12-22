@@ -1,0 +1,142 @@
+@model List<StudioCG.Web.Models.Documenti.DocumentoGenerato>
+@{
+    ViewData["Title"] = "Archivio Documenti";
+    var clienti = ViewBag.Clienti as dynamic;
+    var templates = ViewBag.Templates as dynamic;
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-archive me-2"></i>Archivio Documenti</h2>
+        <div>
+            <a href="@Url.Action("Genera")" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Genera Nuovo
+            </a>
+            <a href="@Url.Action("Index")" class="btn btn-outline-secondary ms-2">
+                <i class="fas fa-arrow-left me-1"></i>Dashboard
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Filtri -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Cliente</label>
+                    <select name="clienteId" class="form-select">
+                        <option value="">-- Tutti --</option>
+                        @if (clienti != null)
+                        {
+                            @foreach (var c in clienti)
+                            {
+                                <option value="@c.Id" selected="@(ViewBag.ClienteId != null && ViewBag.ClienteId == c.Id)">@c.RagioneSociale</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Template</label>
+                    <select name="templateId" class="form-select">
+                        <option value="">-- Tutti --</option>
+                        @if (templates != null)
+                        {
+                            @foreach (var t in templates)
+                            {
+                                <option value="@t.Id" selected="@(ViewBag.TemplateId != null && ViewBag.TemplateId == t.Id)">@t.Nome</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Da</label>
+                    <input type="date" name="dataFrom" class="form-control" value="@(ViewBag.DataFrom != null ? ((DateTime)ViewBag.DataFrom).ToString("yyyy-MM-dd") : "")" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">A</label>
+                    <input type="date" name="dataTo" class="form-control" value="@(ViewBag.DataTo != null ? ((DateTime)ViewBag.DataTo).ToString("yyyy-MM-dd") : "")" />
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter me-1"></i>Filtra
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista Documenti -->
+    <div class="card">
+        <div class="card-body p-0">
+            @if (Model.Any())
+            {
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Data</th>
+                            <th>Cliente</th>
+                            <th>Template</th>
+                            <th>File</th>
+                            <th>Tipo</th>
+                            <th>Generato da</th>
+                            <th class="text-end">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var doc in Model)
+                        {
+                            <tr>
+                                <td>@doc.GeneratoIl.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td><strong>@doc.Cliente?.RagioneSociale</strong></td>
+                                <td>@doc.TemplateDocumento?.Nome</td>
+                                <td><small class="text-muted">@doc.NomeFile</small></td>
+                                <td>
+                                    @if (doc.TipoOutput == StudioCG.Web.Models.Documenti.TipoOutputDocumento.PDF)
+                                    {
+                                        <span class="badge bg-danger"><i class="fas fa-file-pdf me-1"></i>PDF</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-primary"><i class="fas fa-file-word me-1"></i>Word</span>
+                                    }
+                                </td>
+                                <td><small>@doc.GeneratoDa?.Username</small></td>
+                                <td class="text-end">
+                                    <a href="@Url.Action("DownloadDocumento", new { id = doc.Id })" class="btn btn-sm btn-outline-primary" title="Scarica">
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                    <form asp-action="DeleteDocumento" method="post" class="d-inline" onsubmit="return confirm('Eliminare questo documento?')">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@doc.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Elimina">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="text-center py-5 text-muted">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <p>Nessun documento trovato.</p>
+                    <a href="@Url.Action("Genera")" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>Genera il primo documento
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
