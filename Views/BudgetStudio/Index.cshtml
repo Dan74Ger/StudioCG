@@ -350,7 +350,15 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var v in Model.Voci)
+                                @if (!Model.VociTutte.Any())
+                                {
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted py-3">
+                                            <i class="fas fa-info-circle me-2"></i>Nessuna voce analitica. Crea la prima!
+                                        </td>
+                                    </tr>
+                                }
+                                @foreach (var v in Model.VociTutte)
                                 {
                                     <tr>
                                         <td class="fw-bold">@v.CodiceSpesa</td>
@@ -467,6 +475,7 @@
                 </div>
                 <div class="col-sm-2 d-flex align-items-end">
                     <div class="form-check">
+                        <input type="hidden" name="nascondiVuote" value="false" />
                         <input class="form-check-input" type="checkbox" name="nascondiVuote" value="true" id="chkNascondiVuote" @(Model.NascondiVuote ? "checked" : "") />
                         <label class="form-check-label small" for="chkNascondiVuote">
                             Nascondi vuote
@@ -598,7 +607,7 @@
                         @foreach (var macro in Model.MacroVoci)
                         {
                             var vociMacro = Model.Voci.Where(v => v.MacroVoceBudgetId == macro.Id).ToList();
-                            if (!vociMacro.Any()) continue; // Salta macro voci vuote
+                            var haVoci = vociMacro.Any();
                             
                             // Calcola totali macro voce per mese
                             var totaliMacroMese = new Dictionary<int, decimal>();
@@ -615,27 +624,36 @@
                             
                             var macroRowId = $"macro_{macro.Id}";
                             
-                            <tr class="macro-voce-row table-primary" data-macroid="@macro.Id" style="cursor: pointer;" onclick="toggleMacroVoce('@macroRowId')">
+                            <tr class="macro-voce-row table-primary" data-macroid="@macro.Id" style="cursor: pointer;" onclick="@(haVoci ? $"toggleMacroVoce('{macroRowId}')" : "")">
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
-                                        <i class="fas fa-chevron-right macro-chevron" id="chevron_@macroRowId"></i>
+                                        @if (haVoci)
+                                        {
+                                            <i class="fas fa-chevron-right macro-chevron" id="chevron_@macroRowId"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="fas fa-folder-open text-muted" title="Nessuna voce analitica associata"></i>
+                                        }
                                         <div>
                                             <div class="fw-bold">@macro.Codice</div>
-                                            <div class="text-muted small">@macro.Descrizione</div>
+                                            <div class="text-muted small">@macro.Descrizione @(!haVoci ? "(vuota)" : "")</div>
                                         </div>
                                     </div>
                                 </td>
                                 @for (int m = Model.MeseDa; m <= Model.MeseA; m++)
                                 {
                                     var tot = totaliMacroMese[m];
-                                    <td class="text-center fw-bold @(tot > 0 ? "text-primary" : "")">
+                                    <td class="text-center fw-bold @(tot > 0 ? "text-primary" : "text-muted")">
                                         @(tot == 0 ? "-" : tot.ToString("N0", new System.Globalization.CultureInfo("it-IT")) + "€")
                                     </td>
                                 }
-                                <td class="fw-bold text-primary">@totMacroAnno.ToString("N0", new System.Globalization.CultureInfo("it-IT"))€</td>
+                                <td class="fw-bold @(totMacroAnno > 0 ? "text-primary" : "text-muted")">@(totMacroAnno == 0 ? "-" : totMacroAnno.ToString("N0", new System.Globalization.CultureInfo("it-IT")) + "€")</td>
                             </tr>
                             
                             @* Voci analitiche sotto la macro voce (hidden by default) *@
+                            @if (haVoci)
+                            {
                             @foreach (var v in vociMacro)
                             {
                                 decimal totRiga = 0;
@@ -676,6 +694,7 @@
                                     }
                                     <td class="fw-bold">@totRiga.ToString("N0", new System.Globalization.CultureInfo("it-IT"))€</td>
                                 </tr>
+                            }
                             }
                         }
                         
@@ -1123,6 +1142,16 @@
                     <div class="mb-3">
                         <label class="form-label">Descrizione <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="descrizione" required maxlength="200" placeholder="Es: Affitto ufficio" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Macro Voce (categoria)</label>
+                        <select class="form-select" name="macroVoceId">
+                            <option value="">-- Nessuna (assegna dopo) --</option>
+                            @foreach (var m in Model.MacroVoci)
+                            {
+                                <option value="@m.Id">@m.Codice - @m.Descrizione</option>
+                            }
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Metodo pagamento default</label>

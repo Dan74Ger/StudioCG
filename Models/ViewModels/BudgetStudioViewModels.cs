@@ -17,13 +17,16 @@ namespace StudioCG.Web.Models.ViewModels
         public BudgetPagateFiltro PagateFiltro { get; set; } = BudgetPagateFiltro.NonPagate;
         public bool NascondiVuote { get; set; } = true; // Default: nascondi voci senza importi
 
-        // Macro voci (categorie)
+        // Macro voci (categorie) - TUTTE per anagrafica
         public List<MacroVoceBudget> MacroVoci { get; set; } = new();
         
-        // Voci analitiche (tutte)
+        // Voci analitiche - TUTTE per anagrafica
+        public List<VoceSpesaBudget> VociTutte { get; set; } = new();
+        
+        // Voci analitiche (filtrate per prospetto)
         public List<VoceSpesaBudget> Voci { get; set; } = new();
         
-        // Voci senza macro voce assegnata
+        // Voci senza macro voce assegnata (per prospetto)
         public List<VoceSpesaBudget> VociSenzaMacro { get; set; } = new();
         
         public List<BudgetSpesaMensile> RigheMensili { get; set; } = new();

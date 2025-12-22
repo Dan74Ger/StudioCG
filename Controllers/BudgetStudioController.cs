@@ -47,22 +47,25 @@ namespace StudioCG.Web.Controllers
                 .ThenBy(v => v.CodiceSpesa)
                 .ToListAsync();
 
-            var queryMensile = _context.BudgetSpeseMensili
-                .Include(r => r.VoceSpesaBudget)
-                .Where(r => r.Anno == annoSelezionato && r.Mese >= da && r.Mese <= a);
+            // Prima carica TUTTE le righe per determinare quali voci hanno importi (per filtro "nascondi vuote")
+            var tutteRighe = await _context.BudgetSpeseMensili
+                .Where(r => r.Anno == annoSelezionato && r.Mese >= da && r.Mese <= a)
+                .ToListAsync();
 
+            // Poi applica il filtro "pagate" per la visualizzazione
+            var righe = tutteRighe.AsEnumerable();
             if (filtroPagate == BudgetPagateFiltro.NonPagate)
-                queryMensile = queryMensile.Where(r => !r.Pagata);
+                righe = righe.Where(r => !r.Pagata);
             else if (filtroPagate == BudgetPagateFiltro.Pagate)
-                queryMensile = queryMensile.Where(r => r.Pagata);
+                righe = righe.Where(r => r.Pagata);
+            var righeList = righe.ToList();
 
-            var righe = await queryMensile.ToListAsync();
-
-            // Se nascondiVuote è attivo, filtra le voci che hanno almeno un importo > 0 nel range
+            // Se nascondiVuote è attivo, filtra le voci che hanno almeno un importo != 0 
+            // INDIPENDENTEMENTE dallo stato pagata/non pagata
             var vociFiltrate = voci;
             if (filtroNascondiVuote)
             {
-                var vociConImporti = righe
+                var vociConImporti = tutteRighe
                     .Where(r => r.Importo != 0)
                     .Select(r => r.VoceSpesaBudgetId)
                     .Distinct()
@@ -93,20 +96,21 @@ namespace StudioCG.Web.Controllers
                 PagateFiltro = filtroPagate,
                 NascondiVuote = filtroNascondiVuote,
                 MacroVoci = macroVoci,
-                Voci = vociFiltrate,
+                VociTutte = voci, // TUTTE le voci per Anagrafica
+                Voci = vociFiltrate, // Voci filtrate per Prospetto
                 VociSenzaMacro = vociSenzaMacro,
-                RigheMensili = righe,
+                RigheMensili = righeList,
                 Banche = banche,
                 SaldiBanche = saldiBanche
             };
 
-            vm.Map = righe.ToDictionary(x => (x.VoceSpesaBudgetId, x.Mese), x => x);
+            vm.Map = righeList.ToDictionary(x => (x.VoceSpesaBudgetId, x.Mese), x => x);
             vm.MapSaldiBanche = saldiBanche.ToDictionary(x => (x.BancaBudgetId, x.Mese), x => x.Saldo);
 
             // Calcola totali spese per mese
             for (var m = da; m <= a; m++)
             {
-                var tot = righe.Where(r => r.Mese == m).Sum(r => r.Importo);
+                var tot = righeList.Where(r => r.Mese == m).Sum(r => r.Importo);
                 vm.TotaliMese[m] = tot;
                 vm.TotaleAnno += tot;
 
@@ -140,16 +144,25 @@ namespace StudioCG.Web.Controllers
         // POST: /BudgetStudio/CreateVoceSpesaBudget
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateVoceSpesaBudget(string codiceSpesa, string descrizione, MetodoPagamentoBudget metodoPagamentoDefault, string? noteDefault, int anno)
+        public async Task<IActionResult> CreateVoceSpesaBudget(string codiceSpesa, string descrizione, MetodoPagamentoBudget metodoPagamentoDefault, string? noteDefault, int? macroVoceId, int anno)
         {
             try
             {
+                // Verifica se il codice esiste già
+                var esistente = await _context.VociSpesaBudget.AnyAsync(v => v.CodiceSpesa == codiceSpesa.Trim());
+                if (esistente)
+                {
+                    TempData["Error"] = $"Esiste già una voce con codice '{codiceSpesa}'. Usa un codice diverso.";
+                    return RedirectToAction(nameof(Index), new { anno, tab = "anagrafica" });
+                }
+
                 var voce = new VoceSpesaBudget
                 {
                     CodiceSpesa = codiceSpesa.Trim(),
                     Descrizione = descrizione.Trim(),
                     MetodoPagamentoDefault = metodoPagamentoDefault,
                     NoteDefault = string.IsNullOrWhiteSpace(noteDefault) ? null : noteDefault.Trim(),
+                    MacroVoceBudgetId = macroVoceId,
                     IsActive = true,
                     CreatedAt = DateTime.Now,
                     UpdatedAt = DateTime.Now
@@ -161,7 +174,8 @@ namespace StudioCG.Web.Controllers
             }
             catch (Exception ex)
             {
-                TempData["Error"] = $"Errore creazione voce: {ex.Message}";
+                var innerMsg = ex.InnerException?.Message ?? ex.Message;
+                TempData["Error"] = $"Errore creazione voce: {innerMsg}";
             }
 
             return RedirectToAction(nameof(Index), new { anno, tab = "anagrafica" });
@@ -635,27 +649,38 @@ namespace StudioCG.Web.Controllers
             };
 
             var voci = await _context.VociSpesaBudget
+                .Include(v => v.MacroVoce)
                 .Where(v => v.IsActive)
-                .OrderBy(v => v.CodiceSpesa)
+                .OrderBy(v => v.MacroVoce != null ? v.MacroVoce.Ordine : 9999)
+                .ThenBy(v => v.CodiceSpesa)
                 .ToListAsync();
 
-            var queryMensile = _context.BudgetSpeseMensili
-                .Include(r => r.VoceSpesaBudget)
-                .Where(r => r.Anno == annoSelezionato && r.Mese >= da && r.Mese <= a);
+            var macroVoci = await _context.MacroVociBudget
+                .Where(m => m.IsActive)
+                .OrderBy(m => m.Ordine)
+                .ThenBy(m => m.Codice)
+                .ToListAsync();
 
+            // Carica tutte le righe per filtro voci
+            var tutteRighe = await _context.BudgetSpeseMensili
+                .Where(r => r.Anno == annoSelezionato && r.Mese >= da && r.Mese <= a)
+                .ToListAsync();
+
+            // Applica filtro pagate per visualizzazione
+            var righe = tutteRighe.AsEnumerable();
             if (filtroPagate == BudgetPagateFiltro.NonPagate)
-                queryMensile = queryMensile.Where(r => !r.Pagata);
+                righe = righe.Where(r => !r.Pagata);
             else if (filtroPagate == BudgetPagateFiltro.Pagate)
-                queryMensile = queryMensile.Where(r => r.Pagata);
+                righe = righe.Where(r => r.Pagata);
+            var righeList = righe.ToList();
 
-            var righe = await queryMensile.ToListAsync();
-            var map = righe.ToDictionary(x => (x.VoceSpesaBudgetId, x.Mese), x => x);
+            var map = righeList.ToDictionary(x => (x.VoceSpesaBudgetId, x.Mese), x => x);
 
-            // Filtra voci vuote se richiesto
+            // Filtra voci vuote se richiesto (usando tutte le righe)
             var vociFiltrate = voci;
             if (filtroNascondiVuote)
             {
-                var vociConImporti = righe
+                var vociConImporti = tutteRighe
                     .Where(r => r.Importo != 0)
                     .Select(r => r.VoceSpesaBudgetId)
                     .Distinct()
@@ -664,14 +689,50 @@ namespace StudioCG.Web.Controllers
                 vociFiltrate = voci.Where(v => vociConImporti.Contains(v.Id)).ToList();
             }
 
-            // Calcolo totali
+            // Carica banche e saldi
+            var banche = await _context.BancheBudget
+                .Where(b => b.IsActive)
+                .OrderBy(b => b.Ordine)
+                .ThenBy(b => b.Nome)
+                .ToListAsync();
+
+            var saldiBanche = await _context.SaldiBancheMese
+                .Where(s => s.Anno == annoSelezionato && s.Mese >= da && s.Mese <= a)
+                .ToListAsync();
+
+            var mapSaldiBanche = saldiBanche.ToDictionary(x => (x.BancaBudgetId, x.Mese), x => x.Saldo);
+
+            // Calcolo totali spese
             var totaliMese = new Dictionary<int, decimal>();
             decimal totaleAnno = 0;
             for (var m = da; m <= a; m++)
             {
-                var tot = righe.Where(r => r.Mese == m).Sum(r => r.Importo);
+                var tot = righeList.Where(r => r.Mese == m).Sum(r => r.Importo);
                 totaliMese[m] = tot;
                 totaleAnno += tot;
+            }
+
+            // Calcolo totali banche
+            var totaliBancheMese = new Dictionary<int, decimal>();
+            for (var m = da; m <= a; m++)
+            {
+                totaliBancheMese[m] = saldiBanche.Where(s => s.Mese == m).Sum(s => s.Saldo);
+            }
+
+            // Calcolo Cash Flow
+            var saldoInizialeMese = new Dictionary<int, decimal>();
+            var saldoFinaleMese = new Dictionary<int, decimal>();
+            decimal riporto = 0;
+            for (var m = da; m <= a; m++)
+            {
+                var bancheMese = totaliBancheMese.GetValueOrDefault(m);
+                var speseMese = totaliMese.GetValueOrDefault(m);
+                var saldoIniziale = riporto + bancheMese;
+                var saldoFinale = saldoIniziale - speseMese;
+
+                saldoInizialeMese[m] = saldoIniziale;
+                saldoFinaleMese[m] = saldoFinale;
+                riporto = saldoFinale;
             }
 
             // Crea workbook Excel
@@ -686,52 +747,135 @@ namespace StudioCG.Web.Controllers
                 worksheet.Cell(1, col++).Value = mesiNomi[m];
             }
             worksheet.Cell(1, col).Value = "Totale";
+            int lastCol = col;
 
             // Stile header
             var headerRange = worksheet.Range(1, 1, 1, col);
             headerRange.Style.Font.Bold = true;
-            headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
+            headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#343a40");
+            headerRange.Style.Font.FontColor = XLColor.White;
             headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            // Dati
             int row = 2;
-            foreach (var v in vociFiltrate)
-            {
-                col = 1;
-                worksheet.Cell(row, col++).Value = $"{v.CodiceSpesa} - {v.Descrizione}";
 
-                decimal totRiga = 0;
+            // ========== SEZIONE SPESE (per macro voce) ==========
+            foreach (var macro in macroVoci)
+            {
+                var vociMacro = vociFiltrate.Where(v => v.MacroVoceBudgetId == macro.Id).ToList();
+                if (!vociMacro.Any()) continue;
+
+                // Riga macro voce (header gruppo)
+                col = 1;
+                worksheet.Cell(row, col++).Value = $"▶ {macro.Codice} - {macro.Descrizione}";
+                
+                decimal totMacroAnno = 0;
                 for (int m = da; m <= a; m++)
                 {
-                    var cell = map.TryGetValue((v.Id, m), out var c) ? c : null;
-                    var importo = cell?.Importo ?? 0;
-                    totRiga += importo;
-
+                    var totMacroMese = vociMacro.Sum(v => {
+                        map.TryGetValue((v.Id, m), out var cell);
+                        return cell?.Importo ?? 0m;
+                    });
+                    totMacroAnno += totMacroMese;
+                    
                     var xlCell = worksheet.Cell(row, col++);
-                    if (importo != 0)
-                    {
-                        xlCell.Value = importo;
-                        xlCell.Style.NumberFormat.Format = "#,##0";
-
-                        // Colori: verde se pagata, rosso chiaro se da pagare
-                        if (cell?.Pagata == true)
-                            xlCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#d4edda");
-                        else
-                            xlCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#ffe5e5");
-                    }
+                    xlCell.Value = totMacroMese;
+                    xlCell.Style.NumberFormat.Format = "#,##0";
+                    xlCell.Style.Font.Bold = true;
                 }
+                
+                var macroTotCell = worksheet.Cell(row, col);
+                macroTotCell.Value = totMacroAnno;
+                macroTotCell.Style.NumberFormat.Format = "#,##0";
+                macroTotCell.Style.Font.Bold = true;
 
-                var totCell = worksheet.Cell(row, col);
-                totCell.Value = totRiga;
-                totCell.Style.NumberFormat.Format = "#,##0";
-                totCell.Style.Font.Bold = true;
-
+                // Stile riga macro
+                var macroRange = worksheet.Range(row, 1, row, lastCol);
+                macroRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#e3f2fd");
+                macroRange.Style.Font.Bold = true;
                 row++;
+
+                // Voci analitiche sotto la macro
+                foreach (var v in vociMacro)
+                {
+                    col = 1;
+                    worksheet.Cell(row, col++).Value = $"   {v.CodiceSpesa} - {v.Descrizione}";
+
+                    decimal totRiga = 0;
+                    for (int m = da; m <= a; m++)
+                    {
+                        var cell = map.TryGetValue((v.Id, m), out var c) ? c : null;
+                        var importo = cell?.Importo ?? 0;
+                        totRiga += importo;
+
+                        var xlCell = worksheet.Cell(row, col++);
+                        if (importo != 0)
+                        {
+                            xlCell.Value = importo;
+                            xlCell.Style.NumberFormat.Format = "#,##0";
+
+                            if (cell?.Pagata == true)
+                                xlCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#d4edda");
+                            else
+                                xlCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#ffe5e5");
+                        }
+                    }
+
+                    var totCell = worksheet.Cell(row, col);
+                    totCell.Value = totRiga;
+                    totCell.Style.NumberFormat.Format = "#,##0";
+                    totCell.Style.Font.Bold = true;
+                    row++;
+                }
             }
 
-            // Riga totali
+            // Voci senza macro voce
+            var vociSenzaMacro = vociFiltrate.Where(v => v.MacroVoceBudgetId == null).ToList();
+            if (vociSenzaMacro.Any())
+            {
+                // Header "Non categorizzate"
+                col = 1;
+                worksheet.Cell(row, col).Value = "⚠ Voci non categorizzate";
+                var warningRange = worksheet.Range(row, 1, row, lastCol);
+                warningRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#fff3cd");
+                warningRange.Style.Font.Italic = true;
+                row++;
+
+                foreach (var v in vociSenzaMacro)
+                {
+                    col = 1;
+                    worksheet.Cell(row, col++).Value = $"{v.CodiceSpesa} - {v.Descrizione}";
+
+                    decimal totRiga = 0;
+                    for (int m = da; m <= a; m++)
+                    {
+                        var cell = map.TryGetValue((v.Id, m), out var c) ? c : null;
+                        var importo = cell?.Importo ?? 0;
+                        totRiga += importo;
+
+                        var xlCell = worksheet.Cell(row, col++);
+                        if (importo != 0)
+                        {
+                            xlCell.Value = importo;
+                            xlCell.Style.NumberFormat.Format = "#,##0";
+
+                            if (cell?.Pagata == true)
+                                xlCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#d4edda");
+                            else
+                                xlCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#ffe5e5");
+                        }
+                    }
+
+                    var totCell = worksheet.Cell(row, col);
+                    totCell.Value = totRiga;
+                    totCell.Style.NumberFormat.Format = "#,##0";
+                    totCell.Style.Font.Bold = true;
+                    row++;
+                }
+            }
+
+            // ========== RIGA TOTALE SPESE ==========
             col = 1;
-            worksheet.Cell(row, col++).Value = "TOTALE";
+            worksheet.Cell(row, col++).Value = "TOTALE SPESE";
             worksheet.Cell(row, col - 1).Style.Font.Bold = true;
 
             for (int m = da; m <= a; m++)
@@ -746,15 +890,147 @@ namespace StudioCG.Web.Controllers
             grandTotCell.Value = totaleAnno;
             grandTotCell.Style.NumberFormat.Format = "#,##0";
             grandTotCell.Style.Font.Bold = true;
-            grandTotCell.Style.Fill.BackgroundColor = XLColor.LightBlue;
 
-            // Stile riga totali
-            var totalsRange = worksheet.Range(row, 1, row, col);
-            totalsRange.Style.Fill.BackgroundColor = XLColor.LightGray;
+            var totalsRange = worksheet.Range(row, 1, row, lastCol);
+            totalsRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#6c757d");
+            totalsRange.Style.Font.FontColor = XLColor.White;
+            totalsRange.Style.Font.Bold = true;
+            row++;
+
+            // ========== SEZIONE BANCHE ==========
+            row++; // Riga vuota
+            
+            // Header banche
+            col = 1;
+            worksheet.Cell(row, col).Value = "💰 BANCHE / ENTRATE";
+            var bancheHeaderRange = worksheet.Range(row, 1, row, lastCol);
+            bancheHeaderRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#17a2b8");
+            bancheHeaderRange.Style.Font.FontColor = XLColor.White;
+            bancheHeaderRange.Style.Font.Bold = true;
+            row++;
+
+            foreach (var banca in banche)
+            {
+                col = 1;
+                worksheet.Cell(row, col++).Value = banca.Nome;
+
+                decimal totBanca = 0;
+                for (int m = da; m <= a; m++)
+                {
+                    var saldo = mapSaldiBanche.TryGetValue((banca.Id, m), out var s) ? s : 0;
+                    totBanca += saldo;
+
+                    var xlCell = worksheet.Cell(row, col++);
+                    if (saldo != 0)
+                    {
+                        xlCell.Value = saldo;
+                        xlCell.Style.NumberFormat.Format = "#,##0";
+                        xlCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#d1ecf1");
+                    }
+                }
+
+                var totCell = worksheet.Cell(row, col);
+                totCell.Value = totBanca;
+                totCell.Style.NumberFormat.Format = "#,##0";
+                totCell.Style.Font.Bold = true;
+                row++;
+            }
+
+            // Riga Totale Banche
+            col = 1;
+            worksheet.Cell(row, col++).Value = "TOTALE BANCHE";
+            worksheet.Cell(row, col - 1).Style.Font.Bold = true;
+
+            decimal totBancheAnno = 0;
+            for (int m = da; m <= a; m++)
+            {
+                var tot = totaliBancheMese.GetValueOrDefault(m);
+                totBancheAnno += tot;
+
+                var xlCell = worksheet.Cell(row, col++);
+                xlCell.Value = tot;
+                xlCell.Style.NumberFormat.Format = "#,##0";
+                xlCell.Style.Font.Bold = true;
+            }
+
+            var totBancheCell = worksheet.Cell(row, col);
+            totBancheCell.Value = totBancheAnno;
+            totBancheCell.Style.NumberFormat.Format = "#,##0";
+            totBancheCell.Style.Font.Bold = true;
+
+            var totBancheRange = worksheet.Range(row, 1, row, lastCol);
+            totBancheRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#17a2b8");
+            totBancheRange.Style.Font.FontColor = XLColor.White;
+            row++;
+
+            // ========== SEZIONE CASH FLOW ==========
+            row++; // Riga vuota
+
+            // Header Cash Flow
+            col = 1;
+            worksheet.Cell(row, col).Value = "📊 CASH FLOW";
+            var cashFlowHeaderRange = worksheet.Range(row, 1, row, lastCol);
+            cashFlowHeaderRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#28a745");
+            cashFlowHeaderRange.Style.Font.FontColor = XLColor.White;
+            cashFlowHeaderRange.Style.Font.Bold = true;
+            row++;
+
+            // Riga Saldo Iniziale (Riporto + Banche)
+            col = 1;
+            worksheet.Cell(row, col++).Value = "Saldo Iniziale (Riporto + Banche)";
+            for (int m = da; m <= a; m++)
+            {
+                var xlCell = worksheet.Cell(row, col++);
+                xlCell.Value = saldoInizialeMese.GetValueOrDefault(m);
+                xlCell.Style.NumberFormat.Format = "#,##0";
+            }
+            worksheet.Cell(row, lastCol).Value = ""; // No totale per questa riga
+            var saldoInizialeRange = worksheet.Range(row, 1, row, lastCol);
+            saldoInizialeRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#e8f5e9");
+            row++;
+
+            // Riga Spese
+            col = 1;
+            worksheet.Cell(row, col++).Value = "- Spese";
+            for (int m = da; m <= a; m++)
+            {
+                var xlCell = worksheet.Cell(row, col++);
+                xlCell.Value = totaliMese.GetValueOrDefault(m);
+                xlCell.Style.NumberFormat.Format = "#,##0";
+                xlCell.Style.Font.FontColor = XLColor.Red;
+            }
+            var speseCell = worksheet.Cell(row, lastCol);
+            speseCell.Value = totaleAnno;
+            speseCell.Style.NumberFormat.Format = "#,##0";
+            speseCell.Style.Font.FontColor = XLColor.Red;
+            row++;
+
+            // Riga Saldo Finale (Differenza/Riporto)
+            col = 1;
+            worksheet.Cell(row, col++).Value = "= Saldo Finale (Riporto mese succ.)";
+            worksheet.Cell(row, col - 1).Style.Font.Bold = true;
+            for (int m = da; m <= a; m++)
+            {
+                var saldo = saldoFinaleMese.GetValueOrDefault(m);
+                var xlCell = worksheet.Cell(row, col++);
+                xlCell.Value = saldo;
+                xlCell.Style.NumberFormat.Format = "#,##0";
+                xlCell.Style.Font.Bold = true;
+                xlCell.Style.Font.FontColor = saldo >= 0 ? XLColor.Green : XLColor.Red;
+            }
+            var saldoFinaleCell = worksheet.Cell(row, lastCol);
+            saldoFinaleCell.Value = saldoFinaleMese.GetValueOrDefault(a);
+            saldoFinaleCell.Style.NumberFormat.Format = "#,##0";
+            saldoFinaleCell.Style.Font.Bold = true;
+            saldoFinaleCell.Style.Font.FontColor = saldoFinaleMese.GetValueOrDefault(a) >= 0 ? XLColor.Green : XLColor.Red;
+
+            var saldoFinaleRange = worksheet.Range(row, 1, row, lastCol);
+            saldoFinaleRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#c8e6c9");
+            saldoFinaleRange.Style.Font.Bold = true;
 
             // Auto-fit colonne
             worksheet.Columns().AdjustToContents();
-            worksheet.Column(1).Width = 40; // Colonna Voce più larga
+            worksheet.Column(1).Width = 45; // Colonna Voce più larga
 
             // Genera file
             using var stream = new MemoryStream();
