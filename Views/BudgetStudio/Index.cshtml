@@ -162,6 +162,64 @@
         font-size: 0.65rem;
         flex-shrink: 0;
     }
+
+    /* Stile per celle banche */
+    .cell-banca {
+        background-color: #e3f2fd !important;
+    }
+    .cell-banca .saldo-banca-cell {
+        background: transparent !important;
+        border-color: #90caf9 !important;
+        font-size: 0.85rem;
+        padding: 2px 4px;
+    }
+    .cell-banca .saldo-banca-cell:focus {
+        background: #fff !important;
+        border-color: #1976d2 !important;
+        box-shadow: 0 0 0 0.2rem rgba(25, 118, 210, 0.25);
+    }
+
+    /* Pulsante extra small */
+    .btn-xs {
+        padding: 0.125rem 0.35rem;
+        font-size: 0.65rem;
+        line-height: 1.2;
+        border-radius: 0.2rem;
+    }
+
+    /* Riga banche stile */
+    .banca-row td:first-child {
+        background-color: #e3f2fd !important;
+    }
+    .banca-row .banca-tot-riga {
+        background-color: #bbdefb !important;
+    }
+
+    /* Macro voce stile */
+    .macro-voce-row {
+        background-color: #e3f2fd !important;
+    }
+    .macro-voce-row:hover {
+        background-color: #bbdefb !important;
+    }
+    .macro-voce-row td {
+        background-color: inherit !important;
+    }
+    .macro-chevron {
+        transition: transform 0.2s ease;
+        font-size: 0.7rem;
+    }
+    .macro-chevron.expanded {
+        transform: rotate(90deg);
+    }
+    
+    /* Voci analitiche */
+    .voce-analitica-row {
+        background-color: #f8f9fa;
+    }
+    .voce-analitica-row td:first-child {
+        background-color: #f8f9fa !important;
+    }
 </style>
 
 <div class="container-fluid">
@@ -190,68 +248,168 @@
     <div class="tab-content border border-top-0 p-3 bg-white" id="budgetTabsContent">
         <!-- ===================== TAB ANAGRAFICA ===================== -->
         <div class="tab-pane fade @(activeTab == "anagrafica" ? "show active" : "")" id="pane-anagrafica" role="tabpanel">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                <div class="text-muted small">Crea le voci che appariranno come righe nel prospetto.</div>
-                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuovaVoce">
-                    <i class="fas fa-plus me-2"></i>Nuova voce
-                </button>
+            
+            <!-- ========== SEZIONE MACRO VOCI ========== -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-layer-group me-2"></i>Macro Voci (Categorie)</span>
+                    <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuovaMacroVoce">
+                        <i class="fas fa-plus me-1"></i>Nuova Macro Voce
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 80px;">Ordine</th>
+                                    <th style="width: 120px;">Codice</th>
+                                    <th>Descrizione</th>
+                                    <th style="width: 80px;" class="text-center">Voci</th>
+                                    <th style="width: 80px;" class="text-center">Attiva</th>
+                                    <th style="width: 100px;" class="text-end">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (!Model.MacroVoci.Any())
+                                {
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted py-3">
+                                            <i class="fas fa-info-circle me-2"></i>Nessuna macro voce. Crea la prima per raggruppare le voci analitiche.
+                                        </td>
+                                    </tr>
+                                }
+                                @foreach (var m in Model.MacroVoci)
+                                {
+                                    <tr>
+                                        <td><span class="badge bg-secondary">@m.Ordine</span></td>
+                                        <td class="fw-bold">@m.Codice</td>
+                                        <td>@m.Descrizione</td>
+                                        <td class="text-center">
+                                            <span class="badge bg-info">@m.VociAnalitiche.Count</span>
+                                        </td>
+                                        <td class="text-center">
+                                            @if (m.IsActive)
+                                            {
+                                                <span class="badge bg-success">SI</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">NO</span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="btn-group btn-group-sm">
+                                                <button type="button" class="btn btn-outline-primary"
+                                                        data-bs-toggle="modal" data-bs-target="#modalEditMacroVoce"
+                                                        data-id="@m.Id"
+                                                        data-codice="@m.Codice"
+                                                        data-descrizione="@m.Descrizione"
+                                                        data-ordine="@m.Ordine"
+                                                        data-active="@(m.IsActive ? "true" : "false")">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <form asp-action="DeleteMacroVoce" method="post" class="d-inline"
+                                                      onsubmit="return confirm('Eliminare la macro voce @m.Codice?');">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@m.Id" />
+                                                    <input type="hidden" name="anno" value="@Model.Anno" />
+                                                    <button type="submit" class="btn btn-outline-danger">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
-            <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Codice</th>
-                            <th>Descrizione</th>
-                            <th>Metodo</th>
-                            <th class="text-center">Attiva</th>
-                            <th class="text-end">Azioni</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var v in Model.Voci)
-                        {
-                            <tr>
-                                <td class="fw-bold">@v.CodiceSpesa</td>
-                                <td>@v.Descrizione</td>
-                                <td>@v.MetodoPagamentoDefault</td>
-                                <td class="text-center">
-                                    @if (v.IsActive)
-                                    {
-                                        <span class="badge bg-success">SI</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-secondary">NO</span>
-                                    }
-                                </td>
-                                <td class="text-end">
-                                    <div class="btn-group btn-group-sm">
-                                        <button type="button" class="btn btn-outline-primary"
-                                                data-bs-toggle="modal" data-bs-target="#modalEditVoce"
-                                                data-id="@v.Id"
-                                                data-codice="@v.CodiceSpesa"
-                                                data-descrizione="@v.Descrizione"
-                                                data-metodo="@((int)v.MetodoPagamentoDefault)"
-                                                data-note="@v.NoteDefault"
-                                                data-active="@(v.IsActive ? "true" : "false")">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <form asp-action="DeleteVoceSpesaBudget" method="post" class="d-inline"
-                                              onsubmit="return confirm('Eliminare la voce @v.CodiceSpesa?');">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="id" value="@v.Id" />
-                                            <input type="hidden" name="anno" value="@Model.Anno" />
-                                            <button type="submit" class="btn btn-outline-danger">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+            <!-- ========== SEZIONE VOCI ANALITICHE ========== -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-list me-2"></i>Voci Analitiche</span>
+                    <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuovaVoce">
+                        <i class="fas fa-plus me-1"></i>Nuova Voce
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 100px;">Codice</th>
+                                    <th>Descrizione</th>
+                                    <th style="width: 180px;">Macro Voce</th>
+                                    <th style="width: 100px;">Metodo</th>
+                                    <th style="width: 80px;" class="text-center">Attiva</th>
+                                    <th style="width: 100px;" class="text-end">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var v in Model.Voci)
+                                {
+                                    <tr>
+                                        <td class="fw-bold">@v.CodiceSpesa</td>
+                                        <td>@v.Descrizione</td>
+                                        <td>
+                                            <form asp-action="AssociaVoceAMacro" method="post" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="voceId" value="@v.Id" />
+                                                <input type="hidden" name="anno" value="@Model.Anno" />
+                                                <select name="macroVoceId" class="form-select form-select-sm" onchange="this.form.submit()">
+                                                    <option value="">-- Nessuna --</option>
+                                                    @foreach (var m in Model.MacroVoci)
+                                                    {
+                                                        <option value="@m.Id" selected="@(v.MacroVoceBudgetId == m.Id)">@m.Codice - @m.Descrizione</option>
+                                                    }
+                                                </select>
+                                            </form>
+                                        </td>
+                                        <td><small>@v.MetodoPagamentoDefault</small></td>
+                                        <td class="text-center">
+                                            @if (v.IsActive)
+                                            {
+                                                <span class="badge bg-success">SI</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">NO</span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="btn-group btn-group-sm">
+                                                <button type="button" class="btn btn-outline-primary"
+                                                        data-bs-toggle="modal" data-bs-target="#modalEditVoce"
+                                                        data-id="@v.Id"
+                                                        data-codice="@v.CodiceSpesa"
+                                                        data-descrizione="@v.Descrizione"
+                                                        data-metodo="@((int)v.MetodoPagamentoDefault)"
+                                                        data-note="@v.NoteDefault"
+                                                        data-active="@(v.IsActive ? "true" : "false")"
+                                                        data-macrovoceid="@v.MacroVoceBudgetId">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <form asp-action="DeleteVoceSpesaBudget" method="post" class="d-inline"
+                                                      onsubmit="return confirm('Eliminare la voce @v.CodiceSpesa?');">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@v.Id" />
+                                                    <input type="hidden" name="anno" value="@Model.Anno" />
+                                                    <button type="submit" class="btn btn-outline-danger">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -333,6 +491,96 @@
 
             @Html.AntiForgeryToken()
 
+            <!-- Accordion Gestione Banche -->
+            <div class="accordion mb-3" id="accordionBanche">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapseBanche" aria-expanded="false" aria-controls="collapseBanche">
+                            <i class="fas fa-university me-2"></i>
+                            <strong>Gestione Banche</strong>
+                            <span class="badge bg-primary ms-2">@Model.Banche.Count</span>
+                        </button>
+                    </h2>
+                    <div id="collapseBanche" class="accordion-collapse collapse" data-bs-parent="#accordionBanche">
+                        <div class="accordion-body py-3">
+                            <!-- Lista banche esistenti -->
+                            @if (Model.Banche.Any())
+                            {
+                                <table class="table table-sm table-bordered mb-3">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 50%;">Banca</th>
+                                            <th style="width: 40%;">IBAN</th>
+                                            <th style="width: 10%;">Azioni</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var banca in Model.Banche)
+                                        {
+                                            <tr>
+                                                <td><strong>@banca.Nome</strong></td>
+                                                <td><small class="text-muted">@(banca.Iban ?? "-")</small></td>
+                                                <td class="text-center">
+                                                    <div class="btn-group btn-group-sm">
+                                                        <button type="button" class="btn btn-outline-primary btn-sm"
+                                                                data-bs-toggle="modal" data-bs-target="#modalEditBanca"
+                                                                data-id="@banca.Id" data-nome="@banca.Nome" data-iban="@banca.Iban"
+                                                                title="Modifica">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <form asp-action="DeleteBanca" method="post" class="d-inline" onsubmit="return confirm('Eliminare questa banca?');">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="id" value="@banca.Id" />
+                                                            <input type="hidden" name="anno" value="@Model.Anno" />
+                                                            <button type="submit" class="btn btn-outline-danger btn-sm" title="Elimina">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                            else
+                            {
+                                <div class="alert alert-info mb-3">
+                                    <i class="fas fa-info-circle me-2"></i>Nessuna banca configurata. Aggiungi la prima banca qui sotto.
+                                </div>
+                            }
+                            
+                            <!-- Form aggiunta nuova banca -->
+                            <div class="card bg-light">
+                                <div class="card-body py-2">
+                                    <form asp-action="CreateBanca" method="post" class="row g-2 align-items-end">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="anno" value="@Model.Anno" />
+                                        <div class="col-md-4">
+                                            <label class="form-label small mb-1">Nome Banca</label>
+                                            <input type="text" class="form-control form-control-sm" name="nome" placeholder="Es. Intesa Sanpaolo" required />
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label small mb-1">IBAN (opzionale)</label>
+                                            <input type="text" class="form-control form-control-sm" name="iban" placeholder="IT00..." />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <button type="submit" class="btn btn-success btn-sm w-100">
+                                                <i class="fas fa-plus me-1"></i>Aggiungi Banca
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            
+                            <small class="text-muted d-block mt-2">
+                                <i class="fas fa-info-circle me-1"></i>I saldi delle banche si inseriscono direttamente nella griglia del prospetto qui sotto.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="budget-grid-wrap">
                 <table class="table table-bordered align-middle budget-grid">
                     <thead class="table-light">
@@ -346,54 +594,259 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var v in Model.Voci)
+                        @* ========== MACRO VOCI CON ACCORDION ========== *@
+                        @foreach (var macro in Model.MacroVoci)
                         {
-                            decimal totRiga = 0;
-                            <tr>
+                            var vociMacro = Model.Voci.Where(v => v.MacroVoceBudgetId == macro.Id).ToList();
+                            if (!vociMacro.Any()) continue; // Salta macro voci vuote
+                            
+                            // Calcola totali macro voce per mese
+                            var totaliMacroMese = new Dictionary<int, decimal>();
+                            decimal totMacroAnno = 0;
+                            for (int m = Model.MeseDa; m <= Model.MeseA; m++)
+                            {
+                                var tot = vociMacro.Sum(v => {
+                                    Model.Map.TryGetValue((v.Id, m), out var cell);
+                                    return cell?.Importo ?? 0m;
+                                });
+                                totaliMacroMese[m] = tot;
+                                totMacroAnno += tot;
+                            }
+                            
+                            var macroRowId = $"macro_{macro.Id}";
+                            
+                            <tr class="macro-voce-row table-primary" data-macroid="@macro.Id" style="cursor: pointer;" onclick="toggleMacroVoce('@macroRowId')">
                                 <td>
-                                    <div class="budget-voce-actions">
-                                        <div class="voce-info" title="@v.CodiceSpesa - @v.Descrizione">
-                                            <div class="fw-bold">@v.CodiceSpesa</div>
-                                            <div class="text-muted">@v.Descrizione</div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="fas fa-chevron-right macro-chevron" id="chevron_@macroRowId"></i>
+                                        <div>
+                                            <div class="fw-bold">@macro.Codice</div>
+                                            <div class="text-muted small">@macro.Descrizione</div>
                                         </div>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                title="Azioni rapide"
-                                                onclick="openAzioniVoce(@v.Id, '@v.CodiceSpesa', '@v.Descrizione')">
-                                            <i class="fas fa-bolt"></i>
-                                        </button>
                                     </div>
                                 </td>
                                 @for (int m = Model.MeseDa; m <= Model.MeseA; m++)
                                 {
-                                    Model.Map.TryGetValue((v.Id, m), out var cell);
-                                    var value = cell?.Importo ?? 0m;
-                                    if (value != 0) totRiga += value;
-                                    var isPagata = cell?.Pagata ?? false;
-                                    var cellClass = isPagata ? "cell-pagata" : (value != 0 ? "cell-da-pagare" : "");
-
-                                    <td class="@cellClass">
-                                        <input type="text"
-                                               class="form-control form-control-sm text-center budget-cell"
-                                               value="@(value == 0 ? "" : ((int)value).ToString("N0", new System.Globalization.CultureInfo("it-IT")))"
-                                               data-voceid="@v.Id"
-                                               data-anno="@Model.Anno"
-                                               data-mese="@m"
-                                               data-pagata="@(isPagata ? "true" : "false")"
-                                               placeholder="0" />
+                                    var tot = totaliMacroMese[m];
+                                    <td class="text-center fw-bold @(tot > 0 ? "text-primary" : "")">
+                                        @(tot == 0 ? "-" : tot.ToString("N0", new System.Globalization.CultureInfo("it-IT")) + "€")
                                     </td>
                                 }
-                                <td class="fw-bold">@totRiga.ToString("N0", new System.Globalization.CultureInfo("it-IT"))€</td>
+                                <td class="fw-bold text-primary">@totMacroAnno.ToString("N0", new System.Globalization.CultureInfo("it-IT"))€</td>
                             </tr>
+                            
+                            @* Voci analitiche sotto la macro voce (hidden by default) *@
+                            @foreach (var v in vociMacro)
+                            {
+                                decimal totRiga = 0;
+                                <tr class="voce-analitica-row @macroRowId" style="display: none;">
+                                    <td style="padding-left: 30px;">
+                                        <div class="budget-voce-actions">
+                                            <div class="voce-info" title="@v.CodiceSpesa - @v.Descrizione">
+                                                <div class="fw-bold" style="font-size: 0.85rem;">@v.CodiceSpesa</div>
+                                                <div class="text-muted" style="font-size: 0.7rem;">@v.Descrizione</div>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                    title="Azioni rapide"
+                                                    onclick="event.stopPropagation(); openAzioniVoce(@v.Id, '@v.CodiceSpesa', '@v.Descrizione')">
+                                                <i class="fas fa-bolt"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                    @for (int m = Model.MeseDa; m <= Model.MeseA; m++)
+                                    {
+                                        Model.Map.TryGetValue((v.Id, m), out var cell);
+                                        var value = cell?.Importo ?? 0m;
+                                        if (value != 0) totRiga += value;
+                                        var isPagata = cell?.Pagata ?? false;
+                                        var cellClass = isPagata ? "cell-pagata" : (value != 0 ? "cell-da-pagare" : "");
+
+                                        <td class="@cellClass">
+                                            <input type="text"
+                                                   class="form-control form-control-sm text-center budget-cell"
+                                                   value="@(value == 0 ? "" : ((int)value).ToString("N0", new System.Globalization.CultureInfo("it-IT")))"
+                                                   data-voceid="@v.Id"
+                                                   data-anno="@Model.Anno"
+                                                   data-mese="@m"
+                                                   data-pagata="@(isPagata ? "true" : "false")"
+                                                   data-macroid="@macro.Id"
+                                                   placeholder="0"
+                                                   onclick="event.stopPropagation();" />
+                                        </td>
+                                    }
+                                    <td class="fw-bold">@totRiga.ToString("N0", new System.Globalization.CultureInfo("it-IT"))€</td>
+                                </tr>
+                            }
+                        }
+                        
+                        @* ========== VOCI SENZA MACRO VOCE ========== *@
+                        @if (Model.VociSenzaMacro.Any())
+                        {
+                            <tr class="table-warning">
+                                <td colspan="@(Model.MeseA - Model.MeseDa + 3)" class="py-1">
+                                    <small><i class="fas fa-exclamation-triangle me-1"></i>Voci non categorizzate</small>
+                                </td>
+                            </tr>
+                            
+                            @foreach (var v in Model.VociSenzaMacro)
+                            {
+                                decimal totRiga = 0;
+                                <tr>
+                                    <td>
+                                        <div class="budget-voce-actions">
+                                            <div class="voce-info" title="@v.CodiceSpesa - @v.Descrizione">
+                                                <div class="fw-bold">@v.CodiceSpesa</div>
+                                                <div class="text-muted">@v.Descrizione</div>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                    title="Azioni rapide"
+                                                    onclick="openAzioniVoce(@v.Id, '@v.CodiceSpesa', '@v.Descrizione')">
+                                                <i class="fas fa-bolt"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                    @for (int m = Model.MeseDa; m <= Model.MeseA; m++)
+                                    {
+                                        Model.Map.TryGetValue((v.Id, m), out var cell);
+                                        var value = cell?.Importo ?? 0m;
+                                        if (value != 0) totRiga += value;
+                                        var isPagata = cell?.Pagata ?? false;
+                                        var cellClass = isPagata ? "cell-pagata" : (value != 0 ? "cell-da-pagare" : "");
+
+                                        <td class="@cellClass">
+                                            <input type="text"
+                                                   class="form-control form-control-sm text-center budget-cell"
+                                                   value="@(value == 0 ? "" : ((int)value).ToString("N0", new System.Globalization.CultureInfo("it-IT")))"
+                                                   data-voceid="@v.Id"
+                                                   data-anno="@Model.Anno"
+                                                   data-mese="@m"
+                                                   data-pagata="@(isPagata ? "true" : "false")"
+                                                   placeholder="0" />
+                                        </td>
+                                    }
+                                    <td class="fw-bold">@totRiga.ToString("N0", new System.Globalization.CultureInfo("it-IT"))€</td>
+                                </tr>
+                            }
                         }
                     </tbody>
                     <tfoot class="table-light fw-bold">
+                        <!-- Riga Totale Spese -->
                         <tr>
-                            <td>Tot.</td>
+                            <td>Tot. Spese</td>
                             @for (int m = Model.MeseDa; m <= Model.MeseA; m++)
                             {
-                                <td>@Model.TotaliMese.GetValueOrDefault(m).ToString("N0", new System.Globalization.CultureInfo("it-IT"))€</td>
+                                <td class="tot-spese-mese" data-mese="@m">@Model.TotaliMese.GetValueOrDefault(m).ToString("N0", new System.Globalization.CultureInfo("it-IT"))€</td>
                             }
-                            <td>@Model.TotaleAnno.ToString("N0", new System.Globalization.CultureInfo("it-IT"))€</td>
+                            <td class="tot-spese-anno">@Model.TotaleAnno.ToString("N0", new System.Globalization.CultureInfo("it-IT"))€</td>
+                        </tr>
+                        
+                        <!-- Separatore visivo per sezione Banche -->
+                        <tr class="table-secondary">
+                            <td colspan="@(Model.MeseA - Model.MeseDa + 3)" class="py-1">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="fas fa-university text-primary"></i>
+                                    <span>SALDI BANCHE</span>
+                                    <small class="text-muted ms-2">(gestisci banche dall'accordion sopra)</small>
+                                </div>
+                            </td>
+                        </tr>
+                        
+                        <!-- Righe Banche (una per ogni banca) -->
+                        @foreach (var banca in Model.Banche)
+                        {
+                            decimal totRigaBanca = 0;
+                            <tr class="table-light banca-row" data-bancaid="@banca.Id">
+                                <td>
+                                    <div class="voce-info" title="@banca.Nome">
+                                        <div class="fw-bold" style="font-size: 0.8rem;">@banca.Nome</div>
+                                        @if (!string.IsNullOrEmpty(banca.Iban))
+                                        {
+                                            <div class="text-muted" style="font-size: 0.6rem;">@banca.Iban</div>
+                                        }
+                                    </div>
+                                </td>
+                                @for (int m = Model.MeseDa; m <= Model.MeseA; m++)
+                                {
+                                    var saldo = Model.MapSaldiBanche.TryGetValue((banca.Id, m), out var s) ? s : 0;
+                                    totRigaBanca += saldo;
+                                    <td class="cell-banca">
+                                        <input type="text"
+                                               class="form-control form-control-sm text-center saldo-banca-cell"
+                                               value="@(saldo == 0 ? "" : saldo.ToString("N0", new System.Globalization.CultureInfo("it-IT")))"
+                                               data-bancaid="@banca.Id"
+                                               data-anno="@Model.Anno"
+                                               data-mese="@m"
+                                               placeholder="0"
+                                               style="font-size: 0.85rem; background: #e3f2fd; border-color: #90caf9;" />
+                                    </td>
+                                }
+                                <td class="fw-bold text-primary banca-tot-riga" data-bancaid="@banca.Id">@(totRigaBanca == 0 ? "-" : totRigaBanca.ToString("N0", new System.Globalization.CultureInfo("it-IT")) + "€")</td>
+                            </tr>
+                        }
+                        
+                        @if (!Model.Banche.Any())
+                        {
+                            <tr class="table-light">
+                                <td colspan="@(Model.MeseA - Model.MeseDa + 3)" class="text-center text-muted">
+                                    <i class="fas fa-info-circle me-2"></i>Nessuna banca configurata. 
+                                    <button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="modal" data-bs-target="#modalNuovaBanca">Aggiungi la prima banca</button>
+                                </td>
+                            </tr>
+                        }
+                        
+                        <!-- Riga Totale Banche (nuovi versamenti del mese) -->
+                        <tr class="table-info">
+                            <td>
+                                <strong>Banche mese</strong>
+                            </td>
+                            @for (int m = Model.MeseDa; m <= Model.MeseA; m++)
+                            {
+                                var totBanche = Model.TotaliBancheMese.GetValueOrDefault(m);
+                                <td class="tot-banche-mese" data-mese="@m">@(totBanche == 0 ? "-" : totBanche.ToString("N0", new System.Globalization.CultureInfo("it-IT")) + "€")</td>
+                            }
+                            @{
+                                var totBancheAnno = Model.TotaliBancheMese.Values.Sum();
+                            }
+                            <td class="tot-banche-anno">@(totBancheAnno == 0 ? "-" : totBancheAnno.ToString("N0", new System.Globalization.CultureInfo("it-IT")) + "€")</td>
+                        </tr>
+                        
+                        <!-- Riga Saldo Iniziale (Riporto dal mese precedente) -->
+                        <tr class="table-light">
+                            <td><em>Saldo iniziale</em></td>
+                            @for (int m = Model.MeseDa; m <= Model.MeseA; m++)
+                            {
+                                var saldoIniziale = Model.SaldoInizialeMese.GetValueOrDefault(m);
+                                var isFirstMonth = m == Model.MeseDa;
+                                <td class="saldo-iniziale-mese @(saldoIniziale < 0 ? "text-danger" : "")" data-mese="@m">
+                                    @if (isFirstMonth)
+                                    {
+                                        <span>@saldoIniziale.ToString("N0", new System.Globalization.CultureInfo("it-IT"))€</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted" title="Riporto dal mese precedente">↳ @saldoIniziale.ToString("N0", new System.Globalization.CultureInfo("it-IT"))€</span>
+                                    }
+                                </td>
+                            }
+                            <td></td>
+                        </tr>
+                        
+                        <!-- Riga Differenza (Saldo finale = Saldo iniziale + Banche - Spese) -->
+                        <tr class="@(Model.DifferenzaMese.Values.Any(d => d < 0) ? "table-danger" : "table-success")">
+                            <td><strong>Saldo finale</strong></td>
+                            @for (int m = Model.MeseDa; m <= Model.MeseA; m++)
+                            {
+                                var diff = Model.DifferenzaMese.GetValueOrDefault(m);
+                                <td class="differenza-mese @(diff < 0 ? "text-danger fw-bold" : "text-success")" data-mese="@m">
+                                    @diff.ToString("N0", new System.Globalization.CultureInfo("it-IT"))€
+                                </td>
+                            }
+                            @{
+                                var saldoFinale = Model.DifferenzaMese.GetValueOrDefault(Model.MeseA);
+                            }
+                            <td class="differenza-anno @(saldoFinale < 0 ? "text-danger fw-bold" : "text-success")">
+                                @saldoFinale.ToString("N0", new System.Globalization.CultureInfo("it-IT"))€
+                            </td>
                         </tr>
                     </tfoot>
                 </table>
@@ -575,6 +1028,76 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
                     <button type="submit" class="btn btn-danger">Azzera</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL NUOVA MACRO VOCE ===================== -->
+<div class="modal fade" id="modalNuovaMacroVoce" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CreateMacroVoce" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="anno" value="@Model.Anno" />
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-layer-group me-2"></i>Nuova Macro Voce</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Codice <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="codice" required maxlength="50" placeholder="Es: PERSONALE" style="text-transform: uppercase;" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descrizione <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="descrizione" required maxlength="200" placeholder="Es: Costi del personale" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">Salva</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL EDIT MACRO VOCE ===================== -->
+<div class="modal fade" id="modalEditMacroVoce" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="UpdateMacroVoce" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="anno" value="@Model.Anno" />
+                <input type="hidden" name="id" id="editMacroVoceId" />
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Modifica Macro Voce</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Codice</label>
+                        <input type="text" class="form-control" name="codice" id="editMacroVoceCodice" required maxlength="50" style="text-transform: uppercase;" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descrizione</label>
+                        <input type="text" class="form-control" name="descrizione" id="editMacroVoceDescrizione" required maxlength="200" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ordine</label>
+                        <input type="number" class="form-control" name="ordine" id="editMacroVoceOrdine" min="0" />
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="true" id="editMacroVoceActive" name="isActive" />
+                        <label class="form-check-label" for="editMacroVoceActive">Attiva</label>
+                    </div>
+                    <input type="hidden" name="isActive" value="false" />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">Salva</button>
                 </div>
             </form>
         </div>
@@ -764,6 +1287,37 @@
     </div>
 </div>
 
+<!-- ===================== MODAL EDIT BANCA ===================== -->
+<div class="modal fade" id="modalEditBanca" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="UpdateBanca" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="anno" value="@Model.Anno" />
+                <input type="hidden" name="id" id="editBancaId" />
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Modifica Banca</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nome Banca</label>
+                        <input type="text" class="form-control" name="nome" id="editBancaNome" required maxlength="100" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">IBAN</label>
+                        <input type="text" class="form-control" name="iban" id="editBancaIban" maxlength="50" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">Salva</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
 <script>
     const mesiLabel = {
@@ -835,7 +1389,21 @@
 
         // Aggiorna totale generale (ultima cella footer)
         footerCells[footerCells.length - 1].textContent = formatItalianNumber(totaleGenerale) + '€';
+        
+        // Ricalcola anche i riporti banche/cash flow
+        updateAllBancheTotals();
     }
+
+    // Modal edit macro voce: preload data
+    document.getElementById('modalEditMacroVoce')?.addEventListener('show.bs.modal', function (event) {
+        const btn = event.relatedTarget;
+        if (!btn) return;
+        document.getElementById('editMacroVoceId').value = btn.getAttribute('data-id');
+        document.getElementById('editMacroVoceCodice').value = btn.getAttribute('data-codice');
+        document.getElementById('editMacroVoceDescrizione').value = btn.getAttribute('data-descrizione');
+        document.getElementById('editMacroVoceOrdine').value = btn.getAttribute('data-ordine');
+        document.getElementById('editMacroVoceActive').checked = btn.getAttribute('data-active') === 'true';
+    });
 
     // Modal edit voce: preload data
     document.getElementById('modalEditVoce')?.addEventListener('show.bs.modal', function (event) {
@@ -991,5 +1559,191 @@
         document.getElementById('azioniVoceLabel').textContent = `${codice} - ${descr}`;
         new bootstrap.Modal(document.getElementById('modalAzioniVoce')).show();
     };
+    
+    // Toggle macro voce accordion
+    window.toggleMacroVoce = function(macroRowId) {
+        const rows = document.querySelectorAll('.' + macroRowId);
+        const chevron = document.getElementById('chevron_' + macroRowId);
+        
+        const isVisible = rows.length > 0 && rows[0].style.display !== 'none';
+        
+        rows.forEach(row => {
+            row.style.display = isVisible ? 'none' : 'table-row';
+        });
+        
+        if (chevron) {
+            chevron.classList.toggle('expanded', !isVisible);
+        }
+    };
+
+    // ===================== GESTIONE SALDI BANCHE NEL PROSPETTO =====================
+    
+    // Salvataggio saldo banca inline (nel prospetto)
+    document.querySelectorAll('.saldo-banca-cell').forEach(inp => {
+        let originalValue = inp.value;
+        
+        inp.addEventListener('focus', function() {
+            originalValue = this.value;
+        });
+        
+        // Aggiorna totali quando l'utente digita
+        inp.addEventListener('input', function () {
+            updateAllBancheTotals();
+        });
+        
+        inp.addEventListener('blur', async function () {
+            const numValue = parseItalianNumber(this.value);
+            this.value = numValue === 0 ? '' : formatItalianNumber(numValue);
+            
+            const bancaId = this.getAttribute('data-bancaid');
+            const anno = this.getAttribute('data-anno');
+            const mese = this.getAttribute('data-mese');
+            const saldo = numValue.toString().replace('.', ',');
+            
+            const form = new URLSearchParams();
+            form.append('bancaId', bancaId);
+            form.append('anno', anno);
+            form.append('mese', mese);
+            form.append('saldo', saldo);
+            form.append('__RequestVerificationToken', getAntiForgery());
+
+            try {
+                const res = await fetch('@Url.Action("SaveSaldoBanca", "BudgetStudio")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: form.toString()
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    originalValue = this.value;
+                    updateAllBancheTotals();
+                } else {
+                    console.error('Errore salvataggio saldo banca:', data.error);
+                    this.value = originalValue;
+                }
+            } catch (err) {
+                console.error('Errore salvataggio saldo banca:', err);
+                this.value = originalValue;
+            }
+        });
+    });
+    
+    // Aggiorna tutti i totali delle banche
+    function updateAllBancheTotals() {
+        const table = document.querySelector('table.budget-grid');
+        if (!table) return;
+        
+        const tfoot = table.querySelector('tfoot');
+        if (!tfoot) return;
+        
+        // Calcola totali per mese (colonna) e per banca (riga)
+        const bancheRows = tfoot.querySelectorAll('.banca-row');
+        const totaliMese = {};
+        let totaleGeneraleBanche = 0;
+        
+        // Inizializza totali mese
+        document.querySelectorAll('.tot-banche-mese').forEach(td => {
+            const mese = td.getAttribute('data-mese');
+            totaliMese[mese] = 0;
+        });
+        
+        // Calcola per ogni riga banca
+        bancheRows.forEach(row => {
+            const bancaId = row.getAttribute('data-bancaid');
+            let totRiga = 0;
+            
+            row.querySelectorAll('.saldo-banca-cell').forEach(inp => {
+                const mese = inp.getAttribute('data-mese');
+                const val = parseItalianNumber(inp.value);
+                totRiga += val;
+                totaliMese[mese] = (totaliMese[mese] || 0) + val;
+            });
+            
+            // Aggiorna totale riga banca
+            const totCell = row.querySelector('.banca-tot-riga');
+            if (totCell) {
+                totCell.textContent = totRiga === 0 ? '-' : formatItalianNumber(totRiga) + '€';
+            }
+            
+            totaleGeneraleBanche += totRiga;
+        });
+        
+        // Aggiorna totali colonne banche
+        document.querySelectorAll('.tot-banche-mese').forEach(td => {
+            const mese = td.getAttribute('data-mese');
+            const tot = totaliMese[mese] || 0;
+            td.textContent = tot === 0 ? '-' : formatItalianNumber(tot) + '€';
+        });
+        
+        // Aggiorna totale anno banche
+        const totAnno = document.querySelector('.tot-banche-anno');
+        if (totAnno) {
+            totAnno.textContent = totaleGeneraleBanche === 0 ? '-' : formatItalianNumber(totaleGeneraleBanche) + '€';
+        }
+        
+        // Ottieni lista mesi ordinati
+        const mesiOrdinati = Object.keys(totaliMese).map(m => parseInt(m)).sort((a, b) => a - b);
+        
+        // Calcola cash flow con riporti cumulativi
+        let riporto = 0;
+        let ultimoSaldoFinale = 0;
+        
+        mesiOrdinati.forEach((mese, index) => {
+            // Recupera spese del mese
+            const speseMeseCell = document.querySelector(`.tot-spese-mese[data-mese="${mese}"]`);
+            const spese = speseMeseCell ? parseItalianNumber(speseMeseCell.textContent) : 0;
+            
+            // Banche/versamenti del mese
+            const banche = totaliMese[mese] || 0;
+            
+            // Saldo iniziale = riporto mese precedente + banche mese
+            const saldoIniziale = riporto + banche;
+            
+            // Aggiorna cella saldo iniziale
+            const saldoInizialeCell = document.querySelector(`.saldo-iniziale-mese[data-mese="${mese}"]`);
+            if (saldoInizialeCell) {
+                if (index === 0) {
+                    saldoInizialeCell.innerHTML = formatItalianNumber(saldoIniziale) + '€';
+                } else {
+                    saldoInizialeCell.innerHTML = '<span class="text-muted" title="Riporto dal mese precedente">↳ ' + formatItalianNumber(saldoIniziale) + '€</span>';
+                }
+                saldoInizialeCell.classList.toggle('text-danger', saldoIniziale < 0);
+            }
+            
+            // Saldo finale = saldo iniziale - spese
+            const saldoFinale = saldoIniziale - spese;
+            ultimoSaldoFinale = saldoFinale;
+            
+            // Aggiorna cella saldo finale (differenza)
+            const diffCell = document.querySelector(`.differenza-mese[data-mese="${mese}"]`);
+            if (diffCell) {
+                diffCell.textContent = formatItalianNumber(saldoFinale) + '€';
+                diffCell.classList.toggle('text-danger', saldoFinale < 0);
+                diffCell.classList.toggle('fw-bold', saldoFinale < 0);
+                diffCell.classList.toggle('text-success', saldoFinale >= 0);
+            }
+            
+            // Il riporto per il mese successivo = saldo finale
+            riporto = saldoFinale;
+        });
+        
+        // Aggiorna saldo finale anno (ultimo saldo finale)
+        const diffAnnoCell = document.querySelector('.differenza-anno');
+        if (diffAnnoCell) {
+            diffAnnoCell.textContent = formatItalianNumber(ultimoSaldoFinale) + '€';
+            diffAnnoCell.classList.toggle('text-danger', ultimoSaldoFinale < 0);
+            diffAnnoCell.classList.toggle('fw-bold', ultimoSaldoFinale < 0);
+            diffAnnoCell.classList.toggle('text-success', ultimoSaldoFinale >= 0);
+        }
+    }
+    
+    // ===================== MODAL EDIT BANCA =====================
+    document.getElementById('modalEditBanca')?.addEventListener('show.bs.modal', function (event) {
+        const btn = event.relatedTarget;
+        if (!btn) return;
+        document.getElementById('editBancaId').value = btn.getAttribute('data-id');
+        document.getElementById('editBancaNome').value = btn.getAttribute('data-nome');
+        document.getElementById('editBancaIban').value = btn.getAttribute('data-iban') || '';
+    });
 </script>
 }

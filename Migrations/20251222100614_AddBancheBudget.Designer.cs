@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StudioCG.Web.Data;
 
@@ -11,9 +12,11 @@ using StudioCG.Web.Data;
 namespace StudioCG.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251222100614_AddBancheBudget")]
+    partial class AddBancheBudget
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -251,44 +254,6 @@ namespace StudioCG.Web.Migrations
                     b.ToTable("BudgetSpeseMensili");
                 });
 
-            modelBuilder.Entity("StudioCG.Web.Models.BudgetStudio.MacroVoceBudget", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Codice")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Descrizione")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("Ordine")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Codice")
-                        .IsUnique();
-
-                    b.ToTable("MacroVociBudget");
-                });
-
             modelBuilder.Entity("StudioCG.Web.Models.BudgetStudio.SaldoBancaMese", b =>
                 {
                     b.Property<int>("Id")
@@ -347,9 +312,6 @@ namespace StudioCG.Web.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<int?>("MacroVoceBudgetId")
-                        .HasColumnType("int");
-
                     b.Property<int>("MetodoPagamentoDefault")
                         .HasColumnType("int");
 
@@ -364,8 +326,6 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("CodiceSpesa")
                         .IsUnique();
-
-                    b.HasIndex("MacroVoceBudgetId");
 
                     b.ToTable("VociSpesaBudget");
                 });
@@ -1519,16 +1479,6 @@ namespace StudioCG.Web.Migrations
                     b.Navigation("BancaBudget");
                 });
 
-            modelBuilder.Entity("StudioCG.Web.Models.BudgetStudio.VoceSpesaBudget", b =>
-                {
-                    b.HasOne("StudioCG.Web.Models.BudgetStudio.MacroVoceBudget", "MacroVoce")
-                        .WithMany("VociAnalitiche")
-                        .HasForeignKey("MacroVoceBudgetId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("MacroVoce");
-                });
-
             modelBuilder.Entity("StudioCG.Web.Models.ClienteAttivita", b =>
                 {
                     b.HasOne("StudioCG.Web.Models.AttivitaAnnuale", "AttivitaAnnuale")
@@ -1804,11 +1754,6 @@ namespace StudioCG.Web.Migrations
             modelBuilder.Entity("StudioCG.Web.Models.BudgetStudio.BancaBudget", b =>
                 {
                     b.Navigation("SaldiMensili");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.BudgetStudio.MacroVoceBudget", b =>
-                {
-                    b.Navigation("VociAnalitiche");
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.BudgetStudio.VoceSpesaBudget", b =>

@@ -31,9 +31,20 @@ namespace StudioCG.Web.Controllers
             var filtroPagate = pagate ?? BudgetPagateFiltro.NonPagate;
             var filtroNascondiVuote = nascondiVuote ?? true; // Default: nascondi voci vuote
 
+            // Carica macro voci con le voci analitiche
+            var macroVoci = await _context.MacroVociBudget
+                .Where(m => m.IsActive)
+                .Include(m => m.VociAnalitiche.Where(v => v.IsActive))
+                .OrderBy(m => m.Ordine)
+                .ThenBy(m => m.Codice)
+                .ToListAsync();
+
+            // Carica tutte le voci analitiche (con relazione MacroVoce)
             var voci = await _context.VociSpesaBudget
+                .Include(v => v.MacroVoce)
                 .Where(v => v.IsActive)
-                .OrderBy(v => v.CodiceSpesa)
+                .OrderBy(v => v.MacroVoce != null ? v.MacroVoce.Ordine : 9999)
+                .ThenBy(v => v.CodiceSpesa)
                 .ToListAsync();
 
             var queryMensile = _context.BudgetSpeseMensili
@@ -60,6 +71,20 @@ namespace StudioCG.Web.Controllers
                 vociFiltrate = voci.Where(v => vociConImporti.Contains(v.Id)).ToList();
             }
 
+            // Voci senza macro voce assegnata
+            var vociSenzaMacro = vociFiltrate.Where(v => v.MacroVoceBudgetId == null).ToList();
+
+            // Carica banche e saldi
+            var banche = await _context.BancheBudget
+                .Where(b => b.IsActive)
+                .OrderBy(b => b.Ordine)
+                .ThenBy(b => b.Nome)
+                .ToListAsync();
+
+            var saldiBanche = await _context.SaldiBancheMese
+                .Where(s => s.Anno == annoSelezionato && s.Mese >= da && s.Mese <= a)
+                .ToListAsync();
+
             var vm = new BudgetStudioViewModel
             {
                 Anno = annoSelezionato,
@@ -67,17 +92,44 @@ namespace StudioCG.Web.Controllers
                 MeseA = a,
                 PagateFiltro = filtroPagate,
                 NascondiVuote = filtroNascondiVuote,
+                MacroVoci = macroVoci,
                 Voci = vociFiltrate,
-                RigheMensili = righe
+                VociSenzaMacro = vociSenzaMacro,
+                RigheMensili = righe,
+                Banche = banche,
+                SaldiBanche = saldiBanche
             };
 
             vm.Map = righe.ToDictionary(x => (x.VoceSpesaBudgetId, x.Mese), x => x);
+            vm.MapSaldiBanche = saldiBanche.ToDictionary(x => (x.BancaBudgetId, x.Mese), x => x.Saldo);
 
+            // Calcola totali spese per mese
             for (var m = da; m <= a; m++)
             {
                 var tot = righe.Where(r => r.Mese == m).Sum(r => r.Importo);
                 vm.TotaliMese[m] = tot;
                 vm.TotaleAnno += tot;
+
+                // Totale saldi banche per mese
+                var totBanche = saldiBanche.Where(s => s.Mese == m).Sum(s => s.Saldo);
+                vm.TotaliBancheMese[m] = totBanche;
+            }
+
+            // Calcola Cash Flow: saldo iniziale e differenza per ogni mese
+            decimal riporto = 0;
+            for (var m = da; m <= a; m++)
+            {
+                // Saldo iniziale = riporto mese precedente + banche/versamenti mese corrente
+                var bancheMese = vm.TotaliBancheMese.GetValueOrDefault(m);
+                var saldoIniziale = riporto + bancheMese;
+                vm.SaldoInizialeMese[m] = saldoIniziale;
+
+                // Saldo finale (differenza) = saldo iniziale - spese del mese
+                var saldoFinale = saldoIniziale - vm.TotaliMese.GetValueOrDefault(m);
+                vm.DifferenzaMese[m] = saldoFinale;
+
+                // Il riporto per il mese successivo = saldo finale di questo mese
+                riporto = saldoFinale;
             }
 
             ViewBag.ActiveTab = string.Equals(tab, "prospetto", StringComparison.OrdinalIgnoreCase) ? "prospetto" : "anagrafica";
@@ -712,6 +764,271 @@ namespace StudioCG.Web.Controllers
             var fileName = $"BudgetStudio_{annoSelezionato}_{mesiNomi[da]}-{mesiNomi[a]}.xlsx";
             return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
+
+        #region Banche CRUD
+
+        // POST: /BudgetStudio/CreateBanca
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateBanca(string nome, string? iban, int anno)
+        {
+            try
+            {
+                var banca = new BancaBudget
+                {
+                    Nome = nome,
+                    Iban = iban,
+                    IsActive = true,
+                    Ordine = await _context.BancheBudget.CountAsync(),
+                    CreatedAt = DateTime.Now
+                };
+                _context.BancheBudget.Add(banca);
+                await _context.SaveChangesAsync();
+                TempData["Success"] = $"Banca '{nome}' creata con successo.";
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = $"Errore creazione banca: {ex.Message}";
+            }
+            return RedirectToAction(nameof(Index), new { anno, tab = "prospetto" });
+        }
+
+        // POST: /BudgetStudio/UpdateBanca
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateBanca(int id, string nome, string? iban, int anno)
+        {
+            try
+            {
+                var banca = await _context.BancheBudget.FindAsync(id);
+                if (banca != null)
+                {
+                    banca.Nome = nome;
+                    banca.Iban = iban;
+                    banca.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                    TempData["Success"] = $"Banca '{nome}' aggiornata.";
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = $"Errore aggiornamento banca: {ex.Message}";
+            }
+            return RedirectToAction(nameof(Index), new { anno, tab = "prospetto" });
+        }
+
+        // POST: /BudgetStudio/DeleteBanca
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteBanca(int id, int anno)
+        {
+            try
+            {
+                var banca = await _context.BancheBudget.FindAsync(id);
+                if (banca != null)
+                {
+                    banca.IsActive = false;
+                    banca.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                    TempData["Success"] = $"Banca '{banca.Nome}' eliminata.";
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = $"Errore eliminazione banca: {ex.Message}";
+            }
+            return RedirectToAction(nameof(Index), new { anno, tab = "prospetto" });
+        }
+
+        // POST: /BudgetStudio/SaveSaldoBanca (inline, AJAX)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SaveSaldoBanca(int bancaId, int anno, int mese, string saldo)
+        {
+            try
+            {
+                var saldoDec = decimal.Parse(saldo.Replace(".", "").Replace(",", "."), CultureInfo.InvariantCulture);
+                mese = Math.Clamp(mese, 1, 12);
+
+                var existing = await _context.SaldiBancheMese
+                    .FirstOrDefaultAsync(x => x.BancaBudgetId == bancaId && x.Anno == anno && x.Mese == mese);
+
+                if (existing == null)
+                {
+                    if (saldoDec == 0)
+                        return Json(new { ok = true });
+
+                    var newSaldo = new SaldoBancaMese
+                    {
+                        BancaBudgetId = bancaId,
+                        Anno = anno,
+                        Mese = mese,
+                        Saldo = saldoDec,
+                        CreatedAt = DateTime.Now
+                    };
+                    _context.SaldiBancheMese.Add(newSaldo);
+                }
+                else
+                {
+                    if (saldoDec == 0)
+                    {
+                        _context.SaldiBancheMese.Remove(existing);
+                    }
+                    else
+                    {
+                        existing.Saldo = saldoDec;
+                        existing.UpdatedAt = DateTime.Now;
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                return Json(new { ok = true, saldo = saldoDec });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { ok = false, error = ex.Message });
+            }
+        }
+
+        // GET: /BudgetStudio/GetBanche (per modale)
+        [HttpGet]
+        public async Task<IActionResult> GetBanche()
+        {
+            var banche = await _context.BancheBudget
+                .Where(b => b.IsActive)
+                .OrderBy(b => b.Ordine)
+                .ThenBy(b => b.Nome)
+                .Select(b => new { b.Id, b.Nome, b.Iban })
+                .ToListAsync();
+
+            return Json(banche);
+        }
+
+        #endregion
+
+        #region Macro Voci CRUD
+
+        // POST: /BudgetStudio/CreateMacroVoce
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateMacroVoce(string codice, string descrizione, int anno)
+        {
+            try
+            {
+                var macroVoce = new MacroVoceBudget
+                {
+                    Codice = codice.Trim().ToUpper(),
+                    Descrizione = descrizione.Trim(),
+                    IsActive = true,
+                    Ordine = await _context.MacroVociBudget.CountAsync(),
+                    CreatedAt = DateTime.Now
+                };
+                _context.MacroVociBudget.Add(macroVoce);
+                await _context.SaveChangesAsync();
+                TempData["Success"] = $"Macro voce '{codice}' creata con successo.";
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = $"Errore creazione macro voce: {ex.Message}";
+            }
+            return RedirectToAction(nameof(Index), new { anno, tab = "anagrafica" });
+        }
+
+        // POST: /BudgetStudio/UpdateMacroVoce
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateMacroVoce(int id, string codice, string descrizione, int ordine, bool isActive, int anno)
+        {
+            try
+            {
+                var macroVoce = await _context.MacroVociBudget.FindAsync(id);
+                if (macroVoce != null)
+                {
+                    macroVoce.Codice = codice.Trim().ToUpper();
+                    macroVoce.Descrizione = descrizione.Trim();
+                    macroVoce.Ordine = ordine;
+                    macroVoce.IsActive = isActive;
+                    macroVoce.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                    TempData["Success"] = $"Macro voce '{codice}' aggiornata.";
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = $"Errore aggiornamento macro voce: {ex.Message}";
+            }
+            return RedirectToAction(nameof(Index), new { anno, tab = "anagrafica" });
+        }
+
+        // POST: /BudgetStudio/DeleteMacroVoce
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteMacroVoce(int id, int anno)
+        {
+            try
+            {
+                var macroVoce = await _context.MacroVociBudget.FindAsync(id);
+                if (macroVoce != null)
+                {
+                    // Rimuovi associazione dalle voci analitiche
+                    var vociAssociate = await _context.VociSpesaBudget
+                        .Where(v => v.MacroVoceBudgetId == id)
+                        .ToListAsync();
+                    foreach (var v in vociAssociate)
+                    {
+                        v.MacroVoceBudgetId = null;
+                    }
+                    
+                    _context.MacroVociBudget.Remove(macroVoce);
+                    await _context.SaveChangesAsync();
+                    TempData["Success"] = $"Macro voce '{macroVoce.Codice}' eliminata.";
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = $"Errore eliminazione macro voce: {ex.Message}";
+            }
+            return RedirectToAction(nameof(Index), new { anno, tab = "anagrafica" });
+        }
+
+        // POST: /BudgetStudio/AssociaVoceAMacro
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AssociaVoceAMacro(int voceId, int? macroVoceId, int anno)
+        {
+            try
+            {
+                var voce = await _context.VociSpesaBudget.FindAsync(voceId);
+                if (voce != null)
+                {
+                    voce.MacroVoceBudgetId = macroVoceId;
+                    voce.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                    TempData["Success"] = "Voce associata correttamente.";
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = $"Errore associazione: {ex.Message}";
+            }
+            return RedirectToAction(nameof(Index), new { anno, tab = "anagrafica" });
+        }
+
+        // GET: /BudgetStudio/GetMacroVoci (JSON per dropdown)
+        [HttpGet]
+        public async Task<IActionResult> GetMacroVoci()
+        {
+            var macroVoci = await _context.MacroVociBudget
+                .Where(m => m.IsActive)
+                .OrderBy(m => m.Ordine)
+                .ThenBy(m => m.Codice)
+                .Select(m => new { m.Id, m.Codice, m.Descrizione })
+                .ToListAsync();
+
+            return Json(macroVoci);
+        }
+
+        #endregion
     }
 }
 

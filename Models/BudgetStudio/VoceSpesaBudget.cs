@@ -6,6 +6,12 @@ namespace StudioCG.Web.Models.BudgetStudio
     {
         public int Id { get; set; }
 
+        /// <summary>
+        /// FK opzionale alla macro voce (categoria)
+        /// </summary>
+        [Display(Name = "Macro Voce")]
+        public int? MacroVoceBudgetId { get; set; }
+
         [Required]
         [StringLength(50)]
         [Display(Name = "Codice Spesa")]
@@ -28,6 +34,11 @@ namespace StudioCG.Web.Models.BudgetStudio
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? UpdatedAt { get; set; }
+
+        /// <summary>
+        /// Macro voce (categoria) a cui appartiene questa voce analitica
+        /// </summary>
+        public virtual MacroVoceBudget? MacroVoce { get; set; }
 
         public virtual ICollection<BudgetSpesaMensile> BudgetMensile { get; set; } = new List<BudgetSpesaMensile>();
     }

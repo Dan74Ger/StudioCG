@@ -47,8 +47,11 @@ namespace StudioCG.Web.Data
         public DbSet<IncassoProfessionista> IncassiProfessionisti { get; set; }
 
         // Tabelle Budget Studio
+        public DbSet<MacroVoceBudget> MacroVociBudget { get; set; }
         public DbSet<VoceSpesaBudget> VociSpesaBudget { get; set; }
         public DbSet<BudgetSpesaMensile> BudgetSpeseMensili { get; set; }
+        public DbSet<BancaBudget> BancheBudget { get; set; }
+        public DbSet<SaldoBancaMese> SaldiBancheMese { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -417,6 +420,14 @@ namespace StudioCG.Web.Data
 
             // ============ TABELLE BUDGET STUDIO ============
 
+            modelBuilder.Entity<MacroVoceBudget>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.Codice).IsUnique();
+                entity.Property(e => e.Codice).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Descrizione).IsRequired().HasMaxLength(200);
+            });
+
             modelBuilder.Entity<VoceSpesaBudget>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -424,6 +435,11 @@ namespace StudioCG.Web.Data
                 entity.Property(e => e.CodiceSpesa).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.Descrizione).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.NoteDefault).HasMaxLength(500);
+
+                entity.HasOne(e => e.MacroVoce)
+                    .WithMany(m => m.VociAnalitiche)
+                    .HasForeignKey(e => e.MacroVoceBudgetId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<BudgetSpesaMensile>(entity =>
@@ -436,6 +452,25 @@ namespace StudioCG.Web.Data
                 entity.HasOne(e => e.VoceSpesaBudget)
                     .WithMany(v => v.BudgetMensile)
                     .HasForeignKey(e => e.VoceSpesaBudgetId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<BancaBudget>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Nome).HasMaxLength(100).IsRequired();
+                entity.Property(e => e.Iban).HasMaxLength(50);
+            });
+
+            modelBuilder.Entity<SaldoBancaMese>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.BancaBudgetId, e.Anno, e.Mese }).IsUnique();
+                entity.Property(e => e.Saldo).HasColumnType("decimal(18,2)");
+
+                entity.HasOne(e => e.BancaBudget)
+                    .WithMany(b => b.SaldiMensili)
+                    .HasForeignKey(e => e.BancaBudgetId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
