@@ -12,6 +12,9 @@ using QuestPDF.Infrastructure;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using A = DocumentFormat.OpenXml.Drawing;
+using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
+using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
 
 namespace StudioCG.Web.Services
 {
@@ -52,11 +55,19 @@ namespace StudioCG.Web.Services
             if (cliente == null)
                 throw new ArgumentException("Cliente non trovato");
 
-            // Carica mandato se richiesto
+            // Carica mandato se richiesto, altrimenti prende l'ultimo mandato attivo del cliente
             MandatoCliente? mandato = null;
             if (mandatoId.HasValue)
             {
                 mandato = await _context.MandatiClienti.FindAsync(mandatoId.Value);
+            }
+            else
+            {
+                // Se non è specificato un mandato, prende l'ultimo mandato attivo del cliente
+                mandato = await _context.MandatiClienti
+                    .Where(m => m.ClienteId == clienteId && m.IsActive)
+                    .OrderByDescending(m => m.Anno)
+                    .FirstOrDefaultAsync();
             }
 
             // Carica configurazione studio
@@ -84,7 +95,7 @@ namespace StudioCG.Web.Services
             }
             else
             {
-                fileBytes = GeneraWord(intestazioneCompilata, contenutoCompilato, piePaginaCompilato);
+                fileBytes = GeneraWord(intestazioneCompilata, contenutoCompilato, piePaginaCompilato, studio);
                 contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
                 estensione = ".docx";
             }
@@ -186,6 +197,18 @@ namespace StudioCG.Web.Services
             result = result.Replace("{{Cliente.CodiceAteco}}", cliente.CodiceAteco ?? "");
             result = result.Replace("{{Cliente.TipoSoggetto}}", cliente.TipoSoggetto?.ToString() ?? "");
 
+            // Importo annuo dalla fatturazione (dal mandato)
+            if (mandato != null)
+            {
+                result = result.Replace("{{Cliente.ImportoAnnuo}}", mandato.ImportoAnnuo.ToString("N2", _italianCulture) + " €");
+                result = result.Replace("{{Cliente.ImportoAnnuoLettere}}", NumeroInLettere(mandato.ImportoAnnuo));
+            }
+            else
+            {
+                result = result.Replace("{{Cliente.ImportoAnnuo}}", "");
+                result = result.Replace("{{Cliente.ImportoAnnuoLettere}}", "");
+            }
+
             // ===== CAMPI SOGGETTI =====
             var soggetti = cliente.Soggetti?.ToList() ?? new List<ClienteSoggetto>();
             
@@ -203,6 +226,10 @@ namespace StudioCG.Web.Services
                 result = result.Replace("{{LegaleRapp.CAP}}", legaleRapp.CAP ?? "");
                 result = result.Replace("{{LegaleRapp.Email}}", legaleRapp.Email ?? "");
                 result = result.Replace("{{LegaleRapp.Telefono}}", legaleRapp.Telefono ?? "");
+                // Documento di identità
+                result = result.Replace("{{LegaleRapp.DocumentoNumero}}", legaleRapp.DocumentoNumero ?? "");
+                result = result.Replace("{{LegaleRapp.DocumentoDataRilascio}}", legaleRapp.DocumentoDataRilascio?.ToString("dd/MM/yyyy") ?? "");
+                result = result.Replace("{{LegaleRapp.DocumentoRilasciatoDa}}", legaleRapp.DocumentoRilasciatoDa ?? "");
                 var indirizzoCompleto = legaleRapp.Indirizzo ?? "";
                 if (!string.IsNullOrEmpty(legaleRapp.CAP)) indirizzoCompleto += $" - {legaleRapp.CAP}";
                 if (!string.IsNullOrEmpty(legaleRapp.Citta)) indirizzoCompleto += $" {legaleRapp.Citta}";
@@ -223,6 +250,9 @@ namespace StudioCG.Web.Services
                 result = result.Replace("{{LegaleRapp.CAP}}", "");
                 result = result.Replace("{{LegaleRapp.Email}}", "");
                 result = result.Replace("{{LegaleRapp.Telefono}}", "");
+                result = result.Replace("{{LegaleRapp.DocumentoNumero}}", "");
+                result = result.Replace("{{LegaleRapp.DocumentoDataRilascio}}", "");
+                result = result.Replace("{{LegaleRapp.DocumentoRilasciatoDa}}", "");
                 result = result.Replace("{{LegaleRapp.IndirizzoCompleto}}", "");
                 result = result.Replace("{{Soggetti.LegaleRapp}}", "");
             }
@@ -236,6 +266,9 @@ namespace StudioCG.Web.Services
                 
                 var elencoConsiglieriCompleto = string.Join("<br/>", consiglieri.Select(c => 
                     $"{c.Cognome} {c.Nome} - CF: {c.CodiceFiscale ?? "N/A"}" +
+                    (!string.IsNullOrEmpty(c.DocumentoNumero) ? $" - Doc: {c.DocumentoNumero}" : "") +
+                    (c.DocumentoDataRilascio.HasValue ? $" del {c.DocumentoDataRilascio.Value:dd/MM/yyyy}" : "") +
+                    (!string.IsNullOrEmpty(c.DocumentoRilasciatoDa) ? $" ({c.DocumentoRilasciatoDa})" : "") +
                     (!string.IsNullOrEmpty(c.Indirizzo) ? $" - {c.Indirizzo}" : "") +
                     (!string.IsNullOrEmpty(c.Citta) ? $", {c.Citta}" : "")));
                 result = result.Replace("{{Consiglieri.ElencoCompleto}}", elencoConsiglieriCompleto);
@@ -261,6 +294,9 @@ namespace StudioCG.Web.Services
                 var elencoSociCompleto = string.Join("<br/>", soci.Select(s => 
                     $"{s.Cognome} {s.Nome} - CF: {s.CodiceFiscale ?? "N/A"}" +
                     (s.QuotaPercentuale.HasValue ? $" - Quota: {s.QuotaPercentuale.Value.ToString("N2", _italianCulture)}%" : "") +
+                    (!string.IsNullOrEmpty(s.DocumentoNumero) ? $" - Doc: {s.DocumentoNumero}" : "") +
+                    (s.DocumentoDataRilascio.HasValue ? $" del {s.DocumentoDataRilascio.Value:dd/MM/yyyy}" : "") +
+                    (!string.IsNullOrEmpty(s.DocumentoRilasciatoDa) ? $" ({s.DocumentoRilasciatoDa})" : "") +
                     (!string.IsNullOrEmpty(s.Indirizzo) ? $" - {s.Indirizzo}" : "") +
                     (!string.IsNullOrEmpty(s.Citta) ? $", {s.Citta}" : "")));
                 result = result.Replace("{{Soci.ElencoCompleto}}", elencoSociCompleto);
@@ -382,13 +418,13 @@ namespace StudioCG.Web.Services
                             // Intestazione personalizzata dal template
                             if (studio?.Logo != null)
                             {
-                                col.Item().Height(50).AlignCenter().Image(studio.Logo);
-                                col.Item().Height(5);
+                                col.Item().MaxHeight(40).AlignCenter().Image(studio.Logo).FitHeight();
+                                col.Item().Height(3);
                             }
-                            foreach (var line in intestazionePlain.Split('\n'))
+                            foreach (var line in intestazionePlain.Split('\n').Take(3)) // Max 3 righe
                             {
                                 if (!string.IsNullOrWhiteSpace(line))
-                                    col.Item().AlignCenter().Text(line.Trim()).FontSize(10);
+                                    col.Item().AlignCenter().Text(line.Trim()).FontSize(9);
                             }
                         }
                         else
@@ -396,13 +432,13 @@ namespace StudioCG.Web.Services
                             // Intestazione default da ConfigurazioneStudio
                             if (studio?.Logo != null)
                             {
-                                col.Item().Height(60).AlignCenter().Image(studio.Logo);
-                                col.Item().Height(10);
+                                col.Item().MaxHeight(45).AlignCenter().Image(studio.Logo).FitHeight();
+                                col.Item().Height(5);
                             }
                             
                             if (!string.IsNullOrEmpty(studio?.NomeStudio))
                             {
-                                col.Item().AlignCenter().Text(studio.NomeStudio).Bold().FontSize(14);
+                                col.Item().AlignCenter().Text(studio.NomeStudio).Bold().FontSize(12);
                             }
                             
                             if (!string.IsNullOrEmpty(studio?.Indirizzo))
@@ -410,16 +446,16 @@ namespace StudioCG.Web.Services
                                 var indirizzo = $"{studio.Indirizzo}";
                                 if (!string.IsNullOrEmpty(studio.CAP)) indirizzo += $" - {studio.CAP}";
                                 if (!string.IsNullOrEmpty(studio.Citta)) indirizzo += $" {studio.Citta}";
-                                col.Item().AlignCenter().Text(indirizzo).FontSize(9);
+                                col.Item().AlignCenter().Text(indirizzo).FontSize(8);
                             }
                         }
                         
-                        col.Item().Height(5);
+                        col.Item().Height(3);
                         col.Item().LineHorizontal(0.5f);
-                        col.Item().Height(10);
+                        col.Item().Height(5);
                     });
 
-                    // Contenuto
+                    // Contenuto - Testo giustificato
                     page.Content().Column(col =>
                     {
                         foreach (var para in paragrafi)
@@ -427,19 +463,24 @@ namespace StudioCG.Web.Services
                             var testo = para.Trim();
                             if (string.IsNullOrWhiteSpace(testo)) continue;
                             
-                            col.Item().Text(testo).LineHeight(1.5f);
+                            col.Item().Text(text => 
+                            {
+                                text.Justify();
+                                text.DefaultTextStyle(x => x.LineHeight(1.5f));
+                                text.Span(testo);
+                            });
                             col.Item().Height(8);
                         }
                     });
 
-                    // Footer - usa piè di pagina personalizzato se presente
+                    // Footer - usa piè di pagina personalizzato se presente (max 2 righe)
                     page.Footer().Column(col =>
                     {
                         if (!string.IsNullOrEmpty(footerPlain))
                         {
                             col.Item().LineHorizontal(0.5f);
-                            col.Item().Height(5);
-                            foreach (var line in footerPlain.Split('\n'))
+                            col.Item().Height(3);
+                            foreach (var line in footerPlain.Split('\n').Take(2))
                             {
                                 if (!string.IsNullOrWhiteSpace(line))
                                 {
@@ -529,7 +570,7 @@ namespace StudioCG.Web.Services
         /// <summary>
         /// Genera Word DOCX usando DocumentFormat.OpenXml
         /// </summary>
-        private byte[] GeneraWord(string? intestazione, string htmlContent, string? piePagina)
+        private byte[] GeneraWord(string? intestazione, string htmlContent, string? piePagina, ConfigurazioneStudio? studio)
         {
             // Rimuovi tag HTML per ottenere testo pulito
             var testoPlain = RimuoviTagHtml(htmlContent);
@@ -546,6 +587,13 @@ namespace StudioCG.Web.Services
                 var mainPart = wordDocument.AddMainDocumentPart();
                 mainPart.Document = new DocumentFormat.OpenXml.Wordprocessing.Document();
                 var body = mainPart.Document.AppendChild(new Body());
+
+                // Aggiungi logo se presente
+                if (studio?.Logo != null)
+                {
+                    var logoPara = CreateImageParagraph(mainPart, studio.Logo, studio.LogoContentType ?? "image/png", 1500000, 600000);
+                    body.AppendChild(logoPara);
+                }
 
                 // Aggiungi intestazione se presente
                 if (!string.IsNullOrEmpty(intestazionePlain))
@@ -571,6 +619,46 @@ namespace StudioCG.Web.Services
                         }
                     }
                     // Linea separatore
+                    body.AppendChild(new Paragraph());
+                }
+                else if (studio != null && !string.IsNullOrEmpty(studio.NomeStudio))
+                {
+                    // Se non c'è intestazione personalizzata ma c'è il nome studio, aggiungilo
+                    var headerPara = new Paragraph();
+                    var headerRun = new Run();
+                    var headerProps = new RunProperties();
+                    headerProps.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
+                    headerProps.AppendChild(new FontSize { Val = "24" }); // 12pt
+                    headerProps.AppendChild(new Bold());
+                    headerRun.AppendChild(headerProps);
+                    headerRun.AppendChild(new Text(studio.NomeStudio) { Space = SpaceProcessingModeValues.Preserve });
+                    headerPara.AppendChild(headerRun);
+                    var paraProps = new ParagraphProperties();
+                    paraProps.AppendChild(new Justification { Val = JustificationValues.Center });
+                    headerPara.PrependChild(paraProps);
+                    body.AppendChild(headerPara);
+
+                    // Aggiungi indirizzo
+                    if (!string.IsNullOrEmpty(studio.Indirizzo))
+                    {
+                        var indirizzo = studio.Indirizzo;
+                        if (!string.IsNullOrEmpty(studio.CAP)) indirizzo += $" - {studio.CAP}";
+                        if (!string.IsNullOrEmpty(studio.Citta)) indirizzo += $" {studio.Citta}";
+
+                        var addrPara = new Paragraph();
+                        var addrRun = new Run();
+                        var addrProps = new RunProperties();
+                        addrProps.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
+                        addrProps.AppendChild(new FontSize { Val = "18" }); // 9pt
+                        addrRun.AppendChild(addrProps);
+                        addrRun.AppendChild(new Text(indirizzo) { Space = SpaceProcessingModeValues.Preserve });
+                        addrPara.AppendChild(addrRun);
+                        var addrParaProps = new ParagraphProperties();
+                        addrParaProps.AppendChild(new Justification { Val = JustificationValues.Center });
+                        addrPara.PrependChild(addrParaProps);
+                        body.AppendChild(addrPara);
+                    }
+                    
                     body.AppendChild(new Paragraph());
                 }
 
@@ -764,7 +852,189 @@ namespace StudioCG.Web.Services
         }
 
         /// <summary>
-        /// Anteprima del documento (senza salvare)
+        /// Legge le dimensioni di un'immagine direttamente dai byte (supporta PNG e JPEG)
+        /// </summary>
+        private (int width, int height) GetImageDimensions(byte[] imageBytes, string contentType)
+        {
+            try
+            {
+                if (contentType.Contains("png", StringComparison.OrdinalIgnoreCase))
+                {
+                    // PNG: le dimensioni sono ai byte 16-23 (dopo l'header IHDR)
+                    // Formato: 8 byte signature + 4 byte length + 4 byte "IHDR" + 4 byte width + 4 byte height
+                    if (imageBytes.Length > 24)
+                    {
+                        int width = (imageBytes[16] << 24) | (imageBytes[17] << 16) | (imageBytes[18] << 8) | imageBytes[19];
+                        int height = (imageBytes[20] << 24) | (imageBytes[21] << 16) | (imageBytes[22] << 8) | imageBytes[23];
+                        return (width, height);
+                    }
+                }
+                else if (contentType.Contains("jpeg", StringComparison.OrdinalIgnoreCase) || 
+                         contentType.Contains("jpg", StringComparison.OrdinalIgnoreCase))
+                {
+                    // JPEG: cerca il marker SOF0 (0xFFC0) o SOF2 (0xFFC2)
+                    for (int i = 0; i < imageBytes.Length - 9; i++)
+                    {
+                        if (imageBytes[i] == 0xFF)
+                        {
+                            byte marker = imageBytes[i + 1];
+                            // SOF0, SOF1, SOF2 markers
+                            if (marker == 0xC0 || marker == 0xC1 || marker == 0xC2)
+                            {
+                                int height = (imageBytes[i + 5] << 8) | imageBytes[i + 6];
+                                int width = (imageBytes[i + 7] << 8) | imageBytes[i + 8];
+                                return (width, height);
+                            }
+                        }
+                    }
+                }
+                else if (contentType.Contains("gif", StringComparison.OrdinalIgnoreCase))
+                {
+                    // GIF: dimensioni ai byte 6-9 (little endian)
+                    if (imageBytes.Length > 10)
+                    {
+                        int width = imageBytes[6] | (imageBytes[7] << 8);
+                        int height = imageBytes[8] | (imageBytes[9] << 8);
+                        return (width, height);
+                    }
+                }
+                else if (contentType.Contains("bmp", StringComparison.OrdinalIgnoreCase))
+                {
+                    // BMP: dimensioni ai byte 18-25 (little endian, signed)
+                    if (imageBytes.Length > 26)
+                    {
+                        int width = imageBytes[18] | (imageBytes[19] << 8) | (imageBytes[20] << 16) | (imageBytes[21] << 24);
+                        int height = imageBytes[22] | (imageBytes[23] << 8) | (imageBytes[24] << 16) | (imageBytes[25] << 24);
+                        return (width, Math.Abs(height)); // height può essere negativo
+                    }
+                }
+            }
+            catch
+            {
+                // In caso di errore, ritorna 0,0 per usare dimensioni di default
+            }
+            
+            return (0, 0);
+        }
+
+        /// <summary>
+        /// Crea un paragrafo con immagine per Word
+        /// </summary>
+        private Paragraph CreateImageParagraph(MainDocumentPart mainPart, byte[] imageBytes, string contentType, long widthEmu, long heightEmu)
+        {
+            // Determina il content type per PartTypeInfo
+            string partContentType = contentType.ToLower() switch
+            {
+                "image/png" => "image/png",
+                "image/gif" => "image/gif",
+                "image/bmp" => "image/bmp",
+                _ => "image/jpeg"
+            };
+
+            // Aggiungi l'immagine come parte del documento
+            var imagePart = mainPart.AddImagePart(partContentType);
+            using (var imageStream = new MemoryStream(imageBytes))
+            {
+                imagePart.FeedData(imageStream);
+            }
+
+            var relationshipId = mainPart.GetIdOfPart(imagePart);
+
+            // Leggi le dimensioni reali dell'immagine per mantenere le proporzioni
+            var (imgWidth, imgHeight) = GetImageDimensions(imageBytes, contentType);
+            
+            // 1 cm = 360000 EMU (English Metric Units)
+            // Dimensione massima: larghezza 5cm, altezza 2cm
+            long maxWidthEmu = 1800000;  // 5cm
+            long maxHeightEmu = 720000;  // 2cm
+            
+            if (imgWidth > 0 && imgHeight > 0)
+            {
+                double aspectRatio = (double)imgWidth / imgHeight;
+                
+                // Calcola dimensioni mantenendo proporzioni
+                widthEmu = maxWidthEmu;
+                heightEmu = (long)(maxWidthEmu / aspectRatio);
+                
+                // Se l'altezza supera il massimo, ricalcola dalla altezza
+                if (heightEmu > maxHeightEmu)
+                {
+                    heightEmu = maxHeightEmu;
+                    widthEmu = (long)(maxHeightEmu * aspectRatio);
+                }
+            }
+            else
+            {
+                // Fallback a dimensioni di default se non riesce a leggere
+                widthEmu = 1440000;  // ~4cm
+                heightEmu = 540000;  // ~1.5cm
+            }
+
+            // Crea l'elemento Drawing per l'immagine
+            var element = new Drawing(
+                new DW.Inline(
+                    new DW.Extent { Cx = widthEmu, Cy = heightEmu },
+                    new DW.EffectExtent
+                    {
+                        LeftEdge = 0L,
+                        TopEdge = 0L,
+                        RightEdge = 0L,
+                        BottomEdge = 0L
+                    },
+                    new DW.DocProperties
+                    {
+                        Id = 1U,
+                        Name = "Logo"
+                    },
+                    new DW.NonVisualGraphicFrameDrawingProperties(
+                        new A.GraphicFrameLocks { NoChangeAspect = true }),
+                    new A.Graphic(
+                        new A.GraphicData(
+                            new PIC.Picture(
+                                new PIC.NonVisualPictureProperties(
+                                    new PIC.NonVisualDrawingProperties
+                                    {
+                                        Id = 0U,
+                                        Name = "Logo.png"
+                                    },
+                                    new PIC.NonVisualPictureDrawingProperties()),
+                                new PIC.BlipFill(
+                                    new A.Blip
+                                    {
+                                        Embed = relationshipId,
+                                        CompressionState = A.BlipCompressionValues.Print
+                                    },
+                                    new A.Stretch(new A.FillRectangle())),
+                                new PIC.ShapeProperties(
+                                    new A.Transform2D(
+                                        new A.Offset { X = 0L, Y = 0L },
+                                        new A.Extents { Cx = widthEmu, Cy = heightEmu }),
+                                    new A.PresetGeometry(new A.AdjustValueList())
+                                    { Preset = A.ShapeTypeValues.Rectangle })))
+                        { Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture" })
+                )
+                {
+                    DistanceFromTop = 0U,
+                    DistanceFromBottom = 0U,
+                    DistanceFromLeft = 0U,
+                    DistanceFromRight = 0U
+                });
+
+            // Crea paragrafo centrato con l'immagine
+            var paragraph = new Paragraph();
+            var paragraphProperties = new ParagraphProperties();
+            paragraphProperties.AppendChild(new Justification { Val = JustificationValues.Center });
+            paragraph.AppendChild(paragraphProperties);
+            
+            var run = new Run();
+            run.AppendChild(element);
+            paragraph.AppendChild(run);
+
+            return paragraph;
+        }
+
+        /// <summary>
+        /// Anteprima del documento (senza salvare) - formato A4 con intestazione, contenuto e piè di pagina
         /// </summary>
         public async Task<string> GeneraAnteprimaAsync(int templateId, int clienteId, int? mandatoId)
         {
@@ -776,15 +1046,135 @@ namespace StudioCG.Web.Services
                 .FirstOrDefaultAsync(c => c.Id == clienteId);
             if (cliente == null) return "<p>Cliente non trovato</p>";
 
+            // Carica mandato se richiesto, altrimenti prende l'ultimo mandato attivo del cliente
             MandatoCliente? mandato = null;
             if (mandatoId.HasValue)
             {
                 mandato = await _context.MandatiClienti.FindAsync(mandatoId.Value);
             }
+            else
+            {
+                // Se non è specificato un mandato, prende l'ultimo mandato attivo del cliente
+                mandato = await _context.MandatiClienti
+                    .Where(m => m.ClienteId == clienteId && m.IsActive)
+                    .OrderByDescending(m => m.Anno)
+                    .FirstOrDefaultAsync();
+            }
 
             var studio = await _context.ConfigurazioniStudio.FirstOrDefaultAsync();
 
-            return SostituisciCampi(template.Contenuto, studio, cliente, mandato);
+            // Compila tutte le sezioni
+            var intestazione = !string.IsNullOrEmpty(template.Intestazione) 
+                ? SostituisciCampi(template.Intestazione, studio, cliente, mandato) 
+                : "";
+            var contenuto = SostituisciCampi(template.Contenuto, studio, cliente, mandato);
+            var piePagina = !string.IsNullOrEmpty(template.PiePagina) 
+                ? SostituisciCampi(template.PiePagina, studio, cliente, mandato) 
+                : "";
+
+            // Costruisci HTML con formato A4 giustificato
+            var html = new StringBuilder();
+            html.AppendLine(@"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: Arial, sans-serif; 
+            font-size: 11pt; 
+            line-height: 1.5;
+            background: #e0e0e0;
+            padding: 20px;
+        }
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0 auto 20px auto;
+            padding: 20mm;
+            background: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            position: relative;
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+            margin-bottom: 15px;
+        }
+        .header img { max-height: 60px; margin-bottom: 10px; }
+        .content {
+            text-align: justify;
+            min-height: 200mm;
+        }
+        .content p { margin-bottom: 10px; text-align: justify; }
+        .footer {
+            text-align: center;
+            padding-top: 10px;
+            border-top: 1px solid #333;
+            margin-top: 15px;
+            font-size: 9pt;
+            color: #666;
+        }
+        @media print {
+            body { background: white; padding: 0; }
+            .page { 
+                box-shadow: none; 
+                margin: 0; 
+                page-break-after: always;
+            }
+        }
+    </style>
+</head>
+<body>");
+
+            html.AppendLine("<div class='page'>");
+
+            // Header
+            if (!string.IsNullOrEmpty(intestazione))
+            {
+                html.AppendLine($"<div class='header'>{intestazione}</div>");
+            }
+            else if (studio != null)
+            {
+                html.AppendLine("<div class='header'>");
+                if (studio.Logo != null)
+                {
+                    var logoBase64 = Convert.ToBase64String(studio.Logo);
+                    html.AppendLine($"<img src='data:{studio.LogoContentType};base64,{logoBase64}' /><br/>");
+                }
+                if (!string.IsNullOrEmpty(studio.NomeStudio))
+                {
+                    html.AppendLine($"<strong style='font-size:14pt;'>{studio.NomeStudio}</strong><br/>");
+                }
+                if (!string.IsNullOrEmpty(studio.Indirizzo))
+                {
+                    var indirizzo = studio.Indirizzo;
+                    if (!string.IsNullOrEmpty(studio.CAP)) indirizzo += $" - {studio.CAP}";
+                    if (!string.IsNullOrEmpty(studio.Citta)) indirizzo += $" {studio.Citta}";
+                    html.AppendLine($"<span style='font-size:9pt;'>{indirizzo}</span>");
+                }
+                html.AppendLine("</div>");
+            }
+
+            // Content
+            html.AppendLine($"<div class='content'>{contenuto}</div>");
+
+            // Footer
+            if (!string.IsNullOrEmpty(piePagina))
+            {
+                // Sostituisci tag pagina per anteprima
+                var footerHtml = piePagina
+                    .Replace("{{Pagina}}", "1")
+                    .Replace("{{TotalePagine}}", "1")
+                    .Replace("{{PaginaDi}}", "Pagina 1 di 1");
+                html.AppendLine($"<div class='footer'>{footerHtml}</div>");
+            }
+
+            html.AppendLine("</div>");
+            html.AppendLine("</body></html>");
+
+            return html.ToString();
         }
     }
 }

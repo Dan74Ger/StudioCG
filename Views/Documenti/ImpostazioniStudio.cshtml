@@ -92,12 +92,9 @@
                             <div class="mb-3">
                                 <img src="@Url.Action("Logo")" alt="Logo Studio" class="img-fluid" style="max-height: 150px;" />
                             </div>
-                            <form asp-action="RimuoviLogo" method="post" class="d-inline">
-                                @Html.AntiForgeryToken()
-                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Rimuovere il logo?')">
-                                    <i class="fas fa-trash me-1"></i>Rimuovi
-                                </button>
-                            </form>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="rimuoviLogo()">
+                                <i class="fas fa-trash me-1"></i>Rimuovi
+                            </button>
                         }
                         else
                         {
@@ -125,12 +122,9 @@
                             <div class="mb-3">
                                 <img src="@Url.Action("Firma")" alt="Firma" class="img-fluid" style="max-height: 100px;" />
                             </div>
-                            <form asp-action="RimuoviFirma" method="post" class="d-inline">
-                                @Html.AntiForgeryToken()
-                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Rimuovere la firma?')">
-                                    <i class="fas fa-trash me-1"></i>Rimuovi
-                                </button>
-                            </form>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="rimuoviFirma()">
+                                <i class="fas fa-trash me-1"></i>Rimuovi
+                            </button>
                         }
                         else
                         {
@@ -168,10 +162,32 @@
     </form>
 </div>
 
+<!-- Form separati per le rimozioni (fuori dal form principale) -->
+<form id="formRimuoviLogo" asp-action="RimuoviLogo" method="post" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+<form id="formRimuoviFirma" asp-action="RimuoviFirma" method="post" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+
 <style>
     .form-label {
         font-weight: 500;
         margin-bottom: 0.25rem;
     }
 </style>
+
+<script>
+    function rimuoviLogo() {
+        if (confirm('Rimuovere il logo?')) {
+            document.getElementById('formRimuoviLogo').submit();
+        }
+    }
+    
+    function rimuoviFirma() {
+        if (confirm('Rimuovere la firma?')) {
+            document.getElementById('formRimuoviFirma').submit();
+        }
+    }
+</script>
 

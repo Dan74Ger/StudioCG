@@ -4,14 +4,68 @@
     var categorie = ViewBag.Categorie as List<string>;
 }
 
+<style>
+    .template-card {
+        transition: all 0.15s;
+        border: 1px solid #dee2e6;
+        cursor: pointer;
+    }
+    .template-card:hover {
+        border-color: #0d6efd;
+        box-shadow: 0 2px 8px rgba(0,123,255,0.15);
+        transform: translateY(-2px);
+    }
+    .template-card .card-body {
+        padding: 0.75rem;
+    }
+    .template-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .template-desc {
+        font-size: 0.7rem;
+        color: #6c757d;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .template-badges {
+        margin-top: 0.25rem;
+    }
+    .template-badges .badge {
+        font-size: 0.6rem;
+        padding: 0.2rem 0.4rem;
+    }
+    .template-actions {
+        display: flex;
+        gap: 2px;
+        margin-top: 0.5rem;
+    }
+    .template-actions .btn {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.7rem;
+    }
+    .categoria-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-left: 4px solid #6c757d;
+        padding: 0.4rem 0.75rem;
+        margin-bottom: 0.5rem;
+        border-radius: 0 4px 4px 0;
+    }
+</style>
+
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="fas fa-file-signature me-2"></i>Template Documenti</h2>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h4 mb-0"><i class="fas fa-file-signature me-2"></i>Template Documenti</h2>
         <div>
-            <a href="@Url.Action("TemplateEditor")" class="btn btn-primary">
+            <a href="@Url.Action("TemplateEditor")" class="btn btn-primary btn-sm">
                 <i class="fas fa-plus me-1"></i>Nuovo Template
             </a>
-            <a href="@Url.Action("Index")" class="btn btn-outline-secondary ms-2">
+            <a href="@Url.Action("Index")" class="btn btn-outline-secondary btn-sm ms-2">
                 <i class="fas fa-arrow-left me-1"></i>Dashboard
             </a>
         </div>
@@ -19,89 +73,111 @@
 
     @if (TempData["Success"] != null)
     {
-        <div class="alert alert-success alert-dismissible fade show">
+        <div class="alert alert-success alert-dismissible fade show py-2 small">
             <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show py-2 small">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
         </div>
     }
 
-    <div class="row">
-        @foreach (var categoria in categorie!)
-        {
-            var templateCategoria = Model.Where(t => t.Categoria == categoria).ToList();
-            if (!templateCategoria.Any()) continue;
+    @foreach (var categoria in categorie!)
+    {
+        var templateCategoria = Model.Where(t => t.Categoria == categoria).ToList();
+        if (!templateCategoria.Any()) continue;
 
-            <div class="col-12 mb-4">
-                <h5 class="text-muted mb-3">
-                    <i class="fas fa-folder me-2"></i>@categoria
-                    <span class="badge bg-secondary">@templateCategoria.Count</span>
-                </h5>
-                <div class="row">
-                    @foreach (var template in templateCategoria.OrderBy(t => t.Ordine).ThenBy(t => t.Nome))
-                    {
-                        <div class="col-md-4 col-lg-3 mb-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <h5 class="card-title">
-                                        <i class="fas fa-file-alt text-primary me-2"></i>@template.Nome
-                                    </h5>
+        <div class="categoria-header d-flex align-items-center mb-2">
+            <i class="fas fa-folder-open me-2 text-secondary"></i>
+            <strong class="small">@categoria</strong>
+            <span class="badge bg-secondary ms-2" style="font-size: 0.65rem;">@templateCategoria.Count</span>
+        </div>
+
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-2 mb-3">
+            @foreach (var template in templateCategoria.OrderBy(t => t.Ordine).ThenBy(t => t.Nome))
+            {
+                <div class="col">
+                    <div class="card template-card h-100">
+                        <div class="card-body">
+                            <div class="d-flex align-items-start">
+                                @if (template.TipoOutputDefault == StudioCG.Web.Models.Documenti.TipoOutputDocumento.PDF)
+                                {
+                                    <i class="fas fa-file-pdf text-danger me-2"></i>
+                                }
+                                else
+                                {
+                                    <i class="fas fa-file-word text-primary me-2"></i>
+                                }
+                                <div class="flex-grow-1 overflow-hidden">
+                                    <div class="template-title" title="@template.Nome">@template.Nome</div>
                                     @if (!string.IsNullOrEmpty(template.Descrizione))
                                     {
-                                        <p class="card-text text-muted small">@template.Descrizione</p>
+                                        <div class="template-desc" title="@template.Descrizione">@template.Descrizione</div>
                                     }
-                                    <div class="mb-2">
-                                        @if (template.RichiestaMandato)
-                                        {
-                                            <span class="badge bg-warning text-dark"><i class="fas fa-file-contract me-1"></i>Richiede Mandato</span>
-                                        }
-                                        @if (template.TipoOutputDefault == StudioCG.Web.Models.Documenti.TipoOutputDocumento.PDF)
-                                        {
-                                            <span class="badge bg-danger"><i class="fas fa-file-pdf me-1"></i>PDF</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge bg-primary"><i class="fas fa-file-word me-1"></i>Word</span>
-                                        }
-                                    </div>
-                                </div>
-                                <div class="card-footer bg-transparent">
-                                    <div class="btn-group w-100">
-                                        <a href="@Url.Action("TemplateEditor", new { id = template.Id })" class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-edit me-1"></i>Modifica
-                                        </a>
-                                        <a href="@Url.Action("Genera", new { templateId = template.Id })" class="btn btn-sm btn-success">
-                                            <i class="fas fa-play me-1"></i>Usa
-                                        </a>
-                                        <form asp-action="DeleteTemplate" method="post" class="d-inline" onsubmit="return confirm('Eliminare questo template?')">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="id" value="@template.Id" />
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
                                 </div>
                             </div>
+                            <div class="template-badges">
+                                @if (template.RichiestaMandato)
+                                {
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="fas fa-file-contract"></i> Mandato
+                                    </span>
+                                }
+                            </div>
+                            <div class="template-actions">
+                                <a href="@Url.Action("TemplateEditor", new { id = template.Id })" 
+                                   class="btn btn-outline-primary flex-grow-1" title="Modifica">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="@Url.Action("Genera", new { templateId = template.Id })" 
+                                   class="btn btn-success flex-grow-1" title="Usa">
+                                    <i class="fas fa-play"></i>
+                                </a>
+                                <form asp-action="DuplicaTemplate" method="post" class="flex-grow-1">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@template.Id" />
+                                    <button type="submit" class="btn btn-outline-warning w-100" title="Duplica">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </form>
+                                <form asp-action="DeleteTemplate" method="post" class="flex-grow-1" 
+                                      onsubmit="return confirm('Eliminare \'@template.Nome\'?')">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@template.Id" />
+                                    <button type="submit" class="btn btn-outline-danger w-100" title="Elimina">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </div>
-                    }
-                </div>
-            </div>
-        }
-
-        @if (!Model.Any())
-        {
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-body text-center py-5">
-                        <i class="fas fa-file-signature fa-3x text-muted mb-3"></i>
-                        <p class="text-muted">Nessun template creato.</p>
-                        <a href="@Url.Action("TemplateEditor")" class="btn btn-primary">
-                            <i class="fas fa-plus me-1"></i>Crea il primo template
-                        </a>
                     </div>
                 </div>
+            }
+        </div>
+    }
+
+    @if (!Model.Any())
+    {
+        <div class="card">
+            <div class="card-body text-center py-4">
+                <i class="fas fa-file-signature fa-2x text-muted mb-2"></i>
+                <p class="text-muted small mb-2">Nessun template creato.</p>
+                <a href="@Url.Action("TemplateEditor")" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus me-1"></i>Crea il primo template
+                </a>
             </div>
-        }
+        </div>
+    }
+
+    <!-- Legenda -->
+    <div class="mt-2 small text-muted">
+        <i class="fas fa-edit text-primary"></i> Modifica &nbsp;
+        <i class="fas fa-play text-success"></i> Genera &nbsp;
+        <i class="fas fa-copy text-warning"></i> Duplica &nbsp;
+        <i class="fas fa-trash text-danger"></i> Elimina
     </div>
 </div>
-

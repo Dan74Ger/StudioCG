@@ -73,6 +73,29 @@
                 </div>
             </div>
 
+            <!-- Documento di Identità -->
+            <div class="card bg-light mb-3">
+                <div class="card-header py-2">
+                    <h6 class="mb-0"><i class="fas fa-id-card me-2"></i>Documento di Identità</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="DocumentoNumero" class="form-label"></label>
+                            <input asp-for="DocumentoNumero" class="form-control" placeholder="Es: AU1234567" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="DocumentoDataRilascio" class="form-label"></label>
+                            <input asp-for="DocumentoDataRilascio" class="form-control" type="date" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="DocumentoRilasciatoDa" class="form-label"></label>
+                            <input asp-for="DocumentoRilasciatoDa" class="form-control" placeholder="Es: Comune di Roma" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="mb-3" id="quotaField" style="display: @(Model.TipoSoggetto == TipoSoggetto.Socio ? "block" : "none");">
                 <label asp-for="QuotaPercentuale" class="form-label"></label>
                 <div class="input-group">

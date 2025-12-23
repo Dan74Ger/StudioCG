@@ -69,12 +69,12 @@ namespace StudioCG.Web.Controllers
                 return View("ImpostazioniStudio", model);
             }
 
-            var config = await _context.ConfigurazioniStudio.FirstOrDefaultAsync();
-            bool isNew = config == null;
+            var existingConfig = await _context.ConfigurazioniStudio.FirstOrDefaultAsync();
+            bool isNew = existingConfig == null;
+            var config = existingConfig ?? new ConfigurazioneStudio();
 
             if (isNew)
             {
-                config = new ConfigurazioneStudio();
                 _context.ConfigurazioniStudio.Add(config);
             }
 
@@ -364,6 +364,43 @@ namespace StudioCG.Web.Controllers
                 TempData["Success"] = $"Template '{template.Nome}' eliminato!";
             }
             return RedirectToAction(nameof(Template));
+        }
+
+        // POST: /Documenti/DuplicaTemplate
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DuplicaTemplate(int id)
+        {
+            var templateOriginale = await _context.TemplateDocumenti.FindAsync(id);
+            if (templateOriginale == null)
+            {
+                TempData["Error"] = "Template non trovato!";
+                return RedirectToAction(nameof(Template));
+            }
+
+            // Crea una copia del template
+            var nuovoTemplate = new TemplateDocumento
+            {
+                Nome = $"{templateOriginale.Nome} (Copia)",
+                Categoria = templateOriginale.Categoria,
+                Descrizione = templateOriginale.Descrizione,
+                Intestazione = templateOriginale.Intestazione,
+                Contenuto = templateOriginale.Contenuto,
+                PiePagina = templateOriginale.PiePagina,
+                RichiestaMandato = templateOriginale.RichiestaMandato,
+                TipoOutputDefault = templateOriginale.TipoOutputDefault,
+                Ordine = templateOriginale.Ordine + 1,
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.TemplateDocumenti.Add(nuovoTemplate);
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"Template duplicato! Modifica '{nuovoTemplate.Nome}' per personalizzarlo.";
+            
+            // Apri direttamente l'editor per modificare il nuovo template
+            return RedirectToAction("TemplateEditor", new { id = nuovoTemplate.Id });
         }
 
         #endregion

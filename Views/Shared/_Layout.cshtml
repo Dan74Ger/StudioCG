@@ -92,47 +92,7 @@
             gap: 0;
         }
         
-        body.sidebar-collapsed .nav-link::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            left: 100%;
-            top: 50%;
-            transform: translateY(-50%);
-            background: #2d3748;
-            color: #fff;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            white-space: nowrap;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.2s ease;
-            z-index: 1100;
-            margin-left: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            pointer-events: none;
-        }
-        
-        body.sidebar-collapsed .nav-link::before {
-            content: '';
-            position: absolute;
-            left: 100%;
-            top: 50%;
-            transform: translateY(-50%);
-            border: 6px solid transparent;
-            border-right-color: #2d3748;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.2s ease;
-            margin-left: -2px;
-            pointer-events: none;
-        }
-        
-        body.sidebar-collapsed .nav-link:hover::after,
-        body.sidebar-collapsed .nav-link:hover::before {
-            opacity: 1;
-            visibility: visible;
-        }
+        /* Tooltip gestiti da Bootstrap quando menu collapsed */
 
         body.sidebar-collapsed .nav-link span,
         body.sidebar-collapsed .section-title,
@@ -375,7 +335,7 @@
                 <ul class="nav flex-column">
                     <!-- Dashboard sempre visibile per tutti -->
                     <li class="nav-item">
-                        <a class="nav-link @(currentController == "Home" ? "active" : "")" asp-controller="Home" asp-action="Index">
+                        <a class="nav-link @(currentController == "Home" ? "active" : "")" asp-controller="Home" asp-action="Index" data-tooltip="Dashboard">
                             <i class="fas fa-home"></i>
                             <span>Dashboard</span>
                         </a>
@@ -388,7 +348,7 @@
                             @{
                                 var isInUtentiSection = currentController == "Users" || currentController == "Permissions";
                             }
-                            <a class="nav-link section-toggle @(isInUtentiSection ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuUtenti" role="button" aria-expanded="@(isInUtentiSection ? "true" : "false")" aria-controls="menuUtenti">
+                            <a class="nav-link section-toggle @(isInUtentiSection ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuUtenti" role="button" aria-expanded="@(isInUtentiSection ? "true" : "false")" aria-controls="menuUtenti" data-tooltip="Utenti">
                                 <i class="fas fa-users-cog"></i>
                                 <span class="section-title">UTENTI</span>
                                 <i class="fas fa-chevron-down section-arrow ms-auto"></i>
@@ -396,13 +356,13 @@
                             <div class="collapse @(isInUtentiSection ? "show" : "")" id="menuUtenti">
                                 <ul class="nav flex-column submenu">
                                     <li class="nav-item">
-                                        <a class="nav-link @(currentController == "Users" ? "active" : "")" asp-controller="Users" asp-action="Index">
+                                        <a class="nav-link @(currentController == "Users" ? "active" : "")" asp-controller="Users" asp-action="Index" data-tooltip="Gestione Utenti">
                                             <i class="fas fa-users"></i>
                                             <span>Gestione Utenti</span>
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link @(currentController == "Permissions" ? "active" : "")" asp-controller="Permissions" asp-action="Pages">
+                                        <a class="nav-link @(currentController == "Permissions" ? "active" : "")" asp-controller="Permissions" asp-action="Pages" data-tooltip="Gestione Pagine">
                                             <i class="fas fa-key"></i>
                                             <span>Gestione Pagine</span>
                                         </a>
@@ -417,7 +377,7 @@
                         var isInAnagrafica = currentController == "Clienti" || currentController == "Annualita" || currentController == "AttivitaTipi";
                     }
                     <li class="nav-item">
-                        <a class="nav-link section-toggle @(isInAnagrafica ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuAnagrafica" role="button" aria-expanded="@(isInAnagrafica ? "true" : "false")" aria-controls="menuAnagrafica">
+                        <a class="nav-link section-toggle @(isInAnagrafica ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuAnagrafica" role="button" aria-expanded="@(isInAnagrafica ? "true" : "false")" aria-controls="menuAnagrafica" data-tooltip="Anagrafica">
                             <i class="fas fa-address-book"></i>
                             <span class="section-title">ANAGRAFICA</span>
                             <i class="fas fa-chevron-down section-arrow ms-auto"></i>
@@ -425,7 +385,7 @@
                         <div class="collapse @(isInAnagrafica ? "show" : "")" id="menuAnagrafica">
                             <ul class="nav flex-column submenu">
                                 <li class="nav-item">
-                                    <a class="nav-link @(currentController == "Clienti" ? "active" : "")" asp-controller="Clienti" asp-action="Index">
+                                    <a class="nav-link @(currentController == "Clienti" ? "active" : "")" asp-controller="Clienti" asp-action="Index" data-tooltip="Clienti">
                                         <i class="fas fa-building"></i>
                                         <span>Clienti</span>
                                     </a>
@@ -433,13 +393,13 @@
                                 @if (isMainAdmin)
                                 {
                                     <li class="nav-item">
-                                        <a class="nav-link @(currentController == "Annualita" ? "active" : "")" asp-controller="Annualita" asp-action="Index">
+                                        <a class="nav-link @(currentController == "Annualita" ? "active" : "")" asp-controller="Annualita" asp-action="Index" data-tooltip="Annualità Fiscali">
                                             <i class="fas fa-calendar-alt"></i>
                                             <span>Annualità Fiscali</span>
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link @(currentController == "AttivitaTipi" ? "active" : "")" asp-controller="AttivitaTipi" asp-action="Index">
+                                        <a class="nav-link @(currentController == "AttivitaTipi" ? "active" : "")" asp-controller="AttivitaTipi" asp-action="Index" data-tooltip="Tipi Attività">
                                             <i class="fas fa-cogs"></i>
                                             <span>Tipi Attività</span>
                                         </a>
@@ -459,7 +419,7 @@
                         if (attivitaUtente.Any() || isMainAdmin)
                         {
                             <li class="nav-item">
-                                <a class="nav-link section-toggle @(isInAttivita ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuAttivita" role="button" aria-expanded="@(isInAttivita ? "true" : "false")" aria-controls="menuAttivita">
+                                <a class="nav-link section-toggle @(isInAttivita ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuAttivita" role="button" aria-expanded="@(isInAttivita ? "true" : "false")" aria-controls="menuAttivita" data-tooltip="Attività">
                                     <i class="fas fa-tasks"></i>
                                     <span class="section-title">ATTIVITÀ</span>
                                     <i class="fas fa-chevron-down section-arrow ms-auto"></i>
@@ -467,7 +427,7 @@
                                 <div class="collapse @(isInAttivita ? "show" : "")" id="menuAttivita">
                                     <ul class="nav flex-column submenu">
                                         <li class="nav-item">
-                                            <a class="nav-link @(currentController == "Attivita" && ViewContext.RouteData.Values["action"]?.ToString() == "Index" ? "active" : "")" asp-controller="Attivita" asp-action="Index">
+                                            <a class="nav-link @(currentController == "Attivita" && ViewContext.RouteData.Values["action"]?.ToString() == "Index" ? "active" : "")" asp-controller="Attivita" asp-action="Index" data-tooltip="Riepilogo">
                                                 <i class="fas fa-chart-pie"></i>
                                                 <span>Riepilogo</span>
                                             </a>
@@ -477,7 +437,7 @@
                                             var attId = ViewContext.RouteData.Values["id"]?.ToString();
                                             var isActiveAtt = isInAttivita && attId == att.AttivitaTipoId.ToString();
                                             <li class="nav-item">
-                                                <a class="nav-link @(isActiveAtt ? "active" : "")" asp-controller="Attivita" asp-action="Tipo" asp-route-id="@att.AttivitaTipoId">
+                                                <a class="nav-link @(isActiveAtt ? "active" : "")" asp-controller="Attivita" asp-action="Tipo" asp-route-id="@att.AttivitaTipoId" data-tooltip="@att.AttivitaTipo?.Nome">
                                                     <i class="@att.AttivitaTipo?.Icon"></i>
                                                     <span>@att.AttivitaTipo?.Nome</span>
                                                 </a>
@@ -518,7 +478,7 @@
                         {
                             <!-- DATI UTENZA Accordion -->
                             <li class="nav-item">
-                                <a class="nav-link section-toggle @(isInDatiUtenza ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuDatiUtenza" role="button" aria-expanded="@(isInDatiUtenza ? "true" : "false")" aria-controls="menuDatiUtenza">
+                                <a class="nav-link section-toggle @(isInDatiUtenza ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuDatiUtenza" role="button" aria-expanded="@(isInDatiUtenza ? "true" : "false")" aria-controls="menuDatiUtenza" data-tooltip="Dati Utenza">
                                     <i class="fas fa-database"></i>
                                     <span class="section-title">DATI UTENZA</span>
                                     <i class="fas fa-chevron-down section-arrow ms-auto"></i>
@@ -530,7 +490,7 @@
                                         @if (isMainAdmin)
                                         {
                                             <li class="nav-item">
-                                                <a class="nav-link @(isInDynamicPages ? "active" : "")" asp-controller="DynamicPages" asp-action="Index">
+                                                <a class="nav-link @(isInDynamicPages ? "active" : "")" asp-controller="DynamicPages" asp-action="Index" data-tooltip="Gestione Pagine">
                                                     <i class="fas fa-cogs"></i>
                                                     <span>Gestione Pagine Dati Utenza</span>
                                                 </a>
@@ -541,7 +501,7 @@
                                         @if (dynPagesRiservati.Any() || isMainAdmin)
                                         {
                                             <li class="nav-item">
-                                                <a class="nav-link section-toggle @(isInDatiRiservati ? "" : "collapsed") subsection-toggle" data-bs-toggle="collapse" href="#menuDatiRiservati" role="button" aria-expanded="@(isInDatiRiservati ? "true" : "false")">
+                                                <a class="nav-link section-toggle @(isInDatiRiservati ? "" : "collapsed") subsection-toggle" data-bs-toggle="collapse" href="#menuDatiRiservati" role="button" aria-expanded="@(isInDatiRiservati ? "true" : "false")" data-tooltip="Dati Riservati">
                                                     <i class="fas fa-lock"></i>
                                                     <span class="subsection-title">DATI Riservati</span>
                                                     <i class="fas fa-chevron-down section-arrow ms-auto"></i>
@@ -552,7 +512,7 @@
                                                         {
                                                             var isActive = isInDynamicData && currentPageId == dynPage.Id;
                                                             <li class="nav-item">
-                                                                <a class="nav-link @(isActive ? "active" : "")" asp-controller="DynamicData" asp-action="Page" asp-route-id="@dynPage.Id">
+                                                                <a class="nav-link @(isActive ? "active" : "")" asp-controller="DynamicData" asp-action="Page" asp-route-id="@dynPage.Id" data-tooltip="@dynPage.Name">
                                                                     <i class="@dynPage.Icon"></i>
                                                                     <span>@dynPage.Name</span>
                                                                 </a>
@@ -573,7 +533,7 @@
                                         @if (dynPagesGenerali.Any() || isMainAdmin)
                                         {
                                             <li class="nav-item">
-                                                <a class="nav-link section-toggle @(isInDatiGenerali ? "" : "collapsed") subsection-toggle" data-bs-toggle="collapse" href="#menuDatiGenerali" role="button" aria-expanded="@(isInDatiGenerali ? "true" : "false")">
+                                                <a class="nav-link section-toggle @(isInDatiGenerali ? "" : "collapsed") subsection-toggle" data-bs-toggle="collapse" href="#menuDatiGenerali" role="button" aria-expanded="@(isInDatiGenerali ? "true" : "false")" data-tooltip="Dati Generali">
                                                     <i class="fas fa-folder-open"></i>
                                                     <span class="subsection-title">DATI Generali</span>
                                                     <i class="fas fa-chevron-down section-arrow ms-auto"></i>
@@ -584,7 +544,7 @@
                                                         {
                                                             var isActive = isInDynamicData && currentPageId == dynPage.Id;
                                                             <li class="nav-item">
-                                                                <a class="nav-link @(isActive ? "active" : "")" asp-controller="DynamicData" asp-action="Page" asp-route-id="@dynPage.Id">
+                                                                <a class="nav-link @(isActive ? "active" : "")" asp-controller="DynamicData" asp-action="Page" asp-route-id="@dynPage.Id" data-tooltip="@dynPage.Name">
                                                                     <i class="@dynPage.Icon"></i>
                                                                     <span>@dynPage.Name</span>
                                                                 </a>
@@ -614,7 +574,7 @@
                         {
                             <li class="nav-item">
                                 <a class="nav-link @(currentController == "BudgetStudio" ? "active" : "")"
-                                   asp-controller="BudgetStudio" asp-action="Index">
+                                   asp-controller="BudgetStudio" asp-action="Index" data-tooltip="Budget Studio">
                                     <i class="fas fa-coins"></i>
                                     <span>Budget Studio</span>
                                 </a>
@@ -628,7 +588,7 @@
                         if (userHasDocumenti)
                         {
                             <li class="nav-item">
-                                <a class="nav-link section-toggle @(isInDocumenti ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuDocumenti" role="button" aria-expanded="@(isInDocumenti ? "true" : "false")" aria-controls="menuDocumenti">
+                                <a class="nav-link section-toggle @(isInDocumenti ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuDocumenti" role="button" aria-expanded="@(isInDocumenti ? "true" : "false")" aria-controls="menuDocumenti" data-tooltip="Documenti">
                                     <i class="fas fa-file-alt"></i>
                                     <span class="section-title">DOCUMENTI</span>
                                     <i class="fas fa-chevron-down section-arrow ms-auto"></i>
@@ -639,7 +599,7 @@
                                             var docAction = ViewContext.RouteData.Values["action"]?.ToString();
                                         }
                                         <li class="nav-item">
-                                            <a class="nav-link @(isInDocumenti && docAction == "Index" ? "active" : "")" asp-controller="Documenti" asp-action="Index">
+                                            <a class="nav-link @(isInDocumenti && docAction == "Index" ? "active" : "")" asp-controller="Documenti" asp-action="Index" data-tooltip="Dashboard Documenti">
                                                 <i class="fas fa-tachometer-alt"></i>
                                                 <span>Dashboard</span>
                                             </a>
@@ -647,7 +607,7 @@
                                         @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Documenti/ImpostazioniStudio"))
                                         {
                                             <li class="nav-item">
-                                                <a class="nav-link @(isInDocumenti && docAction == "ImpostazioniStudio" ? "active" : "")" asp-controller="Documenti" asp-action="ImpostazioniStudio">
+                                                <a class="nav-link @(isInDocumenti && docAction == "ImpostazioniStudio" ? "active" : "")" asp-controller="Documenti" asp-action="ImpostazioniStudio" data-tooltip="Impostazioni Studio">
                                                     <i class="fas fa-building"></i>
                                                     <span>Impostazioni Studio</span>
                                                 </a>
@@ -656,7 +616,7 @@
                                         @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Documenti/Clausole"))
                                         {
                                             <li class="nav-item">
-                                                <a class="nav-link @(isInDocumenti && docAction == "Clausole" ? "active" : "")" asp-controller="Documenti" asp-action="Clausole">
+                                                <a class="nav-link @(isInDocumenti && docAction == "Clausole" ? "active" : "")" asp-controller="Documenti" asp-action="Clausole" data-tooltip="Clausole">
                                                     <i class="fas fa-paragraph"></i>
                                                     <span>Clausole</span>
                                                 </a>
@@ -665,7 +625,7 @@
                                         @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Documenti/Template"))
                                         {
                                             <li class="nav-item">
-                                                <a class="nav-link @(isInDocumenti && docAction == "Template" ? "active" : "")" asp-controller="Documenti" asp-action="Template">
+                                                <a class="nav-link @(isInDocumenti && docAction == "Template" ? "active" : "")" asp-controller="Documenti" asp-action="Template" data-tooltip="Template">
                                                     <i class="fas fa-file-signature"></i>
                                                     <span>Template</span>
                                                 </a>
@@ -674,7 +634,7 @@
                                         @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Documenti/Genera"))
                                         {
                                             <li class="nav-item">
-                                                <a class="nav-link @(isInDocumenti && docAction == "Genera" ? "active" : "")" asp-controller="Documenti" asp-action="Genera">
+                                                <a class="nav-link @(isInDocumenti && docAction == "Genera" ? "active" : "")" asp-controller="Documenti" asp-action="Genera" data-tooltip="Genera Documento">
                                                     <i class="fas fa-file-export"></i>
                                                     <span>Genera Documento</span>
                                                 </a>
@@ -683,7 +643,7 @@
                                         @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Documenti/Archivio"))
                                         {
                                             <li class="nav-item">
-                                                <a class="nav-link @(isInDocumenti && docAction == "Archivio" ? "active" : "")" asp-controller="Documenti" asp-action="Archivio">
+                                                <a class="nav-link @(isInDocumenti && docAction == "Archivio" ? "active" : "")" asp-controller="Documenti" asp-action="Archivio" data-tooltip="Archivio">
                                                     <i class="fas fa-archive"></i>
                                                     <span>Archivio</span>
                                                 </a>
@@ -701,7 +661,7 @@
                         if (userHasAmministrazione)
                         {
                             <li class="nav-item">
-                                <a class="nav-link section-toggle @(isInAmministrazione ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuAmministrazione" role="button" aria-expanded="@(isInAmministrazione ? "true" : "false")" aria-controls="menuAmministrazione">
+                                <a class="nav-link section-toggle @(isInAmministrazione ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuAmministrazione" role="button" aria-expanded="@(isInAmministrazione ? "true" : "false")" aria-controls="menuAmministrazione" data-tooltip="Amministrazione">
                                     <i class="fas fa-file-invoice-dollar"></i>
                                     <span class="section-title">AMMINISTRAZIONE</span>
                                     <i class="fas fa-chevron-down section-arrow ms-auto"></i>
@@ -712,13 +672,13 @@
                                             var ammAction = ViewContext.RouteData.Values["action"]?.ToString();
                                         }
                                         <li class="nav-item">
-                                            <a class="nav-link @(isInAmministrazione && ammAction == "Index" ? "active" : "")" asp-controller="Amministrazione" asp-action="Index">
+                                            <a class="nav-link @(isInAmministrazione && ammAction == "Index" ? "active" : "")" asp-controller="Amministrazione" asp-action="Index" data-tooltip="Dashboard Amm.">
                                                 <i class="fas fa-chart-line"></i>
                                                 <span>Dashboard</span>
                                             </a>
                                         </li>
                                         <li class="nav-item">
-                                            <a class="nav-link @(isInAmministrazione && ammAction == "GestioneAnni" ? "active" : "")" asp-controller="Amministrazione" asp-action="GestioneAnni">
+                                            <a class="nav-link @(isInAmministrazione && ammAction == "GestioneAnni" ? "active" : "")" asp-controller="Amministrazione" asp-action="GestioneAnni" data-tooltip="Gestione Anni">
                                                 <i class="fas fa-calendar-alt"></i>
                                                 <span>Gestione Anni</span>
                                             </a>
@@ -726,7 +686,7 @@
                                         @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/Mandati"))
                                         {
                                             <li class="nav-item">
-                                                <a class="nav-link @(isInAmministrazione && ammAction == "Mandati" ? "active" : "")" asp-controller="Amministrazione" asp-action="Mandati">
+                                                <a class="nav-link @(isInAmministrazione && ammAction == "Mandati" ? "active" : "")" asp-controller="Amministrazione" asp-action="Mandati" data-tooltip="Mandati Clienti">
                                                     <i class="fas fa-file-contract"></i>
                                                     <span>Mandati Clienti</span>
                                                 </a>
@@ -735,7 +695,7 @@
                                         @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/Scadenze"))
                                         {
                                             <li class="nav-item">
-                                                <a class="nav-link @(isInAmministrazione && ammAction == "Scadenze" ? "active" : "")" asp-controller="Amministrazione" asp-action="Scadenze">
+                                                <a class="nav-link @(isInAmministrazione && ammAction == "Scadenze" ? "active" : "")" asp-controller="Amministrazione" asp-action="Scadenze" data-tooltip="Fatturazione">
                                                     <i class="fas fa-file-invoice-dollar"></i>
                                                     <span>Fatturazione</span>
                                                 </a>
@@ -744,7 +704,7 @@
                                         @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/SpesePratiche"))
                                         {
                                             <li class="nav-item">
-                                                <a class="nav-link @(isInAmministrazione && ammAction == "SpesePratiche" ? "active" : "")" asp-controller="Amministrazione" asp-action="SpesePratiche">
+                                                <a class="nav-link @(isInAmministrazione && ammAction == "SpesePratiche" ? "active" : "")" asp-controller="Amministrazione" asp-action="SpesePratiche" data-tooltip="Spese Pratiche">
                                                     <i class="fas fa-receipt"></i>
                                                     <span>Spese Pratiche</span>
                                                 </a>
@@ -753,7 +713,7 @@
                                         @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/AccessiClienti"))
                                         {
                                             <li class="nav-item">
-                                                <a class="nav-link @(isInAmministrazione && ammAction == "AccessiClienti" ? "active" : "")" asp-controller="Amministrazione" asp-action="AccessiClienti">
+                                                <a class="nav-link @(isInAmministrazione && ammAction == "AccessiClienti" ? "active" : "")" asp-controller="Amministrazione" asp-action="AccessiClienti" data-tooltip="Accessi Clienti">
                                                     <i class="fas fa-door-open"></i>
                                                     <span>Accessi Clienti</span>
                                                 </a>
@@ -762,7 +722,7 @@
                                         @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/FattureCloud"))
                                         {
                                             <li class="nav-item">
-                                                <a class="nav-link @(isInAmministrazione && ammAction == "FattureCloud" ? "active" : "")" asp-controller="Amministrazione" asp-action="FattureCloud">
+                                                <a class="nav-link @(isInAmministrazione && ammAction == "FattureCloud" ? "active" : "")" asp-controller="Amministrazione" asp-action="FattureCloud" data-tooltip="Fatture in Cloud">
                                                     <i class="fas fa-cloud"></i>
                                                     <span>Fatture in Cloud</span>
                                                 </a>
@@ -771,7 +731,7 @@
                                         @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/BilanciCEE"))
                                         {
                                             <li class="nav-item">
-                                                <a class="nav-link @(isInAmministrazione && ammAction == "BilanciCEE" ? "active" : "")" asp-controller="Amministrazione" asp-action="BilanciCEE">
+                                                <a class="nav-link @(isInAmministrazione && ammAction == "BilanciCEE" ? "active" : "")" asp-controller="Amministrazione" asp-action="BilanciCEE" data-tooltip="Bilanci CEE">
                                                     <i class="fas fa-balance-scale"></i>
                                                     <span>Bilanci CEE</span>
                                                 </a>
@@ -780,7 +740,7 @@
                                         @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/Incassi"))
                                         {
                                             <li class="nav-item">
-                                                <a class="nav-link @(isInAmministrazione && ammAction == "Incassi" ? "active" : "")" asp-controller="Amministrazione" asp-action="Incassi">
+                                                <a class="nav-link @(isInAmministrazione && ammAction == "Incassi" ? "active" : "")" asp-controller="Amministrazione" asp-action="Incassi" data-tooltip="Incassi">
                                                     <i class="fas fa-money-bill-wave"></i>
                                                     <span>Incassi</span>
                                                 </a>
@@ -789,7 +749,7 @@
                                         @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/ReportProfessionisti"))
                                         {
                                             <li class="nav-item">
-                                                <a class="nav-link @(isInAmministrazione && ammAction == "ReportProfessionisti" ? "active" : "")" asp-controller="Amministrazione" asp-action="ReportProfessionisti">
+                                                <a class="nav-link @(isInAmministrazione && ammAction == "ReportProfessionisti" ? "active" : "")" asp-controller="Amministrazione" asp-action="ReportProfessionisti" data-tooltip="Report Professionisti">
                                                     <i class="fas fa-user-tie"></i>
                                                     <span>Report Professionisti</span>
                                                 </a>
@@ -860,6 +820,39 @@
             const KEY = 'studiocg_sidebar_collapsed';
             const body = document.body;
             const logoToggle = document.getElementById('sidebarLogoToggle');
+            let tooltipInstances = [];
+
+            // Funzione per attivare/disattivare tooltip Bootstrap
+            function updateTooltips() {
+                // Distruggi tooltip esistenti
+                tooltipInstances.forEach(t => { try { t.dispose(); } catch(e) {} });
+                tooltipInstances = [];
+                
+                // Se menu collapsed, attiva tooltip Bootstrap
+                if (body.classList.contains('sidebar-collapsed')) {
+                    document.querySelectorAll('.sidebar-nav .nav-link[data-tooltip]').forEach(function(link) {
+                        // NON modificare i link che hanno già data-bs-toggle="collapse" (menu accordion)
+                        if (link.getAttribute('data-bs-toggle') === 'collapse') {
+                            // Per questi, usa solo title nativo
+                            link.setAttribute('title', link.getAttribute('data-tooltip'));
+                        } else {
+                            // Per gli altri, usa tooltip Bootstrap
+                            link.setAttribute('title', link.getAttribute('data-tooltip'));
+                            var tooltip = new bootstrap.Tooltip(link, {
+                                trigger: 'hover',
+                                placement: 'right',
+                                delay: { show: 100, hide: 0 }
+                            });
+                            tooltipInstances.push(tooltip);
+                        }
+                    });
+                } else {
+                    // Rimuovi attributi tooltip quando menu aperto
+                    document.querySelectorAll('.sidebar-nav .nav-link[data-tooltip]').forEach(function(link) {
+                        link.removeAttribute('title');
+                    });
+                }
+            }
 
             // Restore stato salvato
             try {
@@ -874,17 +867,21 @@
                     try {
                         localStorage.setItem(KEY, body.classList.contains('sidebar-collapsed') ? '1' : '0');
                     } catch { }
+                    // Aggiorna tooltip dopo il toggle
+                    setTimeout(updateTooltips, 100);
                 });
             }
             
-            // Aggiungi data-tooltip dinamicamente ai nav-link
-            document.querySelectorAll('.sidebar-nav .nav-link').forEach(function(link) {
-                // Prendi il testo dalla span o section-title
-                var textEl = link.querySelector('span, .section-title');
+            // Aggiungi data-tooltip dinamicamente ai nav-link che non ce l'hanno
+            document.querySelectorAll('.sidebar-nav .nav-link:not([data-tooltip])').forEach(function(link) {
+                var textEl = link.querySelector('span, .section-title, .subsection-title');
                 if (textEl) {
                     link.setAttribute('data-tooltip', textEl.textContent.trim());
                 }
             });
+            
+            // Inizializza tooltip al caricamento
+            setTimeout(updateTooltips, 200);
         })();
     </script>
     @RenderSection("Scripts", required: false)

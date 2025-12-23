@@ -58,6 +58,19 @@ namespace StudioCG.Web.Models
         [StringLength(20)]
         public string? Telefono { get; set; }
 
+        // Documento di identità
+        [StringLength(50)]
+        [Display(Name = "Numero Documento")]
+        public string? DocumentoNumero { get; set; }
+
+        [Display(Name = "Data Rilascio")]
+        [DataType(DataType.Date)]
+        public DateTime? DocumentoDataRilascio { get; set; }
+
+        [StringLength(100)]
+        [Display(Name = "Rilasciato da")]
+        public string? DocumentoRilasciatoDa { get; set; }
+
         // Solo per Soci - Quota capitale in euro o percentuale
         [Display(Name = "Quota")]
         [Column(TypeName = "decimal(18,2)")]
