@@ -230,6 +230,7 @@ namespace StudioCG.Web.Services
                 result = result.Replace("{{LegaleRapp.DocumentoNumero}}", legaleRapp.DocumentoNumero ?? "");
                 result = result.Replace("{{LegaleRapp.DocumentoDataRilascio}}", legaleRapp.DocumentoDataRilascio?.ToString("dd/MM/yyyy") ?? "");
                 result = result.Replace("{{LegaleRapp.DocumentoRilasciatoDa}}", legaleRapp.DocumentoRilasciatoDa ?? "");
+                result = result.Replace("{{LegaleRapp.DocumentoScadenza}}", legaleRapp.DocumentoScadenza?.ToString("dd/MM/yyyy") ?? "");
                 var indirizzoCompleto = legaleRapp.Indirizzo ?? "";
                 if (!string.IsNullOrEmpty(legaleRapp.CAP)) indirizzoCompleto += $" - {legaleRapp.CAP}";
                 if (!string.IsNullOrEmpty(legaleRapp.Citta)) indirizzoCompleto += $" {legaleRapp.Citta}";
@@ -253,34 +254,112 @@ namespace StudioCG.Web.Services
                 result = result.Replace("{{LegaleRapp.DocumentoNumero}}", "");
                 result = result.Replace("{{LegaleRapp.DocumentoDataRilascio}}", "");
                 result = result.Replace("{{LegaleRapp.DocumentoRilasciatoDa}}", "");
+                result = result.Replace("{{LegaleRapp.DocumentoScadenza}}", "");
                 result = result.Replace("{{LegaleRapp.IndirizzoCompleto}}", "");
                 result = result.Replace("{{Soggetti.LegaleRapp}}", "");
             }
 
             // ---- CONSIGLIERI ----
-            var consiglieri = soggetti.Where(s => s.TipoSoggetto == TipoSoggetto.Consigliere).ToList();
+            var consiglieri = soggetti.Where(s => s.TipoSoggetto == TipoSoggetto.Consigliere).OrderBy(s => s.DisplayOrder).ToList();
             if (consiglieri.Any())
             {
                 var elencoConsiglieri = string.Join("<br/>", consiglieri.Select(c => $"{c.Cognome} {c.Nome}"));
                 result = result.Replace("{{Consiglieri.Elenco}}", elencoConsiglieri);
                 
-                var elencoConsiglieriCompleto = string.Join("<br/>", consiglieri.Select(c => 
-                    $"{c.Cognome} {c.Nome} - CF: {c.CodiceFiscale ?? "N/A"}" +
-                    (!string.IsNullOrEmpty(c.DocumentoNumero) ? $" - Doc: {c.DocumentoNumero}" : "") +
-                    (c.DocumentoDataRilascio.HasValue ? $" del {c.DocumentoDataRilascio.Value:dd/MM/yyyy}" : "") +
-                    (!string.IsNullOrEmpty(c.DocumentoRilasciatoDa) ? $" ({c.DocumentoRilasciatoDa})" : "") +
-                    (!string.IsNullOrEmpty(c.Indirizzo) ? $" - {c.Indirizzo}" : "") +
-                    (!string.IsNullOrEmpty(c.Citta) ? $", {c.Citta}" : "")));
+                // Elenco VERAMENTE completo con TUTTI i campi dell'anagrafica
+                var elencoConsiglieriCompleto = string.Join("<br/><br/>", consiglieri.Select((c, idx) => {
+                    var sb = new StringBuilder();
+                    sb.Append($"<strong>CONSIGLIERE {idx + 1}: {c.Cognome} {c.Nome}</strong><br/>");
+                    sb.Append($"Codice Fiscale: {c.CodiceFiscale ?? "N/A"}<br/>");
+                    // Indirizzo completo
+                    if (!string.IsNullOrEmpty(c.Indirizzo) || !string.IsNullOrEmpty(c.Citta) || !string.IsNullOrEmpty(c.CAP) || !string.IsNullOrEmpty(c.Provincia))
+                    {
+                        sb.Append("Indirizzo: ");
+                        if (!string.IsNullOrEmpty(c.Indirizzo)) sb.Append(c.Indirizzo);
+                        if (!string.IsNullOrEmpty(c.CAP)) sb.Append($" - {c.CAP}");
+                        if (!string.IsNullOrEmpty(c.Citta)) sb.Append($" {c.Citta}");
+                        if (!string.IsNullOrEmpty(c.Provincia)) sb.Append($" ({c.Provincia})");
+                        sb.Append("<br/>");
+                    }
+                    // Contatti
+                    if (!string.IsNullOrEmpty(c.Email))
+                        sb.Append($"Email: {c.Email}<br/>");
+                    if (!string.IsNullOrEmpty(c.Telefono))
+                        sb.Append($"Telefono: {c.Telefono}<br/>");
+                    // Documento identità
+                    if (!string.IsNullOrEmpty(c.DocumentoNumero) || c.DocumentoDataRilascio.HasValue || !string.IsNullOrEmpty(c.DocumentoRilasciatoDa) || c.DocumentoScadenza.HasValue)
+                    {
+                        sb.Append("Documento: ");
+                        if (!string.IsNullOrEmpty(c.DocumentoNumero)) sb.Append($"N° {c.DocumentoNumero}");
+                        if (c.DocumentoDataRilascio.HasValue) sb.Append($" del {c.DocumentoDataRilascio.Value:dd/MM/yyyy}");
+                        if (!string.IsNullOrEmpty(c.DocumentoRilasciatoDa)) sb.Append($" rilasciato da {c.DocumentoRilasciatoDa}");
+                        if (c.DocumentoScadenza.HasValue) sb.Append($" - Scadenza: {c.DocumentoScadenza.Value:dd/MM/yyyy}");
+                    }
+                    return sb.ToString();
+                }));
                 result = result.Replace("{{Consiglieri.ElencoCompleto}}", elencoConsiglieriCompleto);
+                
+                // Numero consiglieri
+                result = result.Replace("{{Consiglieri.Numero}}", consiglieri.Count.ToString());
             }
             else
             {
                 result = result.Replace("{{Consiglieri.Elenco}}", "");
                 result = result.Replace("{{Consiglieri.ElencoCompleto}}", "");
+                result = result.Replace("{{Consiglieri.Numero}}", "0");
+            }
+            
+            // Campi individuali per ogni Consigliere (fino a 10)
+            for (int i = 1; i <= 10; i++)
+            {
+                var prefix = $"{{{{Consigliere{i}.";
+                if (i <= consiglieri.Count)
+                {
+                    var c = consiglieri[i - 1];
+                    result = result.Replace($"{prefix}NomeCompleto}}}}", $"{c.Cognome} {c.Nome}");
+                    result = result.Replace($"{prefix}Nome}}}}", c.Nome ?? "");
+                    result = result.Replace($"{prefix}Cognome}}}}", c.Cognome ?? "");
+                    result = result.Replace($"{prefix}CF}}}}", c.CodiceFiscale ?? "");
+                    result = result.Replace($"{prefix}Indirizzo}}}}", c.Indirizzo ?? "");
+                    result = result.Replace($"{prefix}Citta}}}}", c.Citta ?? "");
+                    result = result.Replace($"{prefix}Provincia}}}}", c.Provincia ?? "");
+                    result = result.Replace($"{prefix}CAP}}}}", c.CAP ?? "");
+                    result = result.Replace($"{prefix}Email}}}}", c.Email ?? "");
+                    result = result.Replace($"{prefix}Telefono}}}}", c.Telefono ?? "");
+                    result = result.Replace($"{prefix}DocumentoNumero}}}}", c.DocumentoNumero ?? "");
+                    result = result.Replace($"{prefix}DocumentoDataRilascio}}}}", c.DocumentoDataRilascio?.ToString("dd/MM/yyyy") ?? "");
+                    result = result.Replace($"{prefix}DocumentoRilasciatoDa}}}}", c.DocumentoRilasciatoDa ?? "");
+                    result = result.Replace($"{prefix}DocumentoScadenza}}}}", c.DocumentoScadenza?.ToString("dd/MM/yyyy") ?? "");
+                    // Indirizzo completo
+                    var indirizzoCompletoC = c.Indirizzo ?? "";
+                    if (!string.IsNullOrEmpty(c.CAP)) indirizzoCompletoC += $" - {c.CAP}";
+                    if (!string.IsNullOrEmpty(c.Citta)) indirizzoCompletoC += $" {c.Citta}";
+                    if (!string.IsNullOrEmpty(c.Provincia)) indirizzoCompletoC += $" ({c.Provincia})";
+                    result = result.Replace($"{prefix}IndirizzoCompleto}}}}", indirizzoCompletoC);
+                }
+                else
+                {
+                    // Rimuovi tutti i campi per consiglieri non esistenti
+                    result = result.Replace($"{prefix}NomeCompleto}}}}", "");
+                    result = result.Replace($"{prefix}Nome}}}}", "");
+                    result = result.Replace($"{prefix}Cognome}}}}", "");
+                    result = result.Replace($"{prefix}CF}}}}", "");
+                    result = result.Replace($"{prefix}Indirizzo}}}}", "");
+                    result = result.Replace($"{prefix}Citta}}}}", "");
+                    result = result.Replace($"{prefix}Provincia}}}}", "");
+                    result = result.Replace($"{prefix}CAP}}}}", "");
+                    result = result.Replace($"{prefix}Email}}}}", "");
+                    result = result.Replace($"{prefix}Telefono}}}}", "");
+                    result = result.Replace($"{prefix}DocumentoNumero}}}}", "");
+                    result = result.Replace($"{prefix}DocumentoDataRilascio}}}}", "");
+                    result = result.Replace($"{prefix}DocumentoRilasciatoDa}}}}", "");
+                    result = result.Replace($"{prefix}DocumentoScadenza}}}}", "");
+                    result = result.Replace($"{prefix}IndirizzoCompleto}}}}", "");
+                }
             }
 
             // ---- SOCI ----
-            var soci = soggetti.Where(s => s.TipoSoggetto == TipoSoggetto.Socio).ToList();
+            var soci = soggetti.Where(s => s.TipoSoggetto == TipoSoggetto.Socio).OrderBy(s => s.DisplayOrder).ToList();
             if (soci.Any())
             {
                 var elencoSoci = string.Join("<br/>", soci.Select(s => $"{s.Cognome} {s.Nome}"));
@@ -291,18 +370,47 @@ namespace StudioCG.Web.Services
                     (s.QuotaPercentuale.HasValue ? $" - Quota: {s.QuotaPercentuale.Value.ToString("N2", _italianCulture)}%" : "")));
                 result = result.Replace("{{Soci.ElencoConQuote}}", elencoSociConQuote);
                 
-                var elencoSociCompleto = string.Join("<br/>", soci.Select(s => 
-                    $"{s.Cognome} {s.Nome} - CF: {s.CodiceFiscale ?? "N/A"}" +
-                    (s.QuotaPercentuale.HasValue ? $" - Quota: {s.QuotaPercentuale.Value.ToString("N2", _italianCulture)}%" : "") +
-                    (!string.IsNullOrEmpty(s.DocumentoNumero) ? $" - Doc: {s.DocumentoNumero}" : "") +
-                    (s.DocumentoDataRilascio.HasValue ? $" del {s.DocumentoDataRilascio.Value:dd/MM/yyyy}" : "") +
-                    (!string.IsNullOrEmpty(s.DocumentoRilasciatoDa) ? $" ({s.DocumentoRilasciatoDa})" : "") +
-                    (!string.IsNullOrEmpty(s.Indirizzo) ? $" - {s.Indirizzo}" : "") +
-                    (!string.IsNullOrEmpty(s.Citta) ? $", {s.Citta}" : "")));
+                // Elenco VERAMENTE completo con TUTTI i campi dell'anagrafica
+                var elencoSociCompleto = string.Join("<br/><br/>", soci.Select((s, idx) => {
+                    var sb = new StringBuilder();
+                    sb.Append($"<strong>SOCIO {idx + 1}: {s.Cognome} {s.Nome}</strong><br/>");
+                    sb.Append($"Codice Fiscale: {s.CodiceFiscale ?? "N/A"}");
+                    if (s.QuotaPercentuale.HasValue)
+                        sb.Append($" - Quota: {s.QuotaPercentuale.Value.ToString("N2", _italianCulture)}%");
+                    sb.Append("<br/>");
+                    // Indirizzo completo
+                    if (!string.IsNullOrEmpty(s.Indirizzo) || !string.IsNullOrEmpty(s.Citta) || !string.IsNullOrEmpty(s.CAP) || !string.IsNullOrEmpty(s.Provincia))
+                    {
+                        sb.Append("Indirizzo: ");
+                        if (!string.IsNullOrEmpty(s.Indirizzo)) sb.Append(s.Indirizzo);
+                        if (!string.IsNullOrEmpty(s.CAP)) sb.Append($" - {s.CAP}");
+                        if (!string.IsNullOrEmpty(s.Citta)) sb.Append($" {s.Citta}");
+                        if (!string.IsNullOrEmpty(s.Provincia)) sb.Append($" ({s.Provincia})");
+                        sb.Append("<br/>");
+                    }
+                    // Contatti
+                    if (!string.IsNullOrEmpty(s.Email))
+                        sb.Append($"Email: {s.Email}<br/>");
+                    if (!string.IsNullOrEmpty(s.Telefono))
+                        sb.Append($"Telefono: {s.Telefono}<br/>");
+                    // Documento identità
+                    if (!string.IsNullOrEmpty(s.DocumentoNumero) || s.DocumentoDataRilascio.HasValue || !string.IsNullOrEmpty(s.DocumentoRilasciatoDa) || s.DocumentoScadenza.HasValue)
+                    {
+                        sb.Append("Documento: ");
+                        if (!string.IsNullOrEmpty(s.DocumentoNumero)) sb.Append($"N° {s.DocumentoNumero}");
+                        if (s.DocumentoDataRilascio.HasValue) sb.Append($" del {s.DocumentoDataRilascio.Value:dd/MM/yyyy}");
+                        if (!string.IsNullOrEmpty(s.DocumentoRilasciatoDa)) sb.Append($" rilasciato da {s.DocumentoRilasciatoDa}");
+                        if (s.DocumentoScadenza.HasValue) sb.Append($" - Scadenza: {s.DocumentoScadenza.Value:dd/MM/yyyy}");
+                    }
+                    return sb.ToString();
+                }));
                 result = result.Replace("{{Soci.ElencoCompleto}}", elencoSociCompleto);
                 
                 var totaleQuote = soci.Where(s => s.QuotaPercentuale.HasValue).Sum(s => s.QuotaPercentuale ?? 0);
                 result = result.Replace("{{Soci.TotaleQuote}}", $"{totaleQuote.ToString("N2", _italianCulture)}%");
+                
+                // Numero soci
+                result = result.Replace("{{Soci.Numero}}", soci.Count.ToString());
             }
             else
             {
@@ -310,6 +418,60 @@ namespace StudioCG.Web.Services
                 result = result.Replace("{{Soci.ElencoConQuote}}", "");
                 result = result.Replace("{{Soci.ElencoCompleto}}", "");
                 result = result.Replace("{{Soci.TotaleQuote}}", "");
+                result = result.Replace("{{Soci.Numero}}", "0");
+            }
+            
+            // Campi individuali per ogni Socio (fino a 10)
+            for (int i = 1; i <= 10; i++)
+            {
+                var prefix = $"{{{{Socio{i}.";
+                if (i <= soci.Count)
+                {
+                    var s = soci[i - 1];
+                    result = result.Replace($"{prefix}NomeCompleto}}}}", $"{s.Cognome} {s.Nome}");
+                    result = result.Replace($"{prefix}Nome}}}}", s.Nome ?? "");
+                    result = result.Replace($"{prefix}Cognome}}}}", s.Cognome ?? "");
+                    result = result.Replace($"{prefix}CF}}}}", s.CodiceFiscale ?? "");
+                    result = result.Replace($"{prefix}Indirizzo}}}}", s.Indirizzo ?? "");
+                    result = result.Replace($"{prefix}Citta}}}}", s.Citta ?? "");
+                    result = result.Replace($"{prefix}Provincia}}}}", s.Provincia ?? "");
+                    result = result.Replace($"{prefix}CAP}}}}", s.CAP ?? "");
+                    result = result.Replace($"{prefix}Email}}}}", s.Email ?? "");
+                    result = result.Replace($"{prefix}Telefono}}}}", s.Telefono ?? "");
+                    result = result.Replace($"{prefix}DocumentoNumero}}}}", s.DocumentoNumero ?? "");
+                    result = result.Replace($"{prefix}DocumentoDataRilascio}}}}", s.DocumentoDataRilascio?.ToString("dd/MM/yyyy") ?? "");
+                    result = result.Replace($"{prefix}DocumentoRilasciatoDa}}}}", s.DocumentoRilasciatoDa ?? "");
+                    result = result.Replace($"{prefix}DocumentoScadenza}}}}", s.DocumentoScadenza?.ToString("dd/MM/yyyy") ?? "");
+                    result = result.Replace($"{prefix}Quota}}}}", s.QuotaPercentuale.HasValue ? $"{s.QuotaPercentuale.Value.ToString("N2", _italianCulture)}%" : "");
+                    result = result.Replace($"{prefix}QuotaNumero}}}}", s.QuotaPercentuale.HasValue ? s.QuotaPercentuale.Value.ToString("N2", _italianCulture) : "");
+                    // Indirizzo completo
+                    var indirizzoCompletoS = s.Indirizzo ?? "";
+                    if (!string.IsNullOrEmpty(s.CAP)) indirizzoCompletoS += $" - {s.CAP}";
+                    if (!string.IsNullOrEmpty(s.Citta)) indirizzoCompletoS += $" {s.Citta}";
+                    if (!string.IsNullOrEmpty(s.Provincia)) indirizzoCompletoS += $" ({s.Provincia})";
+                    result = result.Replace($"{prefix}IndirizzoCompleto}}}}", indirizzoCompletoS);
+                }
+                else
+                {
+                    // Rimuovi tutti i campi per soci non esistenti
+                    result = result.Replace($"{prefix}NomeCompleto}}}}", "");
+                    result = result.Replace($"{prefix}Nome}}}}", "");
+                    result = result.Replace($"{prefix}Cognome}}}}", "");
+                    result = result.Replace($"{prefix}CF}}}}", "");
+                    result = result.Replace($"{prefix}Indirizzo}}}}", "");
+                    result = result.Replace($"{prefix}Citta}}}}", "");
+                    result = result.Replace($"{prefix}Provincia}}}}", "");
+                    result = result.Replace($"{prefix}CAP}}}}", "");
+                    result = result.Replace($"{prefix}Email}}}}", "");
+                    result = result.Replace($"{prefix}Telefono}}}}", "");
+                    result = result.Replace($"{prefix}DocumentoNumero}}}}", "");
+                    result = result.Replace($"{prefix}DocumentoDataRilascio}}}}", "");
+                    result = result.Replace($"{prefix}DocumentoRilasciatoDa}}}}", "");
+                    result = result.Replace($"{prefix}DocumentoScadenza}}}}", "");
+                    result = result.Replace($"{prefix}Quota}}}}", "");
+                    result = result.Replace($"{prefix}QuotaNumero}}}}", "");
+                    result = result.Replace($"{prefix}IndirizzoCompleto}}}}", "");
+                }
             }
 
             // ---- TUTTI I SOGGETTI ----
@@ -395,12 +557,11 @@ namespace StudioCG.Web.Services
             // Configura licenza QuestPDF (Community = gratuita)
             QuestPDF.Settings.License = LicenseType.Community;
 
-            // Rimuovi tag HTML per ottenere testo pulito per QuestPDF
-            var testoPlain = RimuoviTagHtml(htmlContent);
-            var paragrafi = testoPlain.Split(new[] { "\n\n", "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-            
             var intestazionePlain = !string.IsNullOrEmpty(intestazione) ? RimuoviTagHtml(intestazione) : null;
             var footerPlain = !string.IsNullOrEmpty(piePagina) ? RimuoviTagHtml(piePagina) : null;
+            
+            // Estrai le parti del contenuto (testo e tabelle)
+            var contentParts = ParseHtmlContent(htmlContent);
 
             var document = QuestPDF.Fluent.Document.Create(container =>
             {
@@ -455,21 +616,32 @@ namespace StudioCG.Web.Services
                         col.Item().Height(5);
                     });
 
-                    // Contenuto - Testo giustificato
+                    // Contenuto - Testo giustificato con supporto tabelle
                     page.Content().Column(col =>
                     {
-                        foreach (var para in paragrafi)
+                        foreach (var part in contentParts)
                         {
-                            var testo = para.Trim();
-                            if (string.IsNullOrWhiteSpace(testo)) continue;
-                            
-                            col.Item().Text(text => 
+                            if (part.IsTable)
                             {
-                                text.Justify();
-                                text.DefaultTextStyle(x => x.LineHeight(1.5f));
-                                text.Span(testo);
-                            });
-                            col.Item().Height(8);
+                                // Renderizza tabella
+                                RenderTableToPdf(col, part.TableRows, part.TableHeaders);
+                                col.Item().Height(10);
+                            }
+                            else
+                            {
+                                // Renderizza testo normale
+                                var testo = part.Text.Trim();
+                                if (!string.IsNullOrWhiteSpace(testo))
+                                {
+                                    col.Item().Text(text => 
+                                    {
+                                        text.Justify();
+                                        text.DefaultTextStyle(x => x.LineHeight(1.5f));
+                                        text.Span(testo);
+                                    });
+                                    col.Item().Height(8);
+                                }
+                            }
                         }
                     });
 
@@ -572,12 +744,11 @@ namespace StudioCG.Web.Services
         /// </summary>
         private byte[] GeneraWord(string? intestazione, string htmlContent, string? piePagina, ConfigurazioneStudio? studio)
         {
-            // Rimuovi tag HTML per ottenere testo pulito
-            var testoPlain = RimuoviTagHtml(htmlContent);
-            var paragrafi = testoPlain.Split(new[] { "\n\n", "\r\n\r\n", "\n", "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-            
             var intestazionePlain = !string.IsNullOrEmpty(intestazione) ? RimuoviTagHtml(intestazione) : null;
             var footerPlain = !string.IsNullOrEmpty(piePagina) ? RimuoviTagHtml(piePagina) : null;
+            
+            // Estrai le parti del contenuto (testo e tabelle) - stesso metodo usato per PDF
+            var contentParts = ParseHtmlContent(htmlContent);
 
             using var stream = new MemoryStream();
             
@@ -662,33 +833,43 @@ namespace StudioCG.Web.Services
                     body.AppendChild(new Paragraph());
                 }
 
-                // Aggiungi ogni paragrafo del contenuto
-                foreach (var para in paragrafi)
+                // Aggiungi contenuto (testo e tabelle)
+                foreach (var part in contentParts)
                 {
-                    var testo = para.Trim();
-                    if (string.IsNullOrWhiteSpace(testo)) continue;
-
-                    var paragraph = new Paragraph();
-                    var run = new Run();
-                    
-                    // Imposta font
-                    var runProperties = new RunProperties();
-                    runProperties.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
-                    runProperties.AppendChild(new FontSize { Val = "22" }); // 11pt = 22 half-points
-                    run.AppendChild(runProperties);
-                    
-                    run.AppendChild(new Text(testo) { Space = SpaceProcessingModeValues.Preserve });
-                    paragraph.AppendChild(run);
-                    
-                    // Giustifica il testo
-                    var paraProperties = new ParagraphProperties();
-                    paraProperties.AppendChild(new Justification { Val = JustificationValues.Both });
-                    paragraph.PrependChild(paraProperties);
-                    
-                    body.AppendChild(paragraph);
-                    
-                    // Aggiungi spazio tra paragrafi
-                    body.AppendChild(new Paragraph());
+                    if (part.IsTable)
+                    {
+                        // Crea tabella Word
+                        var wordTable = CreateWordTable(part.TableHeaders, part.TableRows);
+                        body.AppendChild(wordTable);
+                        body.AppendChild(new Paragraph()); // Spazio dopo tabella
+                    }
+                    else
+                    {
+                        // Aggiungi testo normale
+                        var testo = part.Text.Trim();
+                        if (!string.IsNullOrWhiteSpace(testo))
+                        {
+                            var paragraph = new Paragraph();
+                            var run = new Run();
+                            
+                            // Imposta font
+                            var runProperties = new RunProperties();
+                            runProperties.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
+                            runProperties.AppendChild(new FontSize { Val = "22" }); // 11pt = 22 half-points
+                            run.AppendChild(runProperties);
+                            
+                            run.AppendChild(new Text(testo) { Space = SpaceProcessingModeValues.Preserve });
+                            paragraph.AppendChild(run);
+                            
+                            // Giustifica il testo
+                            var paraProperties = new ParagraphProperties();
+                            paraProperties.AppendChild(new Justification { Val = JustificationValues.Both });
+                            paragraph.PrependChild(paraProperties);
+                            
+                            body.AppendChild(paragraph);
+                            body.AppendChild(new Paragraph()); // Spazio tra paragrafi
+                        }
+                    }
                 }
 
                 // Aggiungi piè di pagina se presente
@@ -732,6 +913,456 @@ namespace StudioCG.Web.Services
             }
 
             return stream.ToArray();
+        }
+
+        /// <summary>
+        /// Crea una tabella Word da righe e headers
+        /// </summary>
+        private DocumentFormat.OpenXml.Wordprocessing.Table CreateWordTable(List<string> headers, List<List<string>> rows)
+        {
+            var table = new DocumentFormat.OpenXml.Wordprocessing.Table();
+
+            // Proprietà della tabella
+            var tableProperties = new TableProperties();
+            
+            // Bordi della tabella
+            var tableBorders = new TableBorders(
+                new TopBorder { Val = BorderValues.Single, Size = 4, Color = "000000" },
+                new BottomBorder { Val = BorderValues.Single, Size = 4, Color = "000000" },
+                new LeftBorder { Val = BorderValues.Single, Size = 4, Color = "000000" },
+                new RightBorder { Val = BorderValues.Single, Size = 4, Color = "000000" },
+                new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4, Color = "000000" },
+                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4, Color = "000000" }
+            );
+            tableProperties.AppendChild(tableBorders);
+            
+            // Larghezza tabella al 100% della pagina (rispetta margini)
+            tableProperties.AppendChild(new TableWidth { Width = "5000", Type = TableWidthUnitValues.Pct });
+            
+            // Layout fisso per rispettare le proporzioni
+            tableProperties.AppendChild(new TableLayout { Type = TableLayoutValues.Fixed });
+            
+            table.AppendChild(tableProperties);
+
+            // Determina il numero di colonne
+            int columnCount = headers.Count;
+            foreach (var row in rows)
+            {
+                if (row.Count > columnCount) columnCount = row.Count;
+            }
+            if (columnCount == 0) return table;
+
+            // Calcola larghezze colonne in twips (1 inch = 1440 twips)
+            // Larghezza utile pagina A4 con margini 2.5cm: circa 6.5 inches = 9360 twips
+            int totalWidth = 9360;
+            var columnWidths = new List<int>();
+            
+            if (columnCount == 3)
+            {
+                // Tabella tipo antiriciclaggio: Controllo | Sì | No
+                columnWidths.Add((int)(totalWidth * 0.80)); // 80%
+                columnWidths.Add((int)(totalWidth * 0.10)); // 10%
+                columnWidths.Add((int)(totalWidth * 0.10)); // 10%
+            }
+            else if (columnCount == 4)
+            {
+                // Tabella 4 colonne: (X) | Documentazione | Osservazioni | Annotazioni
+                columnWidths.Add((int)(totalWidth * 0.05)); // 5% - spunta
+                columnWidths.Add((int)(totalWidth * 0.30)); // 30% - documentazione
+                columnWidths.Add((int)(totalWidth * 0.45)); // 45% - osservazioni
+                columnWidths.Add((int)(totalWidth * 0.20)); // 20% - annotazioni
+            }
+            else
+            {
+                // Distribuzione equa
+                int colWidth = totalWidth / columnCount;
+                for (int i = 0; i < columnCount; i++)
+                    columnWidths.Add(colWidth);
+            }
+
+            // Definizione griglia colonne
+            var tableGrid = new TableGrid();
+            foreach (var width in columnWidths)
+            {
+                tableGrid.AppendChild(new GridColumn { Width = width.ToString() });
+            }
+            table.AppendChild(tableGrid);
+
+            // Riga header
+            if (headers.Count > 0)
+            {
+                var headerRow = new TableRow();
+                for (int i = 0; i < columnCount; i++)
+                {
+                    var cellText = i < headers.Count ? headers[i] : "";
+                    var width = i < columnWidths.Count ? columnWidths[i] : 1000;
+                    // Per tabelle a 4 colonne, prima colonna centrata, resto a sinistra
+                    var align = columnCount == 4 
+                        ? (i == 0 ? JustificationValues.Center : JustificationValues.Left)
+                        : (i == 0 ? JustificationValues.Left : JustificationValues.Center);
+                    var cell = CreateWordTableCell(cellText, true, align, width);
+                    headerRow.AppendChild(cell);
+                }
+                table.AppendChild(headerRow);
+            }
+
+            // Righe dati
+            foreach (var row in rows)
+            {
+                var tableRow = new TableRow();
+                for (int i = 0; i < columnCount; i++)
+                {
+                    var cellText = i < row.Count ? row[i] : "";
+                    var width = i < columnWidths.Count ? columnWidths[i] : 1000;
+                    // Per tabelle a 4 colonne, prima colonna centrata, resto a sinistra
+                    var align = columnCount == 4 
+                        ? (i == 0 ? JustificationValues.Center : JustificationValues.Left)
+                        : (i == 0 ? JustificationValues.Left : JustificationValues.Center);
+                    var cell = CreateWordTableCell(cellText, false, align, width);
+                    tableRow.AppendChild(cell);
+                }
+                table.AppendChild(tableRow);
+            }
+
+            return table;
+        }
+
+        /// <summary>
+        /// Crea una cella di tabella Word
+        /// </summary>
+        private TableCell CreateWordTableCell(string text, bool isHeader, JustificationValues alignment, int widthTwips)
+        {
+            var cell = new TableCell();
+            
+            // Proprietà cella
+            var cellProperties = new TableCellProperties();
+            
+            // Larghezza cella
+            cellProperties.AppendChild(new TableCellWidth { Width = widthTwips.ToString(), Type = TableWidthUnitValues.Dxa });
+            
+            cellProperties.AppendChild(new TableCellVerticalAlignment { Val = TableVerticalAlignmentValues.Center });
+            
+            // Bordi cella
+            var cellBorders = new TableCellBorders(
+                new TopBorder { Val = BorderValues.Single, Size = 4, Color = "000000" },
+                new BottomBorder { Val = BorderValues.Single, Size = 4, Color = "000000" },
+                new LeftBorder { Val = BorderValues.Single, Size = 4, Color = "000000" },
+                new RightBorder { Val = BorderValues.Single, Size = 4, Color = "000000" }
+            );
+            cellProperties.AppendChild(cellBorders);
+            
+            // Padding cella ridotto per risparmiare spazio
+            cellProperties.AppendChild(new TableCellMargin(
+                new TopMargin { Width = "30", Type = TableWidthUnitValues.Dxa },
+                new BottomMargin { Width = "30", Type = TableWidthUnitValues.Dxa },
+                new LeftMargin { Width = "50", Type = TableWidthUnitValues.Dxa },
+                new RightMargin { Width = "50", Type = TableWidthUnitValues.Dxa }
+            ));
+            
+            cell.AppendChild(cellProperties);
+
+            // Paragrafo con testo
+            var paragraph = new Paragraph();
+            var paragraphProperties = new ParagraphProperties();
+            paragraphProperties.AppendChild(new Justification { Val = alignment });
+            // Riduci spaziatura paragrafo
+            paragraphProperties.AppendChild(new SpacingBetweenLines { After = "0", Before = "0" });
+            paragraph.AppendChild(paragraphProperties);
+
+            var run = new Run();
+            var runProperties = new RunProperties();
+            runProperties.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
+            runProperties.AppendChild(new FontSize { Val = "18" }); // 9pt per risparmiare spazio
+            if (isHeader)
+            {
+                runProperties.AppendChild(new Bold());
+            }
+            run.AppendChild(runProperties);
+            run.AppendChild(new Text(text) { Space = SpaceProcessingModeValues.Preserve });
+            
+            paragraph.AppendChild(run);
+            cell.AppendChild(paragraph);
+
+            return cell;
+        }
+
+        /// <summary>
+        /// Classe per rappresentare una parte del contenuto (testo o tabella)
+        /// </summary>
+        private class ContentPart
+        {
+            public bool IsTable { get; set; }
+            public string Text { get; set; } = "";
+            public List<string> TableHeaders { get; set; } = new();
+            public List<List<string>> TableRows { get; set; } = new();
+        }
+
+        /// <summary>
+        /// Parsa il contenuto HTML e separa testo e tabelle
+        /// </summary>
+        private List<ContentPart> ParseHtmlContent(string html)
+        {
+            var parts = new List<ContentPart>();
+            if (string.IsNullOrEmpty(html)) return parts;
+
+            // Pattern per trovare le tabelle
+            var tablePattern = @"<table[^>]*>(.*?)</table>";
+            var matches = Regex.Matches(html, tablePattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+            int lastIndex = 0;
+            foreach (Match match in matches)
+            {
+                // Aggiungi testo prima della tabella
+                if (match.Index > lastIndex)
+                {
+                    var textBefore = html.Substring(lastIndex, match.Index - lastIndex);
+                    var cleanText = RimuoviTagHtml(textBefore).Trim();
+                    if (!string.IsNullOrEmpty(cleanText))
+                    {
+                        // Dividi in paragrafi
+                        var paragraphs = cleanText.Split(new[] { "\n\n", "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var para in paragraphs)
+                        {
+                            if (!string.IsNullOrWhiteSpace(para))
+                            {
+                                parts.Add(new ContentPart { IsTable = false, Text = para.Trim() });
+                            }
+                        }
+                    }
+                }
+
+                // Parsa la tabella
+                var tableHtml = match.Value;
+                var tablePart = ParseHtmlTable(tableHtml);
+                if (tablePart.TableRows.Count > 0 || tablePart.TableHeaders.Count > 0)
+                {
+                    parts.Add(tablePart);
+                }
+
+                lastIndex = match.Index + match.Length;
+            }
+
+            // Aggiungi testo dopo l'ultima tabella
+            if (lastIndex < html.Length)
+            {
+                var textAfter = html.Substring(lastIndex);
+                var cleanText = RimuoviTagHtml(textAfter).Trim();
+                if (!string.IsNullOrEmpty(cleanText))
+                {
+                    var paragraphs = cleanText.Split(new[] { "\n\n", "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var para in paragraphs)
+                    {
+                        if (!string.IsNullOrWhiteSpace(para))
+                        {
+                            parts.Add(new ContentPart { IsTable = false, Text = para.Trim() });
+                        }
+                    }
+                }
+            }
+
+            // Se non ci sono tabelle, tratta tutto come testo
+            if (matches.Count == 0)
+            {
+                var cleanText = RimuoviTagHtml(html).Trim();
+                var paragraphs = cleanText.Split(new[] { "\n\n", "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var para in paragraphs)
+                {
+                    if (!string.IsNullOrWhiteSpace(para))
+                    {
+                        parts.Add(new ContentPart { IsTable = false, Text = para.Trim() });
+                    }
+                }
+            }
+
+            return parts;
+        }
+
+        /// <summary>
+        /// Parsa una tabella HTML ed estrae righe e celle
+        /// </summary>
+        private ContentPart ParseHtmlTable(string tableHtml)
+        {
+            var part = new ContentPart { IsTable = true };
+
+            // Estrai righe (tr)
+            var rowPattern = @"<tr[^>]*>(.*?)</tr>";
+            var rowMatches = Regex.Matches(tableHtml, rowPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+            bool isFirstRow = true;
+            foreach (Match rowMatch in rowMatches)
+            {
+                var rowContent = rowMatch.Groups[1].Value;
+                var cells = new List<string>();
+
+                // Cerca header (th) o celle (td)
+                var cellPattern = @"<t[hd][^>]*>(.*?)</t[hd]>";
+                var cellMatches = Regex.Matches(rowContent, cellPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+                foreach (Match cellMatch in cellMatches)
+                {
+                    var cellText = RimuoviTagHtml(cellMatch.Groups[1].Value).Trim();
+                    cells.Add(cellText);
+                }
+
+                if (cells.Count > 0)
+                {
+                    // La prima riga con th è l'header
+                    if (isFirstRow && rowContent.Contains("<th", StringComparison.OrdinalIgnoreCase))
+                    {
+                        part.TableHeaders = cells;
+                    }
+                    else
+                    {
+                        part.TableRows.Add(cells);
+                    }
+                    isFirstRow = false;
+                }
+            }
+
+            return part;
+        }
+
+        /// <summary>
+        /// Renderizza una tabella in PDF usando QuestPDF
+        /// </summary>
+        private void RenderTableToPdf(QuestPDF.Fluent.ColumnDescriptor col, List<List<string>> rows, List<string> headers)
+        {
+            // Determina il numero di colonne dalla riga con più celle
+            int columnCount = headers.Count;
+            foreach (var row in rows)
+            {
+                if (row.Count > columnCount) columnCount = row.Count;
+            }
+            if (columnCount == 0) return;
+
+            col.Item().Table(table =>
+            {
+                // Definisci le colonne con proporzioni intelligenti per formato A4
+                table.ColumnsDefinition(columns =>
+                {
+                    if (columnCount == 3)
+                    {
+                        // Tabella tipo: Controllo | Sì | No
+                        columns.RelativeColumn(8); // Controllo (80%)
+                        columns.RelativeColumn(1); // Sì (10%)
+                        columns.RelativeColumn(1); // No (10%)
+                    }
+                    else if (columnCount == 4)
+                    {
+                        // Tabella tipo: (X) | Documentazione | Osservazioni | Annotazioni
+                        columns.RelativeColumn(0.5f); // 5% - spunta
+                        columns.RelativeColumn(3);    // 30% - documentazione
+                        columns.RelativeColumn(4.5f); // 45% - osservazioni  
+                        columns.RelativeColumn(2);    // 20% - annotazioni
+                    }
+                    else if (columnCount == 2)
+                    {
+                        columns.RelativeColumn(1);
+                        columns.RelativeColumn(1);
+                    }
+                    else
+                    {
+                        // Distribuzione equa
+                        for (int i = 0; i < columnCount; i++)
+                        {
+                            columns.RelativeColumn(1);
+                        }
+                    }
+                });
+
+                // Header
+                if (headers.Count > 0)
+                {
+                    for (int i = 0; i < columnCount; i++)
+                    {
+                        var headerText = i < headers.Count ? headers[i] : "";
+                        var headerCell = table.Cell()
+                            .Border(1)
+                            .BorderColor(Colors.Black)
+                            .Background(Colors.Grey.Lighten3)
+                            .Padding(3);
+                        
+                        // Allineamento header in base al tipo di tabella
+                        if (columnCount == 4)
+                        {
+                            // Prima colonna (spunta) centrata, resto a sinistra
+                            if (i == 0)
+                            {
+                                headerCell.AlignCenter()
+                                    .AlignMiddle()
+                                    .Text(headerText)
+                                    .Bold()
+                                    .FontSize(9);
+                            }
+                            else
+                            {
+                                headerCell.AlignLeft()
+                                    .AlignMiddle()
+                                    .Text(headerText)
+                                    .Bold()
+                                    .FontSize(9);
+                            }
+                        }
+                        else
+                        {
+                            headerCell.AlignCenter()
+                                .AlignMiddle()
+                                .Text(headerText)
+                                .Bold()
+                                .FontSize(9);
+                        }
+                    }
+                }
+
+                // Righe dati
+                foreach (var row in rows)
+                {
+                    for (int i = 0; i < columnCount; i++)
+                    {
+                        var cellText = i < row.Count ? row[i] : "";
+                        var cell = table.Cell()
+                            .Border(1)
+                            .BorderColor(Colors.Black)
+                            .Padding(3); // Padding ridotto per risparmiare spazio
+                        
+                        // Allineamento in base al tipo di tabella
+                        if (columnCount == 4)
+                        {
+                            // Tabella 4 colonne: prima centrata (spunta), resto a sinistra
+                            if (i == 0)
+                            {
+                                cell.AlignCenter()
+                                    .AlignMiddle()
+                                    .Text(cellText)
+                                    .FontSize(9);
+                            }
+                            else
+                            {
+                                cell.AlignLeft()
+                                    .Text(cellText)
+                                    .FontSize(9);
+                            }
+                        }
+                        else
+                        {
+                            // Tabella 3 colonne: prima a sinistra, resto centrato
+                            if (i == 0)
+                            {
+                                cell.AlignLeft()
+                                    .Text(cellText)
+                                    .FontSize(9);
+                            }
+                            else
+                            {
+                                cell.AlignCenter()
+                                    .AlignMiddle()
+                                    .Text(cellText)
+                                    .FontSize(9);
+                            }
+                        }
+                    }
+                }
+            });
         }
 
         /// <summary>

@@ -71,6 +71,10 @@ namespace StudioCG.Web.Models
         [Display(Name = "Rilasciato da")]
         public string? DocumentoRilasciatoDa { get; set; }
 
+        [Display(Name = "Scadenza Documento")]
+        [DataType(DataType.Date)]
+        public DateTime? DocumentoScadenza { get; set; }
+
         // Solo per Soci - Quota capitale in euro o percentuale
         [Display(Name = "Quota")]
         [Column(TypeName = "decimal(18,2)")]

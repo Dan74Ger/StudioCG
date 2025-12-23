@@ -565,6 +565,31 @@ namespace StudioCG.Web.Controllers
             return RedirectToAction(nameof(Archivio));
         }
 
+        // POST: /Documenti/DeleteDocumentiMultipli
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteDocumentiMultipli(int[] ids)
+        {
+            if (ids == null || ids.Length == 0)
+            {
+                TempData["Error"] = "Nessun documento selezionato.";
+                return RedirectToAction(nameof(Archivio));
+            }
+
+            var documenti = await _context.DocumentiGenerati
+                .Where(d => ids.Contains(d.Id))
+                .ToListAsync();
+
+            if (documenti.Any())
+            {
+                _context.DocumentiGenerati.RemoveRange(documenti);
+                await _context.SaveChangesAsync();
+                TempData["Success"] = $"{documenti.Count} documento/i eliminato/i con successo!";
+            }
+
+            return RedirectToAction(nameof(Archivio));
+        }
+
         #endregion
     }
 

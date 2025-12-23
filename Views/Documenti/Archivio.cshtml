@@ -26,6 +26,14 @@
         </div>
     }
 
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
     <!-- Filtri -->
     <div class="card mb-4">
         <div class="card-body">
@@ -75,56 +83,77 @@
 
     <!-- Lista Documenti -->
     <div class="card">
+        @if (Model.Any())
+        {
+            <!-- Barra azioni multi-selezione -->
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="form-check">
+                        <input type="checkbox" id="selectAll" class="form-check-input" title="Seleziona tutti">
+                        <label class="form-check-label" for="selectAll">Seleziona tutti</label>
+                    </div>
+                    <span id="selectedCount" class="text-muted small"></span>
+                </div>
+                <button type="button" id="btnDeleteSelected" class="btn btn-danger btn-sm" style="display: none;">
+                    <i class="fas fa-trash me-1"></i>Elimina selezionati (<span id="deleteCount">0</span>)
+                </button>
+            </div>
+        }
         <div class="card-body p-0">
             @if (Model.Any())
             {
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Data</th>
-                            <th>Cliente</th>
-                            <th>Template</th>
-                            <th>File</th>
-                            <th>Tipo</th>
-                            <th>Generato da</th>
-                            <th class="text-end">Azioni</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var doc in Model)
-                        {
+                <form id="formDeleteMultiple" asp-action="DeleteDocumentiMultipli" method="post">
+                    @Html.AntiForgeryToken()
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
                             <tr>
-                                <td>@doc.GeneratoIl.ToString("dd/MM/yyyy HH:mm")</td>
-                                <td><strong>@doc.Cliente?.RagioneSociale</strong></td>
-                                <td>@doc.TemplateDocumento?.Nome</td>
-                                <td><small class="text-muted">@doc.NomeFile</small></td>
-                                <td>
-                                    @if (doc.TipoOutput == StudioCG.Web.Models.Documenti.TipoOutputDocumento.PDF)
-                                    {
-                                        <span class="badge bg-danger"><i class="fas fa-file-pdf me-1"></i>PDF</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-primary"><i class="fas fa-file-word me-1"></i>Word</span>
-                                    }
-                                </td>
-                                <td><small>@doc.GeneratoDa?.Username</small></td>
-                                <td class="text-end">
-                                    <a href="@Url.Action("DownloadDocumento", new { id = doc.Id })" class="btn btn-sm btn-outline-primary" title="Scarica">
-                                        <i class="fas fa-download"></i>
-                                    </a>
-                                    <form asp-action="DeleteDocumento" method="post" class="d-inline" onsubmit="return confirm('Eliminare questo documento?')">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="id" value="@doc.Id" />
-                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Elimina">
+                                <th style="width: 40px;"></th>
+                                <th>Data</th>
+                                <th>Cliente</th>
+                                <th>Template</th>
+                                <th>File</th>
+                                <th>Tipo</th>
+                                <th>Generato da</th>
+                                <th class="text-end">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var doc in Model)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="form-check">
+                                            <input type="checkbox" name="ids" value="@doc.Id" class="form-check-input doc-checkbox">
+                                        </div>
+                                    </td>
+                                    <td>@doc.GeneratoIl.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td><strong>@doc.Cliente?.RagioneSociale</strong></td>
+                                    <td>@doc.TemplateDocumento?.Nome</td>
+                                    <td><small class="text-muted">@doc.NomeFile</small></td>
+                                    <td>
+                                        @if (doc.TipoOutput == StudioCG.Web.Models.Documenti.TipoOutputDocumento.PDF)
+                                        {
+                                            <span class="badge bg-danger"><i class="fas fa-file-pdf me-1"></i>PDF</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-primary"><i class="fas fa-file-word me-1"></i>Word</span>
+                                        }
+                                    </td>
+                                    <td><small>@doc.GeneratoDa?.Username</small></td>
+                                    <td class="text-end">
+                                        <a href="@Url.Action("DownloadDocumento", new { id = doc.Id })" class="btn btn-sm btn-outline-primary" title="Scarica">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-danger btn-delete-single" data-id="@doc.Id" title="Elimina">
                                             <i class="fas fa-trash"></i>
                                         </button>
-                                    </form>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </form>
             }
             else
             {
@@ -140,3 +169,75 @@
     </div>
 </div>
 
+<!-- Form nascosto per eliminazione singola -->
+<form id="formDeleteSingle" asp-action="DeleteDocumento" method="post" style="display:none;">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="id" id="deleteDocId" />
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const docCheckboxes = document.querySelectorAll('.doc-checkbox');
+    const btnDeleteSelected = document.getElementById('btnDeleteSelected');
+    const deleteCountSpan = document.getElementById('deleteCount');
+    const selectedCountSpan = document.getElementById('selectedCount');
+    const formDeleteMultiple = document.getElementById('formDeleteMultiple');
+    
+    // Gestione Seleziona tutti
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            docCheckboxes.forEach(cb => cb.checked = this.checked);
+            updateSelectionCount();
+        });
+    }
+    
+    // Gestione singole checkbox
+    docCheckboxes.forEach(cb => {
+        cb.addEventListener('change', updateSelectionCount);
+    });
+    
+    function updateSelectionCount() {
+        const checkedCount = document.querySelectorAll('.doc-checkbox:checked').length;
+        const totalCount = docCheckboxes.length;
+        
+        if (checkedCount > 0) {
+            btnDeleteSelected.style.display = 'inline-block';
+            deleteCountSpan.textContent = checkedCount;
+            selectedCountSpan.textContent = `${checkedCount} di ${totalCount} selezionati`;
+        } else {
+            btnDeleteSelected.style.display = 'none';
+            selectedCountSpan.textContent = '';
+        }
+        
+        // Aggiorna stato "Seleziona tutti"
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = checkedCount === totalCount && totalCount > 0;
+            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < totalCount;
+        }
+    }
+    
+    // Elimina selezionati
+    if (btnDeleteSelected) {
+        btnDeleteSelected.addEventListener('click', function() {
+            const checkedCount = document.querySelectorAll('.doc-checkbox:checked').length;
+            if (checkedCount === 0) return;
+            
+            if (confirm(`Sei sicuro di voler eliminare ${checkedCount} documento/i selezionato/i?`)) {
+                formDeleteMultiple.submit();
+            }
+        });
+    }
+    
+    // Elimina singolo documento
+    document.querySelectorAll('.btn-delete-single').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const docId = this.dataset.id;
+            if (confirm('Eliminare questo documento?')) {
+                document.getElementById('deleteDocId').value = docId;
+                document.getElementById('formDeleteSingle').submit();
+            }
+        });
+    });
+});
+</script>

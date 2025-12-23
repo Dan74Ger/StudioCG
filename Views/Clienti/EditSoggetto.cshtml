@@ -80,17 +80,23 @@
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-6 mb-3">
                             <label asp-for="DocumentoNumero" class="form-label"></label>
                             <input asp-for="DocumentoNumero" class="form-control" placeholder="Es: AU1234567" />
                         </div>
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="DocumentoRilasciatoDa" class="form-label"></label>
+                            <input asp-for="DocumentoRilasciatoDa" class="form-control" placeholder="Es: Comune di Roma" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
                             <label asp-for="DocumentoDataRilascio" class="form-label"></label>
                             <input asp-for="DocumentoDataRilascio" class="form-control" type="date" />
                         </div>
-                        <div class="col-md-4 mb-3">
-                            <label asp-for="DocumentoRilasciatoDa" class="form-label"></label>
-                            <input asp-for="DocumentoRilasciatoDa" class="form-control" placeholder="Es: Comune di Roma" />
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="DocumentoScadenza" class="form-label"></label>
+                            <input asp-for="DocumentoScadenza" class="form-control" type="date" />
                         </div>
                     </div>
                 </div>

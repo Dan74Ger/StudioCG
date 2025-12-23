@@ -518,6 +518,244 @@ namespace StudioCG.Web.Controllers
             var fileName = $"Clienti_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
             return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
+
+        // GET: Clienti/ScadenzeDocumenti
+        public async Task<IActionResult> ScadenzeDocumenti(
+            string? searchNome, 
+            TipoSoggetto? tipoSoggetto, 
+            string? statoScadenza,
+            string? searchCliente,
+            int? giorniAvviso)
+        {
+            // Valori di default
+            giorniAvviso ??= 30;
+            
+            // Query base: tutti i soggetti con documento
+            var query = _context.ClientiSoggetti
+                .Include(s => s.Cliente)
+                .Where(s => s.Cliente != null && s.Cliente.IsActive)
+                .AsQueryable();
+
+            // Filtro per nome/cognome
+            if (!string.IsNullOrWhiteSpace(searchNome))
+            {
+                var searchLower = searchNome.ToLower();
+                query = query.Where(s => 
+                    (s.Nome != null && s.Nome.ToLower().Contains(searchLower)) ||
+                    (s.Cognome != null && s.Cognome.ToLower().Contains(searchLower)) ||
+                    (s.CodiceFiscale != null && s.CodiceFiscale.ToLower().Contains(searchLower)));
+            }
+
+            // Filtro per tipo soggetto
+            if (tipoSoggetto.HasValue)
+            {
+                query = query.Where(s => s.TipoSoggetto == tipoSoggetto.Value);
+            }
+
+            // Filtro per cliente
+            if (!string.IsNullOrWhiteSpace(searchCliente))
+            {
+                var clienteLower = searchCliente.ToLower();
+                query = query.Where(s => s.Cliente != null && s.Cliente.RagioneSociale.ToLower().Contains(clienteLower));
+            }
+
+            // Filtro per stato scadenza
+            var oggi = DateTime.Today;
+            var dataAvviso = oggi.AddDays(giorniAvviso.Value);
+            
+            if (!string.IsNullOrWhiteSpace(statoScadenza))
+            {
+                switch (statoScadenza)
+                {
+                    case "scaduti":
+                        query = query.Where(s => s.DocumentoScadenza.HasValue && s.DocumentoScadenza.Value < oggi);
+                        break;
+                    case "inScadenza":
+                        query = query.Where(s => s.DocumentoScadenza.HasValue && 
+                                                  s.DocumentoScadenza.Value >= oggi && 
+                                                  s.DocumentoScadenza.Value <= dataAvviso);
+                        break;
+                    case "validi":
+                        query = query.Where(s => s.DocumentoScadenza.HasValue && s.DocumentoScadenza.Value > dataAvviso);
+                        break;
+                    case "senzaScadenza":
+                        query = query.Where(s => !s.DocumentoScadenza.HasValue);
+                        break;
+                    case "conDocumento":
+                        query = query.Where(s => !string.IsNullOrEmpty(s.DocumentoNumero));
+                        break;
+                }
+            }
+
+            // Ordinamento: prima scaduti, poi in scadenza, poi gli altri
+            var soggetti = await query
+                .OrderBy(s => s.DocumentoScadenza.HasValue ? 0 : 1)
+                .ThenBy(s => s.DocumentoScadenza)
+                .ThenBy(s => s.Cliente!.RagioneSociale)
+                .ThenBy(s => s.Cognome)
+                .ToListAsync();
+
+            // Statistiche
+            var tuttiSoggetti = await _context.ClientiSoggetti
+                .Include(s => s.Cliente)
+                .Where(s => s.Cliente != null && s.Cliente.IsActive)
+                .ToListAsync();
+
+            ViewBag.TotaleScaduti = tuttiSoggetti.Count(s => s.DocumentoScadenza.HasValue && s.DocumentoScadenza.Value < oggi);
+            ViewBag.TotaleInScadenza = tuttiSoggetti.Count(s => s.DocumentoScadenza.HasValue && 
+                                                                 s.DocumentoScadenza.Value >= oggi && 
+                                                                 s.DocumentoScadenza.Value <= dataAvviso);
+            ViewBag.TotaleValidi = tuttiSoggetti.Count(s => s.DocumentoScadenza.HasValue && s.DocumentoScadenza.Value > dataAvviso);
+            ViewBag.TotaleSenzaScadenza = tuttiSoggetti.Count(s => !s.DocumentoScadenza.HasValue);
+            ViewBag.TotaleConDocumento = tuttiSoggetti.Count(s => !string.IsNullOrEmpty(s.DocumentoNumero));
+            ViewBag.TotaleSoggetti = tuttiSoggetti.Count;
+
+            // Parametri di ricerca per mantenere i filtri
+            ViewBag.SearchNome = searchNome;
+            ViewBag.TipoSoggetto = tipoSoggetto;
+            ViewBag.StatoScadenza = statoScadenza;
+            ViewBag.SearchCliente = searchCliente;
+            ViewBag.GiorniAvviso = giorniAvviso;
+            ViewBag.Oggi = oggi;
+            ViewBag.DataAvviso = dataAvviso;
+
+            return View(soggetti);
+        }
+
+        // GET: Clienti/ExportScadenzeExcel
+        public async Task<IActionResult> ExportScadenzeExcel(
+            string? searchNome, 
+            TipoSoggetto? tipoSoggetto, 
+            string? statoScadenza,
+            string? searchCliente,
+            int? giorniAvviso)
+        {
+            giorniAvviso ??= 30;
+            
+            var query = _context.ClientiSoggetti
+                .Include(s => s.Cliente)
+                .Where(s => s.Cliente != null && s.Cliente.IsActive)
+                .AsQueryable();
+
+            // Applica gli stessi filtri della vista
+            if (!string.IsNullOrWhiteSpace(searchNome))
+            {
+                var searchLower = searchNome.ToLower();
+                query = query.Where(s => 
+                    (s.Nome != null && s.Nome.ToLower().Contains(searchLower)) ||
+                    (s.Cognome != null && s.Cognome.ToLower().Contains(searchLower)));
+            }
+
+            if (tipoSoggetto.HasValue)
+            {
+                query = query.Where(s => s.TipoSoggetto == tipoSoggetto.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(searchCliente))
+            {
+                var clienteLower = searchCliente.ToLower();
+                query = query.Where(s => s.Cliente != null && s.Cliente.RagioneSociale.ToLower().Contains(clienteLower));
+            }
+
+            var oggi = DateTime.Today;
+            var dataAvviso = oggi.AddDays(giorniAvviso.Value);
+            
+            if (!string.IsNullOrWhiteSpace(statoScadenza))
+            {
+                switch (statoScadenza)
+                {
+                    case "scaduti":
+                        query = query.Where(s => s.DocumentoScadenza.HasValue && s.DocumentoScadenza.Value < oggi);
+                        break;
+                    case "inScadenza":
+                        query = query.Where(s => s.DocumentoScadenza.HasValue && 
+                                                  s.DocumentoScadenza.Value >= oggi && 
+                                                  s.DocumentoScadenza.Value <= dataAvviso);
+                        break;
+                    case "validi":
+                        query = query.Where(s => s.DocumentoScadenza.HasValue && s.DocumentoScadenza.Value > dataAvviso);
+                        break;
+                    case "senzaScadenza":
+                        query = query.Where(s => !s.DocumentoScadenza.HasValue);
+                        break;
+                }
+            }
+
+            var soggetti = await query
+                .OrderBy(s => s.DocumentoScadenza.HasValue ? 0 : 1)
+                .ThenBy(s => s.DocumentoScadenza)
+                .ThenBy(s => s.Cliente!.RagioneSociale)
+                .ToListAsync();
+
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Scadenze Documenti");
+
+            // Header
+            var headers = new[] { "Cliente", "Tipo", "Cognome", "Nome", "Codice Fiscale", "N° Documento", "Data Rilascio", "Rilasciato Da", "Scadenza", "Stato" };
+            for (int i = 0; i < headers.Length; i++)
+            {
+                worksheet.Cell(1, i + 1).Value = headers[i];
+                worksheet.Cell(1, i + 1).Style.Font.Bold = true;
+                worksheet.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            }
+
+            // Dati
+            int row = 2;
+            foreach (var s in soggetti)
+            {
+                var stato = "N/D";
+                if (s.DocumentoScadenza.HasValue)
+                {
+                    if (s.DocumentoScadenza.Value < oggi)
+                        stato = "SCADUTO";
+                    else if (s.DocumentoScadenza.Value <= dataAvviso)
+                        stato = "IN SCADENZA";
+                    else
+                        stato = "VALIDO";
+                }
+
+                worksheet.Cell(row, 1).Value = s.Cliente?.RagioneSociale ?? "";
+                worksheet.Cell(row, 2).Value = GetTipoSoggettoDisplay(s.TipoSoggetto);
+                worksheet.Cell(row, 3).Value = s.Cognome ?? "";
+                worksheet.Cell(row, 4).Value = s.Nome ?? "";
+                worksheet.Cell(row, 5).Value = s.CodiceFiscale ?? "";
+                worksheet.Cell(row, 6).Value = s.DocumentoNumero ?? "";
+                worksheet.Cell(row, 7).Value = s.DocumentoDataRilascio?.ToString("dd/MM/yyyy") ?? "";
+                worksheet.Cell(row, 8).Value = s.DocumentoRilasciatoDa ?? "";
+                worksheet.Cell(row, 9).Value = s.DocumentoScadenza?.ToString("dd/MM/yyyy") ?? "";
+                worksheet.Cell(row, 10).Value = stato;
+
+                // Colora in base allo stato
+                if (stato == "SCADUTO")
+                    worksheet.Cell(row, 10).Style.Fill.BackgroundColor = XLColor.Red;
+                else if (stato == "IN SCADENZA")
+                    worksheet.Cell(row, 10).Style.Fill.BackgroundColor = XLColor.Orange;
+                else if (stato == "VALIDO")
+                    worksheet.Cell(row, 10).Style.Fill.BackgroundColor = XLColor.LightGreen;
+
+                row++;
+            }
+
+            worksheet.Columns().AdjustToContents();
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            stream.Position = 0;
+
+            var fileName = $"ScadenzeDocumenti_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        }
+
+        private string GetTipoSoggettoDisplay(TipoSoggetto tipo)
+        {
+            return tipo switch
+            {
+                TipoSoggetto.LegaleRappresentante => "Legale Rapp.",
+                TipoSoggetto.Consigliere => "Consigliere",
+                TipoSoggetto.Socio => "Socio",
+                _ => tipo.ToString()
+            };
+        }
     }
 }
 
