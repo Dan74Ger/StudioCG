@@ -616,7 +616,7 @@ namespace StudioCG.Web.Services
                         col.Item().Height(5);
                     });
 
-                    // Contenuto - Testo giustificato con supporto tabelle
+                    // Contenuto - Testo con formattazione mantenuta
                     page.Content().Column(col =>
                     {
                         foreach (var part in contentParts)
@@ -627,20 +627,24 @@ namespace StudioCG.Web.Services
                                 RenderTableToPdf(col, part.TableRows, part.TableHeaders);
                                 col.Item().Height(10);
                             }
-                            else
+                            else if (part.Paragraphs.Count > 0)
                             {
-                                // Renderizza testo normale
-                                var testo = part.Text.Trim();
-                                if (!string.IsNullOrWhiteSpace(testo))
+                                // Renderizza paragrafi formattati
+                                foreach (var paragraph in part.Paragraphs)
                                 {
-                                    col.Item().Text(text => 
-                                    {
-                                        text.Justify();
-                                        text.DefaultTextStyle(x => x.LineHeight(1.5f));
-                                        text.Span(testo);
-                                    });
-                                    col.Item().Height(8);
+                                    RenderFormattedParagraphToPdf(col, paragraph);
                                 }
+                            }
+                            else if (!string.IsNullOrWhiteSpace(part.Text))
+                            {
+                                // Fallback: testo semplice
+                                col.Item().Text(text => 
+                                {
+                                    text.Justify();
+                                    text.DefaultTextStyle(x => x.LineHeight(1.5f));
+                                    text.Span(part.Text);
+                                });
+                                col.Item().Height(8);
                             }
                         }
                     });
@@ -759,124 +763,105 @@ namespace StudioCG.Web.Services
                 mainPart.Document = new DocumentFormat.OpenXml.Wordprocessing.Document();
                 var body = mainPart.Document.AppendChild(new Body());
 
-                // Aggiungi logo se presente
-                if (studio?.Logo != null)
+                // ===== CREA HEADER PART (Intestazione vera di Word) =====
+                string? headerPartId = null;
+                if (!string.IsNullOrEmpty(intestazionePlain) || studio?.Logo != null || !string.IsNullOrEmpty(studio?.NomeStudio))
                 {
-                    var logoPara = CreateImageParagraph(mainPart, studio.Logo, studio.LogoContentType ?? "image/png", 1500000, 600000);
-                    body.AppendChild(logoPara);
-                }
+                    var headerPart = mainPart.AddNewPart<HeaderPart>();
+                    headerPartId = mainPart.GetIdOfPart(headerPart);
+                    var header = new Header();
 
-                // Aggiungi intestazione se presente
-                if (!string.IsNullOrEmpty(intestazionePlain))
-                {
-                    foreach (var line in intestazionePlain.Split('\n'))
+                    // Aggiungi logo se presente
+                    if (studio?.Logo != null)
                     {
-                        if (!string.IsNullOrWhiteSpace(line))
+                        var logoPara = CreateImageParagraphForPart(headerPart, studio.Logo, studio.LogoContentType ?? "image/png", 1500000, 600000);
+                        header.AppendChild(logoPara);
+                    }
+
+                    // Aggiungi intestazione personalizzata o nome studio
+                    if (!string.IsNullOrEmpty(intestazionePlain))
+                    {
+                        foreach (var line in intestazionePlain.Split('\n'))
                         {
-                            var headerPara = new Paragraph();
-                            var headerRun = new Run();
-                            var headerProps = new RunProperties();
-                            headerProps.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
-                            headerProps.AppendChild(new FontSize { Val = "20" }); // 10pt
-                            headerProps.AppendChild(new Bold());
-                            headerRun.AppendChild(headerProps);
-                            headerRun.AppendChild(new Text(line.Trim()) { Space = SpaceProcessingModeValues.Preserve });
-                            headerPara.AppendChild(headerRun);
-                            // Centra il paragrafo
-                            var paraProps = new ParagraphProperties();
-                            paraProps.AppendChild(new Justification { Val = JustificationValues.Center });
-                            headerPara.PrependChild(paraProps);
-                            body.AppendChild(headerPara);
+                            if (!string.IsNullOrWhiteSpace(line))
+                            {
+                                var headerPara = new Paragraph();
+                                var headerRun = new Run();
+                                var headerProps = new RunProperties();
+                                headerProps.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
+                                headerProps.AppendChild(new FontSize { Val = "20" }); // 10pt
+                                headerProps.AppendChild(new Bold());
+                                headerRun.AppendChild(headerProps);
+                                headerRun.AppendChild(new Text(line.Trim()) { Space = SpaceProcessingModeValues.Preserve });
+                                headerPara.AppendChild(headerRun);
+                                var paraProps = new ParagraphProperties();
+                                paraProps.AppendChild(new Justification { Val = JustificationValues.Center });
+                                headerPara.PrependChild(paraProps);
+                                header.AppendChild(headerPara);
+                            }
                         }
                     }
-                    // Linea separatore
-                    body.AppendChild(new Paragraph());
-                }
-                else if (studio != null && !string.IsNullOrEmpty(studio.NomeStudio))
-                {
-                    // Se non c'è intestazione personalizzata ma c'è il nome studio, aggiungilo
-                    var headerPara = new Paragraph();
-                    var headerRun = new Run();
-                    var headerProps = new RunProperties();
-                    headerProps.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
-                    headerProps.AppendChild(new FontSize { Val = "24" }); // 12pt
-                    headerProps.AppendChild(new Bold());
-                    headerRun.AppendChild(headerProps);
-                    headerRun.AppendChild(new Text(studio.NomeStudio) { Space = SpaceProcessingModeValues.Preserve });
-                    headerPara.AppendChild(headerRun);
-                    var paraProps = new ParagraphProperties();
-                    paraProps.AppendChild(new Justification { Val = JustificationValues.Center });
-                    headerPara.PrependChild(paraProps);
-                    body.AppendChild(headerPara);
-
-                    // Aggiungi indirizzo
-                    if (!string.IsNullOrEmpty(studio.Indirizzo))
+                    else if (studio != null && !string.IsNullOrEmpty(studio.NomeStudio))
                     {
-                        var indirizzo = studio.Indirizzo;
-                        if (!string.IsNullOrEmpty(studio.CAP)) indirizzo += $" - {studio.CAP}";
-                        if (!string.IsNullOrEmpty(studio.Citta)) indirizzo += $" {studio.Citta}";
+                        // Nome studio
+                        var headerPara = new Paragraph();
+                        var headerRun = new Run();
+                        var headerProps = new RunProperties();
+                        headerProps.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
+                        headerProps.AppendChild(new FontSize { Val = "24" }); // 12pt
+                        headerProps.AppendChild(new Bold());
+                        headerRun.AppendChild(headerProps);
+                        headerRun.AppendChild(new Text(studio.NomeStudio) { Space = SpaceProcessingModeValues.Preserve });
+                        headerPara.AppendChild(headerRun);
+                        var paraProps = new ParagraphProperties();
+                        paraProps.AppendChild(new Justification { Val = JustificationValues.Center });
+                        headerPara.PrependChild(paraProps);
+                        header.AppendChild(headerPara);
 
-                        var addrPara = new Paragraph();
-                        var addrRun = new Run();
-                        var addrProps = new RunProperties();
-                        addrProps.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
-                        addrProps.AppendChild(new FontSize { Val = "18" }); // 9pt
-                        addrRun.AppendChild(addrProps);
-                        addrRun.AppendChild(new Text(indirizzo) { Space = SpaceProcessingModeValues.Preserve });
-                        addrPara.AppendChild(addrRun);
-                        var addrParaProps = new ParagraphProperties();
-                        addrParaProps.AppendChild(new Justification { Val = JustificationValues.Center });
-                        addrPara.PrependChild(addrParaProps);
-                        body.AppendChild(addrPara);
-                    }
-                    
-                    body.AppendChild(new Paragraph());
-                }
-
-                // Aggiungi contenuto (testo e tabelle)
-                foreach (var part in contentParts)
-                {
-                    if (part.IsTable)
-                    {
-                        // Crea tabella Word
-                        var wordTable = CreateWordTable(part.TableHeaders, part.TableRows);
-                        body.AppendChild(wordTable);
-                        body.AppendChild(new Paragraph()); // Spazio dopo tabella
-                    }
-                    else
-                    {
-                        // Aggiungi testo normale
-                        var testo = part.Text.Trim();
-                        if (!string.IsNullOrWhiteSpace(testo))
+                        // Aggiungi indirizzo
+                        if (!string.IsNullOrEmpty(studio.Indirizzo))
                         {
-                            var paragraph = new Paragraph();
-                            var run = new Run();
-                            
-                            // Imposta font
-                            var runProperties = new RunProperties();
-                            runProperties.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
-                            runProperties.AppendChild(new FontSize { Val = "22" }); // 11pt = 22 half-points
-                            run.AppendChild(runProperties);
-                            
-                            run.AppendChild(new Text(testo) { Space = SpaceProcessingModeValues.Preserve });
-                            paragraph.AppendChild(run);
-                            
-                            // Giustifica il testo
-                            var paraProperties = new ParagraphProperties();
-                            paraProperties.AppendChild(new Justification { Val = JustificationValues.Both });
-                            paragraph.PrependChild(paraProperties);
-                            
-                            body.AppendChild(paragraph);
-                            body.AppendChild(new Paragraph()); // Spazio tra paragrafi
+                            var indirizzo = studio.Indirizzo;
+                            if (!string.IsNullOrEmpty(studio.CAP)) indirizzo += $" - {studio.CAP}";
+                            if (!string.IsNullOrEmpty(studio.Citta)) indirizzo += $" {studio.Citta}";
+
+                            var addrPara = new Paragraph();
+                            var addrRun = new Run();
+                            var addrProps = new RunProperties();
+                            addrProps.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
+                            addrProps.AppendChild(new FontSize { Val = "18" }); // 9pt
+                            addrRun.AppendChild(addrProps);
+                            addrRun.AppendChild(new Text(indirizzo) { Space = SpaceProcessingModeValues.Preserve });
+                            addrPara.AppendChild(addrRun);
+                            var addrParaProps = new ParagraphProperties();
+                            addrParaProps.AppendChild(new Justification { Val = JustificationValues.Center });
+                            addrPara.PrependChild(addrParaProps);
+                            header.AppendChild(addrPara);
                         }
                     }
+
+                    headerPart.Header = header;
+                    headerPart.Header.Save();
                 }
 
-                // Aggiungi piè di pagina se presente
+                // ===== CREA FOOTER PART (Piè di pagina vero di Word) =====
+                string? footerPartId = null;
                 if (!string.IsNullOrEmpty(footerPlain))
                 {
-                    body.AppendChild(new Paragraph()); // Spazio
-                    foreach (var line in footerPlain.Split('\n'))
+                    var footerPart = mainPart.AddNewPart<FooterPart>();
+                    footerPartId = mainPart.GetIdOfPart(footerPart);
+                    var footer = new Footer();
+
+                    // Linea orizzontale sopra il footer
+                    var linePara = new Paragraph();
+                    var lineParaProps = new ParagraphProperties();
+                    var bottomBorder = new ParagraphBorders();
+                    bottomBorder.AppendChild(new TopBorder { Val = BorderValues.Single, Size = 4, Color = "000000" });
+                    lineParaProps.AppendChild(bottomBorder);
+                    linePara.AppendChild(lineParaProps);
+                    footer.AppendChild(linePara);
+
+                    foreach (var line in footerPlain.Split('\n').Take(2)) // Max 2 righe
                     {
                         if (!string.IsNullOrWhiteSpace(line))
                         {
@@ -886,33 +871,214 @@ namespace StudioCG.Web.Services
                             footerProps.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
                             footerProps.AppendChild(new FontSize { Val = "18" }); // 9pt
                             footerRun.AppendChild(footerProps);
-                            footerRun.AppendChild(new Text(line.Trim()) { Space = SpaceProcessingModeValues.Preserve });
+                            
+                            // Gestisci numerazione pagine
+                            var lineText = line.Trim();
+                            if (lineText.Contains("{{PaginaDi}}") || lineText.Contains("{{Pagina}}"))
+                            {
+                                // Sostituisci con campi numerazione Word
+                                lineText = lineText.Replace("{{PaginaDi}}", "");
+                                lineText = lineText.Replace("{{Pagina}}", "");
+                                lineText = lineText.Replace("{{TotalePagine}}", "");
+                                footerRun.AppendChild(new Text("Pagina ") { Space = SpaceProcessingModeValues.Preserve });
+                                footerRun.AppendChild(new FieldChar { FieldCharType = FieldCharValues.Begin });
+                                footerRun.AppendChild(new FieldCode(" PAGE ") { Space = SpaceProcessingModeValues.Preserve });
+                                footerRun.AppendChild(new FieldChar { FieldCharType = FieldCharValues.Separate });
+                                footerRun.AppendChild(new Text("1"));
+                                footerRun.AppendChild(new FieldChar { FieldCharType = FieldCharValues.End });
+                                footerRun.AppendChild(new Text(" di ") { Space = SpaceProcessingModeValues.Preserve });
+                                footerRun.AppendChild(new FieldChar { FieldCharType = FieldCharValues.Begin });
+                                footerRun.AppendChild(new FieldCode(" NUMPAGES ") { Space = SpaceProcessingModeValues.Preserve });
+                                footerRun.AppendChild(new FieldChar { FieldCharType = FieldCharValues.Separate });
+                                footerRun.AppendChild(new Text("1"));
+                                footerRun.AppendChild(new FieldChar { FieldCharType = FieldCharValues.End });
+                            }
+                            else
+                            {
+                                footerRun.AppendChild(new Text(lineText) { Space = SpaceProcessingModeValues.Preserve });
+                            }
+                            
                             footerPara.AppendChild(footerRun);
-                            // Centra il paragrafo
                             var paraProps = new ParagraphProperties();
                             paraProps.AppendChild(new Justification { Val = JustificationValues.Center });
                             footerPara.PrependChild(paraProps);
-                            body.AppendChild(footerPara);
+                            footer.AppendChild(footerPara);
                         }
+                    }
+
+                    footerPart.Footer = footer;
+                    footerPart.Footer.Save();
+                }
+
+                // ===== AGGIUNGI CONTENUTO (solo il body) =====
+                foreach (var part in contentParts)
+                {
+                    if (part.IsTable)
+                    {
+                        // Crea tabella Word
+                        var wordTable = CreateWordTable(part.TableHeaders, part.TableRows);
+                        body.AppendChild(wordTable);
+                        body.AppendChild(new Paragraph()); // Spazio dopo tabella
+                    }
+                    else if (part.Paragraphs.Count > 0)
+                    {
+                        // Aggiungi paragrafi formattati
+                        foreach (var formattedPara in part.Paragraphs)
+                        {
+                            var wordPara = CreateFormattedWordParagraph(formattedPara);
+                            body.AppendChild(wordPara);
+                        }
+                        body.AppendChild(new Paragraph()); // Spazio tra blocchi
+                    }
+                    else if (!string.IsNullOrWhiteSpace(part.Text))
+                    {
+                        // Fallback: aggiungi testo normale
+                        var paragraph = new Paragraph();
+                        var run = new Run();
+                        
+                        // Imposta font
+                        var runProperties = new RunProperties();
+                        runProperties.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
+                        runProperties.AppendChild(new FontSize { Val = "22" }); // 11pt = 22 half-points
+                        run.AppendChild(runProperties);
+                        
+                        run.AppendChild(new Text(part.Text) { Space = SpaceProcessingModeValues.Preserve });
+                        paragraph.AppendChild(run);
+                        
+                        // Giustifica il testo
+                        var paraProperties = new ParagraphProperties();
+                        paraProperties.AppendChild(new Justification { Val = JustificationValues.Both });
+                        paragraph.PrependChild(paraProperties);
+                        
+                        body.AppendChild(paragraph);
+                        body.AppendChild(new Paragraph()); // Spazio tra paragrafi
                     }
                 }
 
-                // Imposta margini pagina
+                // ===== IMPOSTA SECTION PROPERTIES con riferimenti a Header/Footer =====
                 var sectionProperties = new SectionProperties();
+                
+                // Margini pagina
                 var pageMargin = new PageMargin
                 {
                     Top = 1440,    // 1 inch = 1440 twips
                     Right = 1440,
                     Bottom = 1440,
-                    Left = 1440
+                    Left = 1440,
+                    Header = 720,  // 0.5 inch per header
+                    Footer = 720   // 0.5 inch per footer
                 };
                 sectionProperties.AppendChild(pageMargin);
+
+                // Riferimento all'header
+                if (headerPartId != null)
+                {
+                    sectionProperties.AppendChild(new HeaderReference 
+                    { 
+                        Type = HeaderFooterValues.Default, 
+                        Id = headerPartId 
+                    });
+                }
+
+                // Riferimento al footer
+                if (footerPartId != null)
+                {
+                    sectionProperties.AppendChild(new FooterReference 
+                    { 
+                        Type = HeaderFooterValues.Default, 
+                        Id = footerPartId 
+                    });
+                }
+
                 body.AppendChild(sectionProperties);
 
                 mainPart.Document.Save();
             }
 
             return stream.ToArray();
+        }
+
+        /// <summary>
+        /// Crea un paragrafo con immagine per HeaderPart
+        /// </summary>
+        private Paragraph CreateImageParagraphForPart(HeaderPart headerPart, byte[] imageData, string contentType, long maxWidth, long maxHeight)
+        {
+            var (actualWidth, actualHeight) = GetImageDimensions(imageData, contentType);
+            
+            // Calcola dimensioni proporzionali
+            long cx = maxWidth;
+            long cy = maxHeight;
+            
+            if (actualWidth > 0 && actualHeight > 0)
+            {
+                double aspectRatio = (double)actualWidth / actualHeight;
+                double maxAspect = (double)maxWidth / maxHeight;
+                
+                if (aspectRatio > maxAspect)
+                {
+                    cx = maxWidth;
+                    cy = (long)(maxWidth / aspectRatio);
+                }
+                else
+                {
+                    cy = maxHeight;
+                    cx = (long)(maxHeight * aspectRatio);
+                }
+            }
+
+            // Determina il tipo di immagine e content type per ImagePart
+            var imageContentType = contentType.ToLower() switch
+            {
+                "image/png" => "image/png",
+                "image/gif" => "image/gif",
+                "image/bmp" => "image/bmp",
+                _ => "image/jpeg"
+            };
+
+            // Aggiungi immagine alla HeaderPart usando AddNewPart
+            var imagePart = headerPart.AddNewPart<ImagePart>(imageContentType, "rIdImage1");
+            using (var imageStream = new MemoryStream(imageData))
+            {
+                imagePart.FeedData(imageStream);
+            }
+
+            // Ottieni relationship ID
+            string relationshipId = headerPart.GetIdOfPart(imagePart);
+
+            // Crea elemento immagine
+            var element = new Drawing(
+                new DW.Inline(
+                    new DW.Extent() { Cx = cx, Cy = cy },
+                    new DW.EffectExtent() { LeftEdge = 0L, TopEdge = 0L, RightEdge = 0L, BottomEdge = 0L },
+                    new DW.DocProperties() { Id = 1U, Name = "Logo" },
+                    new DW.NonVisualGraphicFrameDrawingProperties(
+                        new A.GraphicFrameLocks() { NoChangeAspect = true }),
+                    new A.Graphic(
+                        new A.GraphicData(
+                            new PIC.Picture(
+                                new PIC.NonVisualPictureProperties(
+                                    new PIC.NonVisualDrawingProperties() { Id = 0U, Name = "Image.png" },
+                                    new PIC.NonVisualPictureDrawingProperties()),
+                                new PIC.BlipFill(
+                                    new A.Blip() { Embed = relationshipId },
+                                    new A.Stretch(new A.FillRectangle())),
+                                new PIC.ShapeProperties(
+                                    new A.Transform2D(
+                                        new A.Offset() { X = 0L, Y = 0L },
+                                        new A.Extents() { Cx = cx, Cy = cy }),
+                                    new A.PresetGeometry(new A.AdjustValueList()) { Preset = A.ShapeTypeValues.Rectangle }))
+                        ) { Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture" })
+                ) { DistanceFromTop = 0U, DistanceFromBottom = 0U, DistanceFromLeft = 0U, DistanceFromRight = 0U }
+            );
+
+            // Centra l'immagine
+            var paragraph = new Paragraph();
+            var paragraphProperties = new ParagraphProperties();
+            paragraphProperties.AppendChild(new Justification { Val = JustificationValues.Center });
+            paragraph.AppendChild(paragraphProperties);
+            paragraph.AppendChild(new Run(element));
+
+            return paragraph;
         }
 
         /// <summary>
@@ -1087,18 +1253,47 @@ namespace StudioCG.Web.Services
         }
 
         /// <summary>
+        /// Classe per rappresentare uno span di testo con formattazione
+        /// </summary>
+        private class FormattedSpan
+        {
+            public string Text { get; set; } = "";
+            public bool IsBold { get; set; }
+            public bool IsItalic { get; set; }
+            public bool IsUnderline { get; set; }
+            public int? FontSizePt { get; set; } // null = default
+        }
+
+        /// <summary>
+        /// Classe per rappresentare un paragrafo formattato
+        /// </summary>
+        private class FormattedParagraph
+        {
+            public List<FormattedSpan> Spans { get; set; } = new();
+            public string Alignment { get; set; } = "justify"; // left, center, right, justify
+            public bool IsHeading { get; set; }
+            public int HeadingLevel { get; set; } = 0; // 1-6 for h1-h6
+            public float LineHeight { get; set; } = 1.5f; // Interlinea (1.0, 1.15, 1.5, 2.0, etc.)
+            public int? SpacingBeforePt { get; set; } // Spaziatura prima del paragrafo in pt
+            public int? SpacingAfterPt { get; set; } // Spaziatura dopo il paragrafo in pt
+            public int? FontSizePt { get; set; } // Dimensione font del paragrafo (se impostata)
+        }
+
+        /// <summary>
         /// Classe per rappresentare una parte del contenuto (testo o tabella)
         /// </summary>
         private class ContentPart
         {
             public bool IsTable { get; set; }
-            public string Text { get; set; } = "";
+            public string Text { get; set; } = ""; // Per retrocompatibilità
+            public string RawHtml { get; set; } = ""; // HTML originale del blocco
+            public List<FormattedParagraph> Paragraphs { get; set; } = new();
             public List<string> TableHeaders { get; set; } = new();
             public List<List<string>> TableRows { get; set; } = new();
         }
 
         /// <summary>
-        /// Parsa il contenuto HTML e separa testo e tabelle
+        /// Parsa il contenuto HTML e separa testo e tabelle, mantenendo la formattazione
         /// </summary>
         private List<ContentPart> ParseHtmlContent(string html)
         {
@@ -1116,18 +1311,10 @@ namespace StudioCG.Web.Services
                 if (match.Index > lastIndex)
                 {
                     var textBefore = html.Substring(lastIndex, match.Index - lastIndex);
-                    var cleanText = RimuoviTagHtml(textBefore).Trim();
-                    if (!string.IsNullOrEmpty(cleanText))
+                    var contentPart = ParseHtmlToFormattedContent(textBefore);
+                    if (contentPart.Paragraphs.Count > 0)
                     {
-                        // Dividi in paragrafi
-                        var paragraphs = cleanText.Split(new[] { "\n\n", "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-                        foreach (var para in paragraphs)
-                        {
-                            if (!string.IsNullOrWhiteSpace(para))
-                            {
-                                parts.Add(new ContentPart { IsTable = false, Text = para.Trim() });
-                            }
-                        }
+                        parts.Add(contentPart);
                     }
                 }
 
@@ -1142,39 +1329,296 @@ namespace StudioCG.Web.Services
                 lastIndex = match.Index + match.Length;
             }
 
-            // Aggiungi testo dopo l'ultima tabella
-            if (lastIndex < html.Length)
+            // Aggiungi testo dopo l'ultima tabella (solo se c'erano tabelle)
+            if (matches.Count > 0 && lastIndex < html.Length)
             {
                 var textAfter = html.Substring(lastIndex);
-                var cleanText = RimuoviTagHtml(textAfter).Trim();
-                if (!string.IsNullOrEmpty(cleanText))
+                var contentPart = ParseHtmlToFormattedContent(textAfter);
+                if (contentPart.Paragraphs.Count > 0)
                 {
-                    var paragraphs = cleanText.Split(new[] { "\n\n", "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var para in paragraphs)
+                    parts.Add(contentPart);
+                }
+            }
+
+            // Se non ci sono tabelle, tratta tutto come contenuto formattato
+            if (matches.Count == 0)
+            {
+                var contentPart = ParseHtmlToFormattedContent(html);
+                if (contentPart.Paragraphs.Count > 0)
+                {
+                    parts.Add(contentPart);
+                }
+            }
+
+            return parts;
+        }
+
+        /// <summary>
+        /// Parsa HTML in paragrafi formattati
+        /// </summary>
+        private ContentPart ParseHtmlToFormattedContent(string html)
+        {
+            var part = new ContentPart { IsTable = false, RawHtml = html };
+            
+            // Dividi in blocchi (p, div, h1-h6, br)
+            // Pattern per trovare paragrafi, div, heading
+            var blockPattern = @"<(p|div|h[1-6])[^>]*>(.*?)</\1>|<br\s*/?>|([^<]+)";
+            var blockMatches = Regex.Matches(html, blockPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+            foreach (Match blockMatch in blockMatches)
+            {
+                var tagName = blockMatch.Groups[1].Value.ToLower();
+                var innerHtml = blockMatch.Groups[2].Success ? blockMatch.Groups[2].Value : blockMatch.Groups[3].Value;
+                
+                // Salta blocchi vuoti
+                if (string.IsNullOrWhiteSpace(RimuoviTagHtml(innerHtml)))
+                    continue;
+
+                var paragraph = new FormattedParagraph();
+                
+                // Determina allineamento dal tag o style
+                paragraph.Alignment = ExtractAlignment(blockMatch.Value);
+                
+                // Estrai line-height
+                paragraph.LineHeight = ExtractLineHeight(blockMatch.Value);
+                
+                // Estrai spaziatura (margin-top, margin-bottom)
+                var (spacingBefore, spacingAfter) = ExtractSpacing(blockMatch.Value);
+                paragraph.SpacingBeforePt = spacingBefore;
+                paragraph.SpacingAfterPt = spacingAfter;
+                
+                // Estrai font-size dal paragrafo
+                paragraph.FontSizePt = ExtractFontSize(blockMatch.Value);
+                
+                // Verifica se è un heading
+                if (tagName.StartsWith("h") && tagName.Length == 2 && char.IsDigit(tagName[1]))
+                {
+                    paragraph.IsHeading = true;
+                    paragraph.HeadingLevel = int.Parse(tagName[1].ToString());
+                }
+
+                // Parsa gli span formattati nel contenuto (passando il font-size base del paragrafo)
+                paragraph.Spans = ParseFormattedSpans(innerHtml, paragraph.FontSizePt);
+
+                if (paragraph.Spans.Count > 0)
+                {
+                    part.Paragraphs.Add(paragraph);
+                }
+            }
+
+            // Se non abbiamo trovato blocchi strutturati, prova testo semplice
+            if (part.Paragraphs.Count == 0)
+            {
+                var plainText = RimuoviTagHtml(html).Trim();
+                if (!string.IsNullOrEmpty(plainText))
+                {
+                    var lines = plainText.Split(new[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var line in lines)
                     {
-                        if (!string.IsNullOrWhiteSpace(para))
+                        if (!string.IsNullOrWhiteSpace(line))
                         {
-                            parts.Add(new ContentPart { IsTable = false, Text = para.Trim() });
+                            var para = new FormattedParagraph();
+                            para.Spans.Add(new FormattedSpan { Text = line.Trim() });
+                            part.Paragraphs.Add(para);
                         }
                     }
                 }
             }
 
-            // Se non ci sono tabelle, tratta tutto come testo
-            if (matches.Count == 0)
+            // Fallback per testo semplice (retrocompatibilità)
+            part.Text = RimuoviTagHtml(html).Trim();
+
+            return part;
+        }
+
+        /// <summary>
+        /// Estrae l'allineamento da un tag HTML
+        /// </summary>
+        private string ExtractAlignment(string tagHtml)
+        {
+            // Cerca align="..." o style="...text-align:..."
+            var alignMatch = Regex.Match(tagHtml, @"align\s*=\s*[""']?(left|center|right|justify)[""']?", RegexOptions.IgnoreCase);
+            if (alignMatch.Success)
+                return alignMatch.Groups[1].Value.ToLower();
+
+            var styleMatch = Regex.Match(tagHtml, @"text-align\s*:\s*(left|center|right|justify)", RegexOptions.IgnoreCase);
+            if (styleMatch.Success)
+                return styleMatch.Groups[1].Value.ToLower();
+
+            return "justify"; // Default
+        }
+
+        /// <summary>
+        /// Estrae line-height da un tag HTML
+        /// </summary>
+        private float ExtractLineHeight(string tagHtml)
+        {
+            // Cerca line-height: X o line-height: Xpx/em/%
+            var match = Regex.Match(tagHtml, @"line-height\s*:\s*(\d+\.?\d*)(px|em|%)?", RegexOptions.IgnoreCase);
+            if (match.Success)
             {
-                var cleanText = RimuoviTagHtml(html).Trim();
-                var paragraphs = cleanText.Split(new[] { "\n\n", "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (var para in paragraphs)
+                if (float.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.Float, 
+                    System.Globalization.CultureInfo.InvariantCulture, out float value))
                 {
-                    if (!string.IsNullOrWhiteSpace(para))
+                    var unit = match.Groups[2].Value.ToLower();
+                    
+                    // Se è in px, converti approssimativamente
+                    if (unit == "px")
+                        return value / 16f; // Assume 16px = 1em base
+                    
+                    // Se è in percentuale, converti
+                    if (unit == "%")
+                        return value / 100f;
+                    
+                    // Altrimenti è già un moltiplicatore (es: 1.5, 2)
+                    return value;
+                }
+            }
+            
+            return 1.5f; // Default
+        }
+
+        /// <summary>
+        /// Estrae font-size da un tag HTML
+        /// </summary>
+        private int? ExtractFontSize(string tagHtml)
+        {
+            // Cerca font-size: Xpt, Xpx, X (supporta decimali)
+            var match = Regex.Match(tagHtml, @"font-size\s*:\s*(\d+\.?\d*)(pt|px)?", RegexOptions.IgnoreCase);
+            if (match.Success)
+            {
+                if (float.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out float value))
+                {
+                    var unit = match.Groups[2].Value.ToLower();
+                    
+                    // Se è in px, converti in pt (1pt = 1.333px circa, quindi px * 0.75 = pt)
+                    if (unit == "px")
+                        value = value * 0.75f;
+                    
+                    return (int)Math.Round(value);
+                }
+            }
+            
+            return null; // Non specificato
+        }
+
+        /// <summary>
+        /// Estrae spaziatura (margin) da un tag HTML
+        /// </summary>
+        private (int? before, int? after) ExtractSpacing(string tagHtml)
+        {
+            int? before = null;
+            int? after = null;
+            
+            // Cerca margin-top
+            var marginTopMatch = Regex.Match(tagHtml, @"margin-top\s*:\s*(\d+)(px|pt)?", RegexOptions.IgnoreCase);
+            if (marginTopMatch.Success)
+            {
+                if (int.TryParse(marginTopMatch.Groups[1].Value, out int value))
+                {
+                    // Converti px in pt approssimativamente
+                    if (marginTopMatch.Groups[2].Value.ToLower() == "px")
+                        value = (int)(value * 0.75);
+                    before = value;
+                }
+            }
+            
+            // Cerca margin-bottom
+            var marginBottomMatch = Regex.Match(tagHtml, @"margin-bottom\s*:\s*(\d+)(px|pt)?", RegexOptions.IgnoreCase);
+            if (marginBottomMatch.Success)
+            {
+                if (int.TryParse(marginBottomMatch.Groups[1].Value, out int value))
+                {
+                    if (marginBottomMatch.Groups[2].Value.ToLower() == "px")
+                        value = (int)(value * 0.75);
+                    after = value;
+                }
+            }
+            
+            return (before, after);
+        }
+
+        /// <summary>
+        /// Parsa il contenuto HTML in span formattati (bold, italic, underline)
+        /// </summary>
+        /// <param name="html">HTML da parsare</param>
+        /// <param name="baseFontSize">Font-size base del paragrafo (opzionale)</param>
+        private List<FormattedSpan> ParseFormattedSpans(string html, int? baseFontSize = null)
+        {
+            var spans = new List<FormattedSpan>();
+            if (string.IsNullOrEmpty(html)) return spans;
+
+            // Pattern per trovare tag di formattazione
+            var pattern = @"<(strong|b|em|i|u|span)[^>]*>(.*?)</\1>|([^<]+)|<[^>]+>";
+            var matches = Regex.Matches(html, pattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+            foreach (Match match in matches)
+            {
+                var tagName = match.Groups[1].Value.ToLower();
+                var innerContent = match.Groups[2].Success ? match.Groups[2].Value : "";
+                var plainText = match.Groups[3].Success ? match.Groups[3].Value : "";
+
+                if (!string.IsNullOrEmpty(plainText))
+                {
+                    // Testo semplice senza formattazione - applica font-size base
+                    var text = System.Web.HttpUtility.HtmlDecode(plainText);
+                    if (!string.IsNullOrWhiteSpace(text))
                     {
-                        parts.Add(new ContentPart { IsTable = false, Text = para.Trim() });
+                        spans.Add(new FormattedSpan { Text = text, FontSizePt = baseFontSize });
+                    }
+                }
+                else if (!string.IsNullOrEmpty(tagName))
+                {
+                    // Tag di formattazione
+                    var innerText = RimuoviTagHtml(innerContent);
+                    if (!string.IsNullOrWhiteSpace(innerText))
+                    {
+                        var span = new FormattedSpan { Text = innerText };
+                        
+                        // Imposta font-size base (può essere sovrascritto dallo span)
+                        span.FontSizePt = baseFontSize;
+
+                        // Determina formattazione
+                        if (tagName == "strong" || tagName == "b")
+                            span.IsBold = true;
+                        else if (tagName == "em" || tagName == "i")
+                            span.IsItalic = true;
+                        else if (tagName == "u")
+                            span.IsUnderline = true;
+                        else if (tagName == "span")
+                        {
+                            // Controlla stili inline
+                            if (Regex.IsMatch(match.Value, @"font-weight\s*:\s*bold", RegexOptions.IgnoreCase))
+                                span.IsBold = true;
+                            if (Regex.IsMatch(match.Value, @"font-style\s*:\s*italic", RegexOptions.IgnoreCase))
+                                span.IsItalic = true;
+                            if (Regex.IsMatch(match.Value, @"text-decoration[^;]*underline", RegexOptions.IgnoreCase))
+                                span.IsUnderline = true;
+
+                            // Controlla font-size (supporta decimali: 8pt, 10.6667px, etc.)
+                            var sizeMatch = Regex.Match(match.Value, @"font-size\s*:\s*(\d+\.?\d*)(pt|px)?", RegexOptions.IgnoreCase);
+                            if (sizeMatch.Success)
+                            {
+                                if (float.TryParse(sizeMatch.Groups[1].Value, 
+                                    System.Globalization.NumberStyles.Float,
+                                    System.Globalization.CultureInfo.InvariantCulture, 
+                                    out float size))
+                                {
+                                    // Converti px in pt approssimativamente
+                                    if (sizeMatch.Groups[2].Value.ToLower() == "px")
+                                        size = size * 0.75f;
+                                    span.FontSizePt = (int)Math.Round(size);
+                                }
+                            }
+                        }
+
+                        spans.Add(span);
                     }
                 }
             }
 
-            return parts;
+            return spans;
         }
 
         /// <summary>
@@ -1220,6 +1664,86 @@ namespace StudioCG.Web.Services
             }
 
             return part;
+        }
+
+        /// <summary>
+        /// Renderizza un paragrafo formattato in PDF
+        /// </summary>
+        private void RenderFormattedParagraphToPdf(QuestPDF.Fluent.ColumnDescriptor col, FormattedParagraph paragraph)
+        {
+            // Spaziatura prima del paragrafo
+            if (paragraph.SpacingBeforePt.HasValue && paragraph.SpacingBeforePt > 0)
+            {
+                col.Item().Height(paragraph.SpacingBeforePt.Value);
+            }
+
+            col.Item().Text(text =>
+            {
+                // Imposta allineamento
+                switch (paragraph.Alignment)
+                {
+                    case "left":
+                        text.AlignLeft();
+                        break;
+                    case "center":
+                        text.AlignCenter();
+                        break;
+                    case "right":
+                        text.AlignRight();
+                        break;
+                    default:
+                        text.Justify();
+                        break;
+                }
+
+                // Applica line-height (interlinea)
+                text.DefaultTextStyle(x => x.LineHeight(paragraph.LineHeight).FontFamily("Arial"));
+
+                // Determina dimensione base
+                int baseFontSize = paragraph.FontSizePt ?? 11; // Usa font-size del paragrafo o default 11
+                bool isHeadingBold = false;
+                if (paragraph.IsHeading)
+                {
+                    isHeadingBold = true;
+                    // Per heading, sovrascrive solo se non c'è un font-size esplicito
+                    if (!paragraph.FontSizePt.HasValue)
+                    {
+                        baseFontSize = paragraph.HeadingLevel switch
+                        {
+                            1 => 18,
+                            2 => 16,
+                            3 => 14,
+                            4 => 13,
+                            5 => 12,
+                            6 => 11,
+                            _ => 11
+                        };
+                    }
+                }
+
+                // Renderizza ogni span con la sua formattazione
+                foreach (var span in paragraph.Spans)
+                {
+                    var fontSize = span.FontSizePt ?? baseFontSize;
+                    var isBold = span.IsBold || isHeadingBold;
+                    var isItalic = span.IsItalic;
+                    var isUnderline = span.IsUnderline;
+
+                    // QuestPDF: applica stili in modo condizionale
+                    var textSpan = text.Span(span.Text).FontSize(fontSize);
+                    
+                    if (isBold)
+                        textSpan = textSpan.Bold();
+                    if (isItalic)
+                        textSpan = textSpan.Italic();
+                    if (isUnderline)
+                        textSpan = textSpan.Underline();
+                }
+            });
+
+            // Spaziatura dopo il paragrafo
+            var spacingAfter = paragraph.SpacingAfterPt ?? (paragraph.IsHeading ? 10 : 6);
+            col.Item().Height(spacingAfter);
         }
 
         /// <summary>
@@ -1546,6 +2070,106 @@ namespace StudioCG.Web.Services
             }
             
             return (0, 0);
+        }
+
+        /// <summary>
+        /// Crea un paragrafo Word con formattazione
+        /// </summary>
+        private Paragraph CreateFormattedWordParagraph(FormattedParagraph formattedPara)
+        {
+            var paragraph = new Paragraph();
+            
+            // Imposta proprietà paragrafo (allineamento)
+            var paraProperties = new ParagraphProperties();
+            var justification = formattedPara.Alignment switch
+            {
+                "left" => JustificationValues.Left,
+                "center" => JustificationValues.Center,
+                "right" => JustificationValues.Right,
+                _ => JustificationValues.Both
+            };
+            paraProperties.AppendChild(new Justification { Val = justification });
+            
+            // Spaziatura paragrafo (before/after in twips, 1pt = 20 twips)
+            var spacingBefore = formattedPara.SpacingBeforePt.HasValue 
+                ? (formattedPara.SpacingBeforePt.Value * 20).ToString() 
+                : "0";
+            var spacingAfter = formattedPara.SpacingAfterPt.HasValue 
+                ? (formattedPara.SpacingAfterPt.Value * 20).ToString() 
+                : "120";
+            
+            // Line-height: in Word usa il valore moltiplicato per 240 (240 = single line)
+            // Es: 1.5 = 360, 2.0 = 480
+            var lineSpacing = (int)(formattedPara.LineHeight * 240);
+            
+            paraProperties.AppendChild(new SpacingBetweenLines 
+            { 
+                After = spacingAfter, 
+                Before = spacingBefore,
+                Line = lineSpacing.ToString(),
+                LineRule = LineSpacingRuleValues.Auto
+            });
+            
+            paragraph.AppendChild(paraProperties);
+
+            // Determina dimensione base
+            int baseFontSizePt = formattedPara.FontSizePt ?? 11; // Usa font-size del paragrafo o default 11
+            if (formattedPara.IsHeading && !formattedPara.FontSizePt.HasValue)
+            {
+                // Per heading, sovrascrive solo se non c'è un font-size esplicito
+                baseFontSizePt = formattedPara.HeadingLevel switch
+                {
+                    1 => 18,
+                    2 => 16,
+                    3 => 14,
+                    4 => 13,
+                    5 => 12,
+                    6 => 11,
+                    _ => 11
+                };
+            }
+            int baseFontSizeHalfPt = baseFontSizePt * 2; // Converti in half-points
+
+            // Aggiungi ogni span formattato
+            foreach (var span in formattedPara.Spans)
+            {
+                var run = new Run();
+                var runProperties = new RunProperties();
+                
+                // Font
+                runProperties.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
+                
+                // Dimensione font
+                var fontSize = span.FontSizePt.HasValue 
+                    ? span.FontSizePt.Value * 2  // pt to half-points
+                    : baseFontSizeHalfPt;
+                runProperties.AppendChild(new FontSize { Val = fontSize.ToString() });
+                
+                // Grassetto
+                if (span.IsBold || formattedPara.IsHeading)
+                {
+                    runProperties.AppendChild(new Bold());
+                }
+                
+                // Corsivo
+                if (span.IsItalic)
+                {
+                    runProperties.AppendChild(new Italic());
+                }
+                
+                // Sottolineato
+                if (span.IsUnderline)
+                {
+                    runProperties.AppendChild(new Underline { Val = UnderlineValues.Single });
+                }
+                
+                run.AppendChild(runProperties);
+                run.AppendChild(new Text(span.Text) { Space = SpaceProcessingModeValues.Preserve });
+                
+                paragraph.AppendChild(run);
+            }
+
+            return paragraph;
         }
 
         /// <summary>
