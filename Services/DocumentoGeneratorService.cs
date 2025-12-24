@@ -1277,6 +1277,7 @@ namespace StudioCG.Web.Services
             public int? SpacingBeforePt { get; set; } // Spaziatura prima del paragrafo in pt
             public int? SpacingAfterPt { get; set; } // Spaziatura dopo il paragrafo in pt
             public int? FontSizePt { get; set; } // Dimensione font del paragrafo (se impostata)
+            public bool IsBulletPoint { get; set; } // Se è un elemento di lista (li)
         }
 
         /// <summary>
@@ -1360,15 +1361,31 @@ namespace StudioCG.Web.Services
         {
             var part = new ContentPart { IsTable = false, RawHtml = html };
             
-            // Dividi in blocchi (p, div, h1-h6, br)
-            // Pattern per trovare paragrafi, div, heading
-            var blockPattern = @"<(p|div|h[1-6])[^>]*>(.*?)</\1>|<br\s*/?>|([^<]+)";
-            var blockMatches = Regex.Matches(html, blockPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            if (string.IsNullOrEmpty(html)) return part;
+            
+            // Prima estrai tutti i list items <li>...</li>
+            var listItemPattern = @"<li[^>]*>(.*?)</li>";
+            var listItemMatches = Regex.Matches(html, listItemPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            
+            // Sostituisci temporaneamente i list items con placeholder per processarli separatamente
+            var listItems = new List<(string content, string outerHtml)>();
+            foreach (Match match in listItemMatches)
+            {
+                listItems.Add((match.Groups[1].Value, match.Value));
+            }
+            
+            // Rimuovi liste e list items dal HTML principale
+            var htmlWithoutLists = Regex.Replace(html, @"<ul[^>]*>.*?</ul>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            htmlWithoutLists = Regex.Replace(htmlWithoutLists, @"<ol[^>]*>.*?</ol>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            
+            // Processa i paragrafi normali (p, div, h1-h6)
+            var blockPattern = @"<(p|div|h[1-6])[^>]*>(.*?)</\1>";
+            var blockMatches = Regex.Matches(htmlWithoutLists, blockPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
             foreach (Match blockMatch in blockMatches)
             {
                 var tagName = blockMatch.Groups[1].Value.ToLower();
-                var innerHtml = blockMatch.Groups[2].Success ? blockMatch.Groups[2].Value : blockMatch.Groups[3].Value;
+                var innerHtml = blockMatch.Groups[2].Value;
                 
                 // Salta blocchi vuoti
                 if (string.IsNullOrWhiteSpace(RimuoviTagHtml(innerHtml)))
@@ -1400,6 +1417,30 @@ namespace StudioCG.Web.Services
                 // Parsa gli span formattati nel contenuto (passando il font-size base del paragrafo)
                 paragraph.Spans = ParseFormattedSpans(innerHtml, paragraph.FontSizePt);
 
+                if (paragraph.Spans.Count > 0)
+                {
+                    part.Paragraphs.Add(paragraph);
+                }
+            }
+            
+            // Processa i list items separatamente
+            foreach (var (content, outerHtml) in listItems)
+            {
+                if (string.IsNullOrWhiteSpace(RimuoviTagHtml(content)))
+                    continue;
+                    
+                var paragraph = new FormattedParagraph();
+                paragraph.IsBulletPoint = true;
+                paragraph.Alignment = ExtractAlignment(outerHtml);
+                paragraph.LineHeight = ExtractLineHeight(outerHtml);
+                paragraph.FontSizePt = ExtractFontSize(outerHtml);
+                
+                var (spacingBefore, spacingAfter) = ExtractSpacing(outerHtml);
+                paragraph.SpacingBeforePt = spacingBefore;
+                paragraph.SpacingAfterPt = spacingAfter;
+                
+                paragraph.Spans = ParseFormattedSpans(content, paragraph.FontSizePt);
+                
                 if (paragraph.Spans.Count > 0)
                 {
                     part.Paragraphs.Add(paragraph);
@@ -1719,6 +1760,12 @@ namespace StudioCG.Web.Services
                             _ => 11
                         };
                     }
+                }
+
+                // Aggiungi bullet point se è un elemento di lista
+                if (paragraph.IsBulletPoint)
+                {
+                    text.Span("• ").FontSize(baseFontSize);
                 }
 
                 // Renderizza ogni span con la sua formattazione
@@ -2129,6 +2176,18 @@ namespace StudioCG.Web.Services
                 };
             }
             int baseFontSizeHalfPt = baseFontSizePt * 2; // Converti in half-points
+
+            // Aggiungi bullet point se è un elemento di lista
+            if (formattedPara.IsBulletPoint)
+            {
+                var bulletRun = new Run();
+                var bulletProps = new RunProperties();
+                bulletProps.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
+                bulletProps.AppendChild(new FontSize { Val = baseFontSizeHalfPt.ToString() });
+                bulletRun.AppendChild(bulletProps);
+                bulletRun.AppendChild(new Text("• ") { Space = SpaceProcessingModeValues.Preserve });
+                paragraph.AppendChild(bulletRun);
+            }
 
             // Aggiungi ogni span formattato
             foreach (var span in formattedPara.Spans)
