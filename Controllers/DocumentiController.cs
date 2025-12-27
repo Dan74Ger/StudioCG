@@ -673,6 +673,142 @@ namespace StudioCG.Web.Controllers
             return RedirectToAction(nameof(Archivio));
         }
 
+        // GET: /Documenti/ControlloAntiriciclaggio
+        public async Task<IActionResult> ControlloAntiriciclaggio(string? searchCliente, string? statoScadenza)
+        {
+            // Carica configurazione per data limite impostata dall'utente
+            var config = await _context.ConfigurazioniStudio.FirstOrDefaultAsync();
+            var dataLimite = config?.DataLimiteAntiriciclaggio ?? DateTime.Today;
+
+            // Trova tutti i documenti antiriciclaggio (nuovi clienti e aggiornamento)
+            var documentiAntiriciclaggio = await _context.DocumentiGenerati
+                .Include(d => d.Cliente)
+                .Include(d => d.TemplateDocumento)
+                .Where(d => d.TemplateDocumento != null && 
+                           (d.TemplateDocumento.Nome.Contains("Antiriciclaggio") ||
+                            d.TemplateDocumento.Nome.Contains("antiriciclaggio")))
+                .Where(d => d.Cliente != null && d.Cliente.IsActive)
+                .ToListAsync();
+
+            // Raggruppa per cliente e prendi il documento più recente
+            var clientiConAntiriciclaggio = documentiAntiriciclaggio
+                .GroupBy(d => d.ClienteId)
+                .Select(g => {
+                    var docPiuRecente = g.OrderByDescending(d => d.GeneratoIl).First();
+                    var dataGenerazione = docPiuRecente.GeneratoIl.Date;
+                    
+                    // LOGICA SEMPLICE:
+                    // - Data documento PRIMA della data limite → SCADUTO (rosso)
+                    // - Data documento UGUALE o DOPO la data limite → OK (verde)
+                    var isScaduto = dataGenerazione < dataLimite;
+                    
+                    // Giorni di differenza tra data documento e data limite
+                    // Negativo = documento generato PRIMA della data limite (scaduto)
+                    // Positivo = documento generato DOPO la data limite (ok)
+                    var giorniDifferenza = (dataGenerazione - dataLimite).Days;
+                    
+                    return new ControlloAntiriciclaggioViewModel
+                    {
+                        ClienteId = g.Key,
+                        NomeCliente = docPiuRecente.Cliente?.RagioneSociale ?? "N/D",
+                        DataUltimoDocumento = docPiuRecente.GeneratoIl,
+                        TipoDocumento = docPiuRecente.TemplateDocumento?.Nome ?? "N/D",
+                        NomeFile = docPiuRecente.NomeFile,
+                        DocumentoId = docPiuRecente.Id,
+                        GiorniDifferenza = giorniDifferenza,
+                        IsScaduto = isScaduto,
+                        TotaleDocumenti = g.Count()
+                    };
+                })
+                .ToList();
+
+            // Filtro per nome cliente
+            if (!string.IsNullOrWhiteSpace(searchCliente))
+            {
+                clientiConAntiriciclaggio = clientiConAntiriciclaggio
+                    .Where(c => c.NomeCliente.Contains(searchCliente, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
+            // Filtro per stato
+            if (!string.IsNullOrWhiteSpace(statoScadenza))
+            {
+                switch (statoScadenza)
+                {
+                    case "scaduti":
+                        clientiConAntiriciclaggio = clientiConAntiriciclaggio.Where(c => c.IsScaduto).ToList();
+                        break;
+                    case "ok":
+                        clientiConAntiriciclaggio = clientiConAntiriciclaggio.Where(c => !c.IsScaduto).ToList();
+                        break;
+                }
+            }
+
+            // Ordina: prima scaduti, poi ok (per data documento)
+            clientiConAntiriciclaggio = clientiConAntiriciclaggio
+                .OrderByDescending(c => c.IsScaduto)
+                .ThenBy(c => c.DataUltimoDocumento)
+                .ThenBy(c => c.NomeCliente)
+                .ToList();
+
+            // Statistiche
+            var tuttiClienti = documentiAntiriciclaggio
+                .GroupBy(d => d.ClienteId)
+                .Select(g => {
+                    var docPiuRecente = g.OrderByDescending(d => d.GeneratoIl).First();
+                    var dataGen = docPiuRecente.GeneratoIl.Date;
+                    return dataGen < dataLimite; // true = scaduto
+                }).ToList();
+
+            ViewBag.TotaleScaduti = tuttiClienti.Count(isScaduto => isScaduto);
+            ViewBag.TotaleOk = tuttiClienti.Count(isScaduto => !isScaduto);
+            ViewBag.TotaleClienti = tuttiClienti.Count;
+
+            ViewBag.DataLimite = dataLimite;
+            ViewBag.SearchCliente = searchCliente;
+            ViewBag.StatoScadenza = statoScadenza;
+            ViewBag.ConfigurazioneId = config?.Id;
+
+            return View(clientiConAntiriciclaggio);
+        }
+
+        // POST: /Documenti/SalvaDataLimiteAntiriciclaggio
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SalvaDataLimiteAntiriciclaggio(string dataLimite)
+        {
+            // Parsing della data con supporto per formati ISO (yyyy-MM-dd) e italiano (dd/MM/yyyy)
+            DateTime parsedDate;
+            if (!DateTime.TryParseExact(dataLimite, new[] { "yyyy-MM-dd", "dd/MM/yyyy" }, 
+                System.Globalization.CultureInfo.InvariantCulture, 
+                System.Globalization.DateTimeStyles.None, out parsedDate))
+            {
+                TempData["Error"] = $"Formato data non valido: {dataLimite}. Usa il formato gg/mm/aaaa.";
+                return RedirectToAction(nameof(ControlloAntiriciclaggio));
+            }
+
+            var config = await _context.ConfigurazioniStudio.FirstOrDefaultAsync();
+            if (config == null)
+            {
+                config = new ConfigurazioneStudio 
+                { 
+                    NomeStudio = "Studio",
+                    DataLimiteAntiriciclaggio = parsedDate,
+                    CreatedAt = DateTime.Now
+                };
+                _context.ConfigurazioniStudio.Add(config);
+            }
+            else
+            {
+                config.DataLimiteAntiriciclaggio = parsedDate;
+                config.UpdatedAt = DateTime.Now;
+            }
+
+            await _context.SaveChangesAsync();
+            TempData["Success"] = $"Data limite antiriciclaggio impostata: {parsedDate:dd/MM/yyyy}";
+            return RedirectToAction(nameof(ControlloAntiriciclaggio));
+        }
+
         #endregion
     }
 
@@ -698,6 +834,33 @@ namespace StudioCG.Web.Controllers
         public int NumeroDocumenti { get; set; }
         public DateTime UltimoDocumento { get; set; }
         public DateTime PrimoDocumento { get; set; }
+    }
+
+    /// <summary>
+    /// ViewModel per il controllo antiriciclaggio
+    /// </summary>
+    public class ControlloAntiriciclaggioViewModel
+    {
+        public int ClienteId { get; set; }
+        public string NomeCliente { get; set; } = string.Empty;
+        /// <summary>
+        /// Data di generazione del documento antiriciclaggio
+        /// </summary>
+        public DateTime DataUltimoDocumento { get; set; }
+        public string TipoDocumento { get; set; } = string.Empty;
+        public string NomeFile { get; set; } = string.Empty;
+        public int DocumentoId { get; set; }
+        /// <summary>
+        /// Differenza in giorni tra data documento e data limite
+        /// Negativo = documento generato PRIMA della data limite (SCADUTO - rosso)
+        /// Positivo o zero = documento generato UGUALE o DOPO la data limite (OK - verde)
+        /// </summary>
+        public int GiorniDifferenza { get; set; }
+        /// <summary>
+        /// True se data documento è PRIMA della data limite impostata
+        /// </summary>
+        public bool IsScaduto { get; set; }
+        public int TotaleDocumenti { get; set; }
     }
 }
 

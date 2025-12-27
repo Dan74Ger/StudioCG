@@ -72,6 +72,11 @@ namespace StudioCG.Web.Models.Documenti
         [StringLength(200)]
         public string? FirmaFileName { get; set; }
 
+        // Scadenza Antiriciclaggio
+        [Display(Name = "Data Limite Antiriciclaggio")]
+        [DataType(DataType.Date)]
+        public DateTime? DataLimiteAntiriciclaggio { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? UpdatedAt { get; set; }
     }
