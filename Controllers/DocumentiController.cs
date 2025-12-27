@@ -493,17 +493,56 @@ namespace StudioCG.Web.Controllers
 
         #region Archivio
 
-        // GET: /Documenti/Archivio
-        public async Task<IActionResult> Archivio(int? clienteId, int? templateId, DateTime? dataFrom, DateTime? dataTo)
+        // GET: /Documenti/Archivio - Mostra cartelle clienti
+        public async Task<IActionResult> Archivio(string? search)
         {
-            var query = _context.DocumentiGenerati
+            // Raggruppa i documenti per cliente
+            var cartelleClienti = await _context.DocumentiGenerati
                 .Include(d => d.Cliente)
+                .GroupBy(d => new { d.ClienteId, d.Cliente!.RagioneSociale })
+                .Select(g => new CartellaClienteViewModel
+                {
+                    ClienteId = g.Key.ClienteId,
+                    NomeCliente = g.Key.RagioneSociale,
+                    NumeroDocumenti = g.Count(),
+                    UltimoDocumento = g.Max(d => d.GeneratoIl),
+                    PrimoDocumento = g.Min(d => d.GeneratoIl)
+                })
+                .ToListAsync();
+
+            // Filtro ricerca
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                cartelleClienti = cartelleClienti
+                    .Where(c => c.NomeCliente.Contains(search, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
+            // Ordina per nome cliente
+            cartelleClienti = cartelleClienti
+                .OrderBy(c => c.NomeCliente)
+                .ToList();
+
+            ViewBag.Search = search;
+            ViewBag.TotaleDocumenti = cartelleClienti.Sum(c => c.NumeroDocumenti);
+
+            return View(cartelleClienti);
+        }
+
+        // GET: /Documenti/ArchivioCliente/{clienteId} - Mostra documenti di un cliente
+        public async Task<IActionResult> ArchivioCliente(int clienteId, int? templateId, DateTime? dataFrom, DateTime? dataTo)
+        {
+            var cliente = await _context.Clienti.FindAsync(clienteId);
+            if (cliente == null)
+            {
+                TempData["Error"] = "Cliente non trovato.";
+                return RedirectToAction(nameof(Archivio));
+            }
+
+            var query = _context.DocumentiGenerati
                 .Include(d => d.TemplateDocumento)
                 .Include(d => d.GeneratoDa)
-                .AsQueryable();
-
-            if (clienteId.HasValue)
-                query = query.Where(d => d.ClienteId == clienteId.Value);
+                .Where(d => d.ClienteId == clienteId);
 
             if (templateId.HasValue)
                 query = query.Where(d => d.TemplateDocumentoId == templateId.Value);
@@ -516,22 +555,16 @@ namespace StudioCG.Web.Controllers
 
             var documenti = await query
                 .OrderByDescending(d => d.GeneratoIl)
-                .Take(100)
                 .ToListAsync();
 
             // Per i filtri
-            ViewBag.Clienti = await _context.Clienti
-                .Where(c => c.IsActive)
-                .OrderBy(c => c.RagioneSociale)
-                .Select(c => new { c.Id, c.RagioneSociale })
-                .ToListAsync();
-
             ViewBag.Templates = await _context.TemplateDocumenti
                 .Where(t => t.IsActive)
                 .OrderBy(t => t.Nome)
                 .Select(t => new { t.Id, t.Nome })
                 .ToListAsync();
 
+            ViewBag.Cliente = cliente;
             ViewBag.ClienteId = clienteId;
             ViewBag.TemplateId = templateId;
             ViewBag.DataFrom = dataFrom;
@@ -550,6 +583,37 @@ namespace StudioCG.Web.Controllers
             return File(doc.Contenuto, doc.ContentType, doc.NomeFile);
         }
 
+        // POST: /Documenti/DeleteCartelleClienti - Elimina tutte le cartelle (documenti) dei clienti selezionati
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteCartelleClienti(int[] clienteIds)
+        {
+            if (clienteIds == null || clienteIds.Length == 0)
+            {
+                TempData["Error"] = "Nessuna cartella selezionata.";
+                return RedirectToAction(nameof(Archivio));
+            }
+
+            var documenti = await _context.DocumentiGenerati
+                .Where(d => clienteIds.Contains(d.ClienteId))
+                .ToListAsync();
+
+            if (documenti.Any())
+            {
+                int numCartelle = clienteIds.Length;
+                int numDocumenti = documenti.Count;
+                _context.DocumentiGenerati.RemoveRange(documenti);
+                await _context.SaveChangesAsync();
+                TempData["Success"] = $"{numCartelle} cartella/e eliminata/e ({numDocumenti} documenti rimossi)!";
+            }
+            else
+            {
+                TempData["Error"] = "Nessun documento trovato nelle cartelle selezionate.";
+            }
+
+            return RedirectToAction(nameof(Archivio));
+        }
+
         // POST: /Documenti/DeleteDocumento
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -565,14 +629,31 @@ namespace StudioCG.Web.Controllers
             return RedirectToAction(nameof(Archivio));
         }
 
+        // POST: /Documenti/DeleteDocumentoCliente - Elimina e torna alla cartella cliente
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteDocumentoCliente(int id, int clienteId)
+        {
+            var doc = await _context.DocumentiGenerati.FindAsync(id);
+            if (doc != null)
+            {
+                _context.DocumentiGenerati.Remove(doc);
+                await _context.SaveChangesAsync();
+                TempData["Success"] = "Documento eliminato!";
+            }
+            return RedirectToAction(nameof(ArchivioCliente), new { clienteId });
+        }
+
         // POST: /Documenti/DeleteDocumentiMultipli
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteDocumentiMultipli(int[] ids)
+        public async Task<IActionResult> DeleteDocumentiMultipli(int[] ids, int? returnClienteId)
         {
             if (ids == null || ids.Length == 0)
             {
                 TempData["Error"] = "Nessun documento selezionato.";
+                if (returnClienteId.HasValue)
+                    return RedirectToAction(nameof(ArchivioCliente), new { clienteId = returnClienteId.Value });
                 return RedirectToAction(nameof(Archivio));
             }
 
@@ -587,6 +668,8 @@ namespace StudioCG.Web.Controllers
                 TempData["Success"] = $"{documenti.Count} documento/i eliminato/i con successo!";
             }
 
+            if (returnClienteId.HasValue)
+                return RedirectToAction(nameof(ArchivioCliente), new { clienteId = returnClienteId.Value });
             return RedirectToAction(nameof(Archivio));
         }
 
@@ -603,6 +686,18 @@ namespace StudioCG.Web.Controllers
         public int NumeroDocumentiGenerati { get; set; }
         public List<DocumentoGenerato> UltimiDocumenti { get; set; } = new();
         public bool ConfigurazionePresente { get; set; }
+    }
+
+    /// <summary>
+    /// ViewModel per la cartella cliente nell'archivio
+    /// </summary>
+    public class CartellaClienteViewModel
+    {
+        public int ClienteId { get; set; }
+        public string NomeCliente { get; set; } = string.Empty;
+        public int NumeroDocumenti { get; set; }
+        public DateTime UltimoDocumento { get; set; }
+        public DateTime PrimoDocumento { get; set; }
     }
 }
 

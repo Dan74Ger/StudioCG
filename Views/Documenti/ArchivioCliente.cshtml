@@ -1,0 +1,292 @@
+@model List<StudioCG.Web.Models.Documenti.DocumentoGenerato>
+@{
+    var cliente = ViewBag.Cliente as StudioCG.Web.Models.Cliente;
+    ViewData["Title"] = $"Documenti - {cliente?.RagioneSociale}";
+    var templates = ViewBag.Templates as dynamic;
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="@Url.Action("Index")">Documenti</a></li>
+                    <li class="breadcrumb-item"><a href="@Url.Action("Archivio")">Archivio</a></li>
+                    <li class="breadcrumb-item active">@cliente?.RagioneSociale</li>
+                </ol>
+            </nav>
+            <h2>
+                <i class="fas fa-folder-open text-warning me-2"></i>@cliente?.RagioneSociale
+            </h2>
+            <small class="text-muted">
+                <i class="fas fa-file me-1"></i>@Model.Count documento/i
+            </small>
+        </div>
+        <div>
+            <a href="@Url.Action("Genera")" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Genera Nuovo
+            </a>
+            <a href="@Url.Action("Archivio")" class="btn btn-outline-secondary ms-2">
+                <i class="fas fa-arrow-left me-1"></i>Torna all'Archivio
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Filtri -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <input type="hidden" name="clienteId" value="@ViewBag.ClienteId" />
+                <div class="col-md-4">
+                    <label class="form-label">Template</label>
+                    <select name="templateId" class="form-select">
+                        <option value="">-- Tutti --</option>
+                        @if (templates != null)
+                        {
+                            @foreach (var t in templates)
+                            {
+                                <option value="@t.Id" selected="@(ViewBag.TemplateId != null && ViewBag.TemplateId == t.Id)">@t.Nome</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Da</label>
+                    <input type="date" name="dataFrom" class="form-control" value="@(ViewBag.DataFrom != null ? ((DateTime)ViewBag.DataFrom).ToString("yyyy-MM-dd") : "")" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">A</label>
+                    <input type="date" name="dataTo" class="form-control" value="@(ViewBag.DataTo != null ? ((DateTime)ViewBag.DataTo).ToString("yyyy-MM-dd") : "")" />
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter me-1"></i>Filtra
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista Documenti -->
+    <div class="card">
+        @if (Model.Any())
+        {
+            <!-- Barra azioni multi-selezione -->
+            <div class="card-header bg-light d-flex justify-content-between align-items-center py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center">
+                        <input type="checkbox" id="selectAll" class="form-check-input checkbox-nero m-0" title="Seleziona tutti">
+                        <label class="form-check-label ms-2" for="selectAll" style="cursor: pointer;">Seleziona tutti</label>
+                    </div>
+                    <span id="selectedCount" class="text-muted small"></span>
+                </div>
+                <button type="button" id="btnDeleteSelected" class="btn btn-danger btn-sm" style="display: none;">
+                    <i class="fas fa-trash me-1"></i>Elimina selezionati (<span id="deleteCount">0</span>)
+                </button>
+            </div>
+        }
+        <div class="card-body p-0">
+            @if (Model.Any())
+            {
+                <form id="formDeleteMultiple" asp-action="DeleteDocumentiMultipli" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="returnClienteId" value="@ViewBag.ClienteId" />
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 50px;" class="text-center">Sel.</th>
+                                <th>Data</th>
+                                <th>Template</th>
+                                <th>File</th>
+                                <th>Tipo</th>
+                                <th>Generato da</th>
+                                <th class="text-end">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var doc in Model)
+                            {
+                                <tr class="doc-row">
+                                    <td class="text-center align-middle">
+                                        <div class="form-check d-flex justify-content-center">
+                                            <input type="checkbox" name="ids" value="@doc.Id" class="form-check-input checkbox-nero doc-checkbox">
+                                        </div>
+                                    </td>
+                                    <td class="align-middle">@doc.GeneratoIl.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td class="align-middle">@doc.TemplateDocumento?.Nome</td>
+                                    <td class="align-middle"><small class="text-muted">@doc.NomeFile</small></td>
+                                    <td class="align-middle">
+                                        @if (doc.TipoOutput == StudioCG.Web.Models.Documenti.TipoOutputDocumento.PDF)
+                                        {
+                                            <span class="badge bg-danger"><i class="fas fa-file-pdf me-1"></i>PDF</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-primary"><i class="fas fa-file-word me-1"></i>Word</span>
+                                        }
+                                    </td>
+                                    <td class="align-middle"><small>@doc.GeneratoDa?.Username</small></td>
+                                    <td class="text-end align-middle">
+                                        <a href="@Url.Action("DownloadDocumento", new { id = doc.Id })" class="btn btn-sm btn-outline-primary" title="Scarica">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-danger btn-delete-single" data-id="@doc.Id" title="Elimina">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </form>
+            }
+            else
+            {
+                <div class="text-center py-5 text-muted">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <p>Nessun documento trovato per questo cliente.</p>
+                    <a href="@Url.Action("Genera")" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>Genera un documento
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Form nascosto per eliminazione singola -->
+<form id="formDeleteSingle" asp-action="DeleteDocumentoCliente" method="post" style="display:none;">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="id" id="deleteDocId" />
+    <input type="hidden" name="clienteId" value="@ViewBag.ClienteId" />
+</form>
+
+<style>
+    /* Checkbox nero ben visibile */
+    .checkbox-nero {
+        width: 22px;
+        height: 22px;
+        border: 3px solid #212529 !important;
+        background-color: #fff;
+        cursor: pointer;
+    }
+    .checkbox-nero:checked {
+        background-color: #212529 !important;
+        border-color: #212529 !important;
+    }
+    .checkbox-nero:focus {
+        box-shadow: 0 0 0 0.25rem rgba(33, 37, 41, 0.25);
+    }
+    
+    /* Riga selezionata evidenziata */
+    .doc-row.selected {
+        background-color: #f8f9fa !important;
+        border-left: 4px solid #212529;
+    }
+    .doc-row.selected td:first-child {
+        border-left: 4px solid #212529;
+    }
+    
+    /* Hover sulla riga */
+    .doc-row:hover {
+        background-color: #f1f3f4;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const docCheckboxes = document.querySelectorAll('.doc-checkbox');
+    const btnDeleteSelected = document.getElementById('btnDeleteSelected');
+    const deleteCountSpan = document.getElementById('deleteCount');
+    const selectedCountSpan = document.getElementById('selectedCount');
+    const formDeleteMultiple = document.getElementById('formDeleteMultiple');
+    
+    // Gestione Seleziona tutti
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            docCheckboxes.forEach(cb => {
+                cb.checked = this.checked;
+                updateRowStyle(cb);
+            });
+            updateSelectionCount();
+        });
+    }
+    
+    // Gestione singole checkbox
+    docCheckboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+            updateRowStyle(this);
+            updateSelectionCount();
+        });
+    });
+    
+    function updateRowStyle(checkbox) {
+        const row = checkbox.closest('.doc-row');
+        if (checkbox.checked) {
+            row.classList.add('selected');
+        } else {
+            row.classList.remove('selected');
+        }
+    }
+    
+    function updateSelectionCount() {
+        const checkedCount = document.querySelectorAll('.doc-checkbox:checked').length;
+        const totalCount = docCheckboxes.length;
+        
+        if (checkedCount > 0) {
+            btnDeleteSelected.style.display = 'inline-block';
+            deleteCountSpan.textContent = checkedCount;
+            selectedCountSpan.textContent = `${checkedCount} di ${totalCount} selezionati`;
+        } else {
+            btnDeleteSelected.style.display = 'none';
+            selectedCountSpan.textContent = '';
+        }
+        
+        // Aggiorna stato "Seleziona tutti"
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = checkedCount === totalCount && totalCount > 0;
+            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < totalCount;
+        }
+    }
+    
+    // Elimina selezionati
+    if (btnDeleteSelected) {
+        btnDeleteSelected.addEventListener('click', function() {
+            const checkedCount = document.querySelectorAll('.doc-checkbox:checked').length;
+            if (checkedCount === 0) return;
+            
+            if (confirm(`Sei sicuro di voler eliminare ${checkedCount} documento/i selezionato/i?`)) {
+                formDeleteMultiple.submit();
+            }
+        });
+    }
+    
+    // Elimina singolo documento
+    document.querySelectorAll('.btn-delete-single').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const docId = this.dataset.id;
+            if (confirm('Eliminare questo documento?')) {
+                document.getElementById('deleteDocId').value = docId;
+                document.getElementById('formDeleteSingle').submit();
+            }
+        });
+    });
+});
+</script>
