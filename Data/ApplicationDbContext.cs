@@ -741,6 +741,29 @@ namespace StudioCG.Web.Data
                     Category = "DOCUMENTI",
                     DisplayOrder = 45,
                     ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 307,
+                    PageName = "Controllo Antiriciclaggio",
+                    PageUrl = "/Documenti/ControlloAntiriciclaggio",
+                    Description = "Controllo scadenze documenti antiriciclaggio",
+                    Icon = "fas fa-shield-alt",
+                    Category = "DOCUMENTI",
+                    DisplayOrder = 46,
+                    ShowInMenu = true
+                },
+                // Permesso Scadenze Documenti Identità (in ANAGRAFICA)
+                new Permission
+                {
+                    Id = 103,
+                    PageName = "Scadenze Documenti Identità",
+                    PageUrl = "/Clienti/ScadenzeDocumenti",
+                    Description = "Gestione scadenze documenti identità soggetti",
+                    Icon = "fas fa-id-card",
+                    Category = "ANAGRAFICA",
+                    DisplayOrder = 13,
+                    ShowInMenu = true
                 }
             );
 
