@@ -20,6 +20,11 @@
         </h4>
     </div>
     <div class="btn-group">
+        <form asp-action="FixStatiNulli" method="post" class="d-inline me-2">
+            <button type="submit" class="btn btn-warning" title="Corregge tutte le attività senza stato assegnando lo stato di default">
+                <i class="fas fa-wrench me-1"></i>Correggi Stati
+            </button>
+        </form>
         @if (annoPrecedente != null && attivitaAnnoPrecedente.Any(a => a.ClientiAttivita.Any()))
         {
             <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#copiaModal">
@@ -61,11 +66,18 @@ else
         @foreach (var attivita in Model)
         {
             var totaleClienti = attivita.ClientiAttivita.Count;
-            var daFare = attivita.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.DaFare);
-            var completate = attivita.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.Completata);
-            var daInviareEntratel = attivita.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.DaInviareEntratel);
-            var drInviate = attivita.ClientiAttivita.Count(ca => ca.Stato == StatoAttivita.DRInviate);
-            var percentualeCompletate = totaleClienti > 0 ? (drInviate * 100 / totaleClienti) : 0;
+            var statiAttivita = attivita.AttivitaTipo?.Stati.Where(s => s.IsActive).OrderBy(s => s.DisplayOrder).ToList() ?? new List<StatoAttivitaTipo>();
+            
+            // Conta clienti per ogni stato
+            var statsPerStato = statiAttivita.ToDictionary(
+                s => s.Id,
+                s => attivita.ClientiAttivita.Count(ca => ca.StatoAttivitaTipoId == s.Id)
+            );
+            
+            // Calcola completamento in base agli stati finali
+            var statiFinali = statiAttivita.Where(s => s.IsFinale).Select(s => s.Id).ToHashSet();
+            var completati = attivita.ClientiAttivita.Count(ca => ca.StatoAttivitaTipoId.HasValue && statiFinali.Contains(ca.StatoAttivitaTipoId.Value));
+            var percentualeCompletate = totaleClienti > 0 ? (completati * 100 / totaleClienti) : 0;
             
             <div class="col-md-6 col-lg-4 mb-4">
                 <div class="card h-100">
@@ -86,23 +98,19 @@ else
                             <div class="progress-bar bg-success" role="progressbar" style="width: @percentualeCompletate%"></div>
                         </div>
                         
-                        <div class="row text-center">
-                            <div class="col-3">
-                                <div class="small text-muted">Da Fare</div>
-                                <div class="fs-6 text-secondary">@daFare</div>
-                            </div>
-                            <div class="col-3">
-                                <div class="small text-muted">Completate</div>
-                                <div class="fs-6 text-warning">@completate</div>
-                            </div>
-                            <div class="col-3">
-                                <div class="small text-muted">Da inviare</div>
-                                <div class="fs-6" style="color: #fd7e14;">@daInviareEntratel</div>
-                            </div>
-                            <div class="col-3">
-                                <div class="small text-muted">DR Inv.</div>
-                                <div class="fs-6 text-success">@drInviate</div>
-                            </div>
+                        <!-- Stati dinamici -->
+                        <div class="d-flex flex-wrap gap-1 justify-content-center">
+                            @foreach (var stato in statiAttivita.Take(4))
+                            {
+                                var count = statsPerStato.GetValueOrDefault(stato.Id, 0);
+                                <span class="badge px-2 py-1" style="background-color: @stato.ColoreSfondo; color: @stato.ColoreTesto; font-size: 0.75em;">
+                                    <i class="@stato.Icon me-1"></i>@count
+                                </span>
+                            }
+                            @if (statiAttivita.Count > 4)
+                            {
+                                <span class="badge bg-secondary px-2 py-1" style="font-size: 0.75em;">+@(statiAttivita.Count - 4)</span>
+                            }
                         </div>
                     </div>
                     <div class="card-footer bg-transparent">

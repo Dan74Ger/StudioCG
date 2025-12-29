@@ -40,8 +40,8 @@
                     var isAssociato = attivitaAnnuale != null;
                     
                     <div class="col-md-4 col-lg-3 mb-3">
-                        <div class="card @(isAssociato ? "border-primary" : "")">
-                            <div class="card-body text-center p-3">
+                        <div class="card @(isAssociato ? "border-dark border-3" : "")" style="@(isAssociato ? "box-shadow: 0 0 0 2px #000;" : "")">
+                            <div class="card-body text-center p-3 @(isAssociato ? "bg-light" : "")">
                                 <form asp-action="ToggleAnno" method="post">
                                     <input type="hidden" name="tipoId" value="@Model.Id" />
                                     <input type="hidden" name="annualitaId" value="@anno.Id" />

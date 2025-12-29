@@ -1,0 +1,303 @@
+@model StudioCG.Web.Models.AttivitaTipo
+@using StudioCG.Web.Models
+
+@{
+    ViewData["Title"] = $"Stati - {Model.Nome}";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-1">
+            <i class="@Model.Icon me-2"></i>@Model.Nome
+        </h4>
+        <p class="text-muted mb-0">Gestione stati/azioni del tipo attività</p>
+    </div>
+    <div>
+        <a asp-action="Campi" asp-route-id="@Model.Id" class="btn btn-outline-primary me-2">
+            <i class="fas fa-columns me-1"></i>Gestisci Campi
+        </a>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Torna all'elenco
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Lista Stati -->
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="fas fa-tags me-2"></i>Stati Configurati (@Model.Stati.Count)</h6>
+            </div>
+            <div class="card-body p-0">
+                @if (!Model.Stati.Any())
+                {
+                    <div class="p-4 text-center text-muted">
+                        <i class="fas fa-inbox fa-3x mb-3 opacity-50"></i>
+                        <p>Nessuno stato configurato.<br>Usa il form a destra per aggiungere stati.</p>
+                    </div>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var stato in Model.Stati)
+                        {
+                            <li class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center">
+                                        <!-- Badge con colori dinamici -->
+                                        <span class="badge me-3 px-3 py-2" style="background-color: @stato.ColoreSfondo; color: @stato.ColoreTesto; min-width: 140px;">
+                                            <i class="@stato.Icon me-1"></i>@stato.Nome
+                                        </span>
+                                        
+                                        <!-- Flag -->
+                                        @if (stato.IsDefault)
+                                        {
+                                            <span class="badge bg-warning text-dark me-1" title="Stato predefinito per nuove attività">
+                                                <i class="fas fa-star"></i> Default
+                                            </span>
+                                        }
+                                        @if (stato.IsFinale)
+                                        {
+                                            <span class="badge bg-success me-1" title="Stato di completamento (per statistiche)">
+                                                <i class="fas fa-flag-checkered"></i> Finale
+                                            </span>
+                                        }
+                                    </div>
+                                    
+                                    <div class="btn-group btn-group-sm">
+                                        <!-- Sposta su -->
+                                        <form asp-action="MoveStatoUp" asp-route-id="@stato.Id" method="post" class="d-inline">
+                                            <button type="submit" class="btn btn-outline-secondary" title="Sposta su">
+                                                <i class="fas fa-arrow-up"></i>
+                                            </button>
+                                        </form>
+                                        <!-- Sposta giù -->
+                                        <form asp-action="MoveStatoDown" asp-route-id="@stato.Id" method="post" class="d-inline">
+                                            <button type="submit" class="btn btn-outline-secondary" title="Sposta giù">
+                                                <i class="fas fa-arrow-down"></i>
+                                            </button>
+                                        </form>
+                                        <!-- Set Default -->
+                                        <form asp-action="SetDefaultStato" asp-route-id="@stato.Id" method="post" class="d-inline">
+                                            <button type="submit" class="btn @(stato.IsDefault ? "btn-warning" : "btn-outline-warning")" title="Imposta come stato predefinito">
+                                                <i class="fas fa-star"></i>
+                                            </button>
+                                        </form>
+                                        <!-- Set Finale -->
+                                        <form asp-action="SetFinaleStato" asp-route-id="@stato.Id" method="post" class="d-inline">
+                                            <button type="submit" class="btn @(stato.IsFinale ? "btn-success" : "btn-outline-success")" title="Segna come stato finale">
+                                                <i class="fas fa-flag-checkered"></i>
+                                            </button>
+                                        </form>
+                                        <!-- Modifica -->
+                                        <button type="button" class="btn btn-outline-primary" title="Modifica" 
+                                                data-bs-toggle="modal" data-bs-target="#editModal@(stato.Id)">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <!-- Elimina -->
+                                        <form asp-action="DeleteStato" asp-route-id="@stato.Id" method="post" class="d-inline" 
+                                              onsubmit="return confirm('Eliminare lo stato \'@stato.Nome\'?');">
+                                            <button type="submit" class="btn btn-outline-danger" title="Elimina">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+
+                                <!-- Modal Modifica -->
+                                <div class="modal fade" id="editModal@(stato.Id)" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <form asp-action="UpdateStato" method="post">
+                                                <input type="hidden" name="id" value="@stato.Id" />
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Modifica Stato</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Nome Stato *</label>
+                                                        <input type="text" name="nome" class="form-control" value="@stato.Nome" required />
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Icona</label>
+                                                        <input type="text" name="icon" class="form-control" value="@stato.Icon" placeholder="fas fa-check" />
+                                                        <small class="text-muted">Usa classi Font Awesome (es. fas fa-check, fas fa-clock)</small>
+                                                    </div>
+                                                    <div class="row mb-3">
+                                                        <div class="col-6">
+                                                            <label class="form-label">Colore Testo</label>
+                                                            <input type="color" name="coloreTesto" class="form-control form-control-color w-100" value="@stato.ColoreTesto" />
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <label class="form-label">Colore Sfondo</label>
+                                                            <input type="color" name="coloreSfondo" class="form-control form-control-color w-100" value="@stato.ColoreSfondo" />
+                                                        </div>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Anteprima</label>
+                                                        <div class="p-3 border rounded text-center" id="preview@(stato.Id)">
+                                                            <span class="badge px-3 py-2" style="background-color: @stato.ColoreSfondo; color: @stato.ColoreTesto;">
+                                                                <i class="@stato.Icon me-1"></i>@stato.Nome
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                                                    <button type="submit" class="btn btn-primary">Salva Modifiche</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+
+        <!-- Legenda -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6><i class="fas fa-info-circle me-2"></i>Legenda</h6>
+                <ul class="mb-0 small">
+                    <li><strong><i class="fas fa-star text-warning"></i> Default</strong>: Stato assegnato automaticamente ai nuovi clienti quando vengono aggiunti all'attività</li>
+                    <li><strong><i class="fas fa-flag-checkered text-success"></i> Finale</strong>: Stato che indica il completamento (usato per le statistiche)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form Aggiungi Stato -->
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Aggiungi Stato</h6>
+            </div>
+            <div class="card-body">
+                <form asp-action="AddStato" method="post">
+                    <input type="hidden" name="AttivitaTipoId" value="@Model.Id" />
+
+                    <div class="mb-3">
+                        <label class="form-label">Nome Stato *</label>
+                        <input type="text" name="Nome" id="newNome" class="form-control" required placeholder="Es. In Lavorazione" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Icona</label>
+                        <input type="text" name="Icon" id="newIcon" class="form-control" value="fas fa-circle" placeholder="fas fa-circle" />
+                        <small class="text-muted">Classi Font Awesome - <a href="https://fontawesome.com/icons" target="_blank">Cerca icone</a></small>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Colore Testo</label>
+                            <input type="color" name="ColoreTesto" id="newColoreTesto" class="form-control form-control-color w-100" value="#FFFFFF" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Colore Sfondo</label>
+                            <input type="color" name="ColoreSfondo" id="newColoreSfondo" class="form-control form-control-color w-100" value="#6c757d" />
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="IsDefault" value="true" id="newIsDefault" />
+                                <label class="form-check-label" for="newIsDefault">
+                                    <i class="fas fa-star text-warning"></i> Default
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="IsFinale" value="true" id="newIsFinale" />
+                                <label class="form-check-label" for="newIsFinale">
+                                    <i class="fas fa-flag-checkered text-success"></i> Finale
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Anteprima</label>
+                        <div class="p-3 border rounded text-center" id="newPreview">
+                            <span class="badge px-3 py-2" id="newBadgePreview" style="background-color: #6c757d; color: #FFFFFF;">
+                                <i class="fas fa-circle me-1" id="newIconPreview"></i><span id="newNomePreview">Nuovo Stato</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-plus me-1"></i>Aggiungi Stato
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Preset Colori -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-palette me-2"></i>Preset Colori Rapidi</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-sm preset-color" style="background-color: #ffc107; color: #000000;" 
+                            data-bg="#ffc107" data-text="#000000">Da Fare</button>
+                    <button type="button" class="btn btn-sm preset-color" style="background-color: #28a745; color: #FFFFFF;" 
+                            data-bg="#28a745" data-text="#FFFFFF">Completato</button>
+                    <button type="button" class="btn btn-sm preset-color" style="background-color: #17a2b8; color: #FFFFFF;" 
+                            data-bg="#17a2b8" data-text="#FFFFFF">Info</button>
+                    <button type="button" class="btn btn-sm preset-color" style="background-color: #6f42c1; color: #FFFFFF;" 
+                            data-bg="#6f42c1" data-text="#FFFFFF">Viola</button>
+                    <button type="button" class="btn btn-sm preset-color" style="background-color: #dc3545; color: #FFFFFF;" 
+                            data-bg="#dc3545" data-text="#FFFFFF">Rosso</button>
+                    <button type="button" class="btn btn-sm preset-color" style="background-color: #fd7e14; color: #FFFFFF;" 
+                            data-bg="#fd7e14" data-text="#FFFFFF">Arancione</button>
+                    <button type="button" class="btn btn-sm preset-color" style="background-color: #20c997; color: #FFFFFF;" 
+                            data-bg="#20c997" data-text="#FFFFFF">Verde Acqua</button>
+                    <button type="button" class="btn btn-sm preset-color" style="background-color: #6c757d; color: #FFFFFF;" 
+                            data-bg="#6c757d" data-text="#FFFFFF">Grigio</button>
+                </div>
+                <small class="text-muted d-block mt-2">Clicca per applicare al nuovo stato</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // Anteprima nuovo stato
+    function updateNewPreview() {
+        const nome = document.getElementById('newNome').value || 'Nuovo Stato';
+        const icon = document.getElementById('newIcon').value || 'fas fa-circle';
+        const coloreTesto = document.getElementById('newColoreTesto').value;
+        const coloreSfondo = document.getElementById('newColoreSfondo').value;
+
+        const badge = document.getElementById('newBadgePreview');
+        badge.style.backgroundColor = coloreSfondo;
+        badge.style.color = coloreTesto;
+
+        document.getElementById('newNomePreview').textContent = nome;
+        document.getElementById('newIconPreview').className = icon + ' me-1';
+    }
+
+    document.getElementById('newNome').addEventListener('input', updateNewPreview);
+    document.getElementById('newIcon').addEventListener('input', updateNewPreview);
+    document.getElementById('newColoreTesto').addEventListener('input', updateNewPreview);
+    document.getElementById('newColoreSfondo').addEventListener('input', updateNewPreview);
+
+    // Preset colori
+    document.querySelectorAll('.preset-color').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('newColoreSfondo').value = this.dataset.bg;
+            document.getElementById('newColoreTesto').value = this.dataset.text;
+            updateNewPreview();
+        });
+    });
+</script>
+}
+

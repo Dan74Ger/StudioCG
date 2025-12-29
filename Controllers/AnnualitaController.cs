@@ -141,9 +141,22 @@ namespace StudioCG.Web.Controllers
 
             var annualita = await _context.AnnualitaFiscali
                 .Include(a => a.AttivitaAnnuali)
+                    .ThenInclude(aa => aa.ClientiAttivita)
+                        .ThenInclude(ca => ca.Valori)
+                .Include(a => a.AttivitaAnnuali)
+                    .ThenInclude(aa => aa.AttivitaTipo)
                 .FirstOrDefaultAsync(a => a.Id == id);
 
             if (annualita == null) return NotFound();
+
+            // Conta statistiche per avviso
+            var totaleAttivita = annualita.AttivitaAnnuali.Count;
+            var totaleClientiAttivita = annualita.AttivitaAnnuali.Sum(aa => aa.ClientiAttivita.Count);
+            var totaleValori = annualita.AttivitaAnnuali.Sum(aa => aa.ClientiAttivita.Sum(ca => ca.Valori.Count));
+
+            ViewBag.TotaleAttivita = totaleAttivita;
+            ViewBag.TotaleClientiAttivita = totaleClientiAttivita;
+            ViewBag.TotaleValori = totaleValori;
 
             return View(annualita);
         }
@@ -153,12 +166,42 @@ namespace StudioCG.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var annualita = await _context.AnnualitaFiscali.FindAsync(id);
+            var annualita = await _context.AnnualitaFiscali
+                .Include(a => a.AttivitaAnnuali)
+                    .ThenInclude(aa => aa.ClientiAttivita)
+                        .ThenInclude(ca => ca.Valori)
+                .FirstOrDefaultAsync(a => a.Id == id);
+
             if (annualita != null)
             {
+                // Elimina prima tutti i valori delle attività cliente
+                foreach (var attivitaAnnuale in annualita.AttivitaAnnuali)
+                {
+                    foreach (var clienteAttivita in attivitaAnnuale.ClientiAttivita)
+                    {
+                        if (clienteAttivita.Valori.Any())
+                        {
+                            _context.ClientiAttivitaValori.RemoveRange(clienteAttivita.Valori);
+                        }
+                    }
+                    
+                    // Elimina i clienti attività
+                    if (attivitaAnnuale.ClientiAttivita.Any())
+                    {
+                        _context.ClientiAttivita.RemoveRange(attivitaAnnuale.ClientiAttivita);
+                    }
+                }
+
+                // Elimina le attività annuali
+                if (annualita.AttivitaAnnuali.Any())
+                {
+                    _context.AttivitaAnnuali.RemoveRange(annualita.AttivitaAnnuali);
+                }
+
+                // Infine elimina l'anno fiscale
                 _context.AnnualitaFiscali.Remove(annualita);
                 await _context.SaveChangesAsync();
-                TempData["Success"] = "Anno fiscale eliminato con successo.";
+                TempData["Success"] = $"Anno fiscale {annualita.Anno} eliminato con successo insieme a tutti i dati collegati.";
             }
             return RedirectToAction(nameof(Index));
         }
@@ -237,6 +280,13 @@ namespace StudioCG.Web.Controllers
                     // Copia anche i clienti se richiesto
                     if (copiaClienti)
                     {
+                        // Trova lo stato default per questa attività (con fallback al primo disponibile)
+                        var statoDefault = await _context.StatiAttivitaTipo
+                            .Where(s => s.AttivitaTipoId == attivitaPrecedente.AttivitaTipoId && s.IsActive)
+                            .OrderByDescending(s => s.IsDefault)
+                            .ThenBy(s => s.DisplayOrder)
+                            .FirstOrDefaultAsync();
+
                         foreach (var clienteAttivita in attivitaPrecedente.ClientiAttivita)
                         {
                             var nuovoClienteAttivita = new ClienteAttivita
@@ -244,6 +294,7 @@ namespace StudioCG.Web.Controllers
                                 ClienteId = clienteAttivita.ClienteId,
                                 AttivitaAnnualeId = nuovaAttivitaAnnuale.Id,
                                 Stato = StatoAttivita.DaFare,
+                                StatoAttivitaTipoId = statoDefault?.Id,
                                 CreatedAt = DateTime.Now
                             };
                             _context.ClientiAttivita.Add(nuovoClienteAttivita);

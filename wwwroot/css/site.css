@@ -29,3 +29,86 @@ body {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
   text-align: start;
 }
+
+/* Checkbox con bordo nero visibile su sfondo bianco */
+input.form-check-input,
+input.form-check-input[type="checkbox"],
+.form-check input[type="checkbox"],
+input[type="checkbox"].form-check-input {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  border: 3px solid #000000 !important;
+  background-color: #ffffff !important;
+  width: 1.3em !important;
+  height: 1.3em !important;
+  border-radius: 0.25em !important;
+  cursor: pointer !important;
+  position: relative !important;
+}
+
+input.form-check-input:checked,
+input.form-check-input[type="checkbox"]:checked,
+.form-check input[type="checkbox"]:checked,
+input[type="checkbox"].form-check-input:checked {
+  background-color: #0d6efd !important;
+  border-color: #000000 !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e") !important;
+  background-size: 100% !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+}
+
+input.form-check-input:focus,
+input.form-check-input[type="checkbox"]:focus {
+  border-color: #000000 !important;
+  box-shadow: 0 0 0 0.25rem rgba(0, 0, 0, 0.25) !important;
+  outline: none !important;
+}
+
+/* Campi input, select, textarea con bordo visibile */
+.form-control,
+.form-select,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="datetime-local"],
+input[type="tel"],
+input[type="url"],
+input[type="search"],
+textarea,
+select {
+  border: 2px solid #333333 !important;
+  background-color: #ffffff !important;
+}
+
+.form-control:focus,
+.form-select:focus,
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus,
+input[type="datetime-local"]:focus,
+input[type="tel"]:focus,
+input[type="url"]:focus,
+input[type="search"]:focus,
+textarea:focus,
+select:focus {
+  border-color: #0d6efd !important;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+  outline: none !important;
+}
+
+/* Campi disabilitati */
+.form-control:disabled,
+.form-select:disabled,
+.form-control[readonly],
+input:disabled,
+textarea:disabled,
+select:disabled {
+  background-color: #e9ecef !important;
+  border-color: #6c757d !important;
+}

@@ -28,6 +28,7 @@ namespace StudioCG.Web.Models
         // Navigation properties
         public virtual ICollection<AttivitaCampo> Campi { get; set; } = new List<AttivitaCampo>();
         public virtual ICollection<AttivitaAnnuale> AttivitaAnnuali { get; set; } = new List<AttivitaAnnuale>();
+        public virtual ICollection<StatoAttivitaTipo> Stati { get; set; } = new List<StatoAttivitaTipo>();
     }
 }
 

@@ -4,6 +4,7 @@
 @{
     ViewData["Title"] = $"{Model.AttivitaAnnuale?.AttivitaTipo?.Nome} - {Model.Cliente?.RagioneSociale}";
     var annoId = Model.AttivitaAnnuale?.AnnualitaFiscaleId;
+    var statiDisponibili = ViewBag.StatiDisponibili as List<StatoAttivitaTipo> ?? new List<StatoAttivitaTipo>();
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -72,21 +73,22 @@
                     <div class="row mb-4">
                         <div class="col-md-6">
                             <label class="form-label">Stato</label>
-                            <select name="stato" class="form-select">
-                                @{
-                                    var stati = new[] {
-                                        (StatoAttivita.DaFare, "Da Fare"),
-                                        (StatoAttivita.Completata, "Completata"),
-                                        (StatoAttivita.DaInviareEntratel, "Da inviare Entratel"),
-                                        (StatoAttivita.DRInviate, "DR Inviate"),
-                                        (StatoAttivita.Sospesa, "Sospesa")
-                                    };
-                                }
-                                @foreach (var (stato, nome) in stati)
+                            <select name="statoId" class="form-select">
+                                @foreach (var stato in statiDisponibili)
                                 {
-                                    <option value="@((int)stato)" selected="@(Model.Stato == stato)">@nome</option>
+                                    <option value="@stato.Id" selected="@(Model.StatoAttivitaTipoId == stato.Id)">
+                                        @stato.Nome
+                                    </option>
                                 }
                             </select>
+                            @if (Model.StatoAttivitaTipoNav != null)
+                            {
+                                <div class="mt-2">
+                                    <span class="badge px-2 py-1" style="background-color: @Model.StatoAttivitaTipoNav.ColoreSfondo; color: @Model.StatoAttivitaTipoNav.ColoreTesto;">
+                                        <i class="@Model.StatoAttivitaTipoNav.Icon me-1"></i>@Model.StatoAttivitaTipoNav.Nome
+                                    </span>
+                                </div>
+                            }
                         </div>
                         <div class="col-md-6">
                             @if (Model.DataCompletamento.HasValue)

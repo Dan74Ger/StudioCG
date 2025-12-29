@@ -242,7 +242,7 @@
                             var clienteAttivita = Model.Attivita.FirstOrDefault(ca => ca.AttivitaAnnualeId == attivita.Id);
                             var isAssegnata = clienteAttivita != null;
                             
-                            <li class="list-group-item">
+                            <li class="list-group-item @(isAssegnata ? "bg-light" : "")">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div class="form-check">
                                         <form asp-action="ToggleAttivita" method="post" class="d-inline">
@@ -252,7 +252,7 @@
                                             <input type="hidden" name="annoId" value="@annoCorrente?.Id" />
                                             <input type="checkbox" class="form-check-input" @(isAssegnata ? "checked" : "") 
                                                    onchange="this.form.submit()" />
-                                            <label class="form-check-label ms-1">
+                                            <label class="form-check-label ms-1 @(isAssegnata ? "fw-bold" : "")">
                                                 <i class="@attivita.AttivitaTipo?.Icon me-1"></i>
                                                 @attivita.AttivitaTipo?.Nome
                                             </label>
@@ -261,23 +261,33 @@
                                     @if (isAssegnata)
                                     {
                                         <div>
-                                            @switch (clienteAttivita!.Stato)
+                                            @if (clienteAttivita!.StatoAttivitaTipoNav != null)
                                             {
-                                                case StatoAttivita.DaFare:
-                                                    <span class="badge bg-secondary">Da Fare</span>
-                                                    break;
-                                                case StatoAttivita.Completata:
-                                                    <span class="badge bg-warning text-dark">Completata</span>
-                                                    break;
-                                                case StatoAttivita.DaInviareEntratel:
-                                                    <span class="badge text-white" style="background-color: #fd7e14;">Da inviare</span>
-                                                    break;
-                                                case StatoAttivita.DRInviate:
-                                                    <span class="badge bg-success">DR Inviate</span>
-                                                    break;
-                                                case StatoAttivita.Sospesa:
-                                                    <span class="badge bg-danger">Sospesa</span>
-                                                    break;
+                                                <span class="badge px-2 py-1" style="background-color: @clienteAttivita.StatoAttivitaTipoNav.ColoreSfondo; color: @clienteAttivita.StatoAttivitaTipoNav.ColoreTesto;">
+                                                    <i class="@clienteAttivita.StatoAttivitaTipoNav.Icon me-1"></i>@clienteAttivita.StatoAttivitaTipoNav.Nome
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                @* Fallback per retrocompatibilità *@
+                                                @switch (clienteAttivita.Stato)
+                                                {
+                                                    case StatoAttivita.DaFare:
+                                                        <span class="badge bg-secondary">Da Fare</span>
+                                                        break;
+                                                    case StatoAttivita.Completata:
+                                                        <span class="badge bg-warning text-dark">Completata</span>
+                                                        break;
+                                                    case StatoAttivita.DaInviareEntratel:
+                                                        <span class="badge text-white" style="background-color: #fd7e14;">Da inviare</span>
+                                                        break;
+                                                    case StatoAttivita.DRInviate:
+                                                        <span class="badge bg-success">DR Inviate</span>
+                                                        break;
+                                                    case StatoAttivita.Sospesa:
+                                                        <span class="badge bg-danger">Sospesa</span>
+                                                        break;
+                                                }
                                             }
                                             <a asp-controller="Attivita" asp-action="ClienteAttivita" asp-route-id="@clienteAttivita.Id" 
                                                class="btn btn-sm btn-outline-primary ms-1" title="Gestisci">

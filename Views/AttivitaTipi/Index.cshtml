@@ -27,6 +27,7 @@
                             <th style="width: 50px;">Icona</th>
                             <th>Nome</th>
                             <th>Campi</th>
+                            <th>Stati</th>
                             <th>Anni Attivi</th>
                             <th>Stato</th>
                             <th style="width: 200px;">Azioni</th>
@@ -48,6 +49,9 @@
                                 </td>
                                 <td>
                                     <span class="badge bg-secondary">@tipo.Campi.Count campi</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">@tipo.Stati.Count stati</span>
                                 </td>
                                 <td>
                                     @foreach (var aa in tipo.AttivitaAnnuali.OrderByDescending(a => a.AnnualitaFiscale?.Anno).Take(3))
@@ -73,6 +77,9 @@
                                     <div class="btn-group btn-group-sm">
                                         <a asp-action="Campi" asp-route-id="@tipo.Id" class="btn btn-outline-primary" title="Gestisci Campi">
                                             <i class="fas fa-list"></i>
+                                        </a>
+                                        <a asp-action="Stati" asp-route-id="@tipo.Id" class="btn btn-outline-success" title="Gestisci Stati">
+                                            <i class="fas fa-tags"></i>
                                         </a>
                                         <a asp-action="Anni" asp-route-id="@tipo.Id" class="btn btn-outline-info" title="Gestisci Anni">
                                             <i class="fas fa-calendar"></i>

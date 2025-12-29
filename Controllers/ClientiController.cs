@@ -86,6 +86,8 @@ namespace StudioCG.Web.Controllers
                 .Include(c => c.Attivita)
                     .ThenInclude(a => a.AttivitaAnnuale)
                         .ThenInclude(aa => aa!.AnnualitaFiscale)
+                .Include(c => c.Attivita)
+                    .ThenInclude(a => a.StatoAttivitaTipoNav)
                 .FirstOrDefaultAsync(c => c.Id == id);
 
             if (cliente == null) return NotFound();

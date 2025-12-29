@@ -2,45 +2,150 @@
 
 @{
     ViewData["Title"] = $"Elimina Anno {Model.Anno}";
+    var totaleAttivita = (int)(ViewBag.TotaleAttivita ?? 0);
+    var totaleClientiAttivita = (int)(ViewBag.TotaleClientiAttivita ?? 0);
+    var totaleValori = (int)(ViewBag.TotaleValori ?? 0);
+    var haDati = totaleAttivita > 0 || totaleClientiAttivita > 0 || totaleValori > 0;
 }
 
-<div class="card border-danger">
+<div class="card border-danger shadow">
     <div class="card-header bg-danger text-white">
-        <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Conferma Eliminazione</h5>
+        <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>⚠️ ATTENZIONE - Eliminazione Anno Fiscale</h5>
     </div>
     <div class="card-body">
-        <p class="lead">Sei sicuro di voler eliminare l'anno fiscale <strong>@Model.Anno</strong>?</p>
+        <div class="alert alert-danger border-danger mb-4">
+            <h5 class="alert-heading"><i class="fas fa-bomb me-2"></i>OPERAZIONE IRREVERSIBILE!</h5>
+            <p class="mb-0">Stai per eliminare l'anno fiscale <strong class="fs-4">@Model.Anno</strong> e <strong>TUTTI i dati collegati</strong>.</p>
+            <p class="mb-0 mt-2"><strong>Questa operazione NON può essere annullata!</strong></p>
+        </div>
         
-        @if (Model.AttivitaAnnuali.Any())
+        @if (haDati)
         {
-            <div class="alert alert-warning">
-                <i class="fas fa-exclamation-circle me-2"></i>
-                <strong>Attenzione:</strong> Questo anno ha <strong>@Model.AttivitaAnnuali.Count</strong> attività associate che verranno eliminate.
+            <div class="alert alert-warning border-warning mb-4">
+                <h6 class="alert-heading"><i class="fas fa-database me-2"></i>Dati che verranno ELIMINATI DEFINITIVAMENTE:</h6>
+                <hr>
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 bg-white">
+                            <i class="fas fa-tasks fa-2x text-primary mb-2"></i>
+                            <h3 class="text-danger mb-0">@totaleAttivita</h3>
+                            <small class="text-muted">Attività Annuali</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 bg-white">
+                            <i class="fas fa-user-check fa-2x text-info mb-2"></i>
+                            <h3 class="text-danger mb-0">@totaleClientiAttivita</h3>
+                            <small class="text-muted">Assegnazioni Clienti</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 bg-white">
+                            <i class="fas fa-edit fa-2x text-success mb-2"></i>
+                            <h3 class="text-danger mb-0">@totaleValori</h3>
+                            <small class="text-muted">Valori Campi</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (Model.AttivitaAnnuali.Any())
+            {
+                <div class="mb-4">
+                    <h6><i class="fas fa-list me-2"></i>Attività che verranno eliminate:</h6>
+                    <ul class="list-group">
+                        @foreach (var attivita in Model.AttivitaAnnuali)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span>
+                                    <i class="@attivita.AttivitaTipo?.Icon me-2 text-primary"></i>
+                                    @attivita.AttivitaTipo?.Nome
+                                </span>
+                                <span class="badge bg-danger rounded-pill">
+                                    @attivita.ClientiAttivita.Count clienti
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Questo anno non ha dati collegati.
             </div>
         }
 
-        <dl class="row">
+        <dl class="row mb-4">
             <dt class="col-sm-3">Anno</dt>
-            <dd class="col-sm-9">@Model.Anno</dd>
+            <dd class="col-sm-9"><strong>@Model.Anno</strong></dd>
 
             <dt class="col-sm-3">Descrizione</dt>
-            <dd class="col-sm-9">@Model.Descrizione</dd>
+            <dd class="col-sm-9">@(Model.Descrizione ?? "-")</dd>
 
-            <dt class="col-sm-3">Attività</dt>
-            <dd class="col-sm-9">@Model.AttivitaAnnuali.Count</dd>
+            <dt class="col-sm-3">Stato</dt>
+            <dd class="col-sm-9">
+                @if (Model.IsCurrent)
+                {
+                    <span class="badge bg-success">Anno Corrente</span>
+                }
+                @if (Model.IsActive)
+                {
+                    <span class="badge bg-primary">Attivo</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">Non Attivo</span>
+                }
+            </dd>
         </dl>
 
-        <form asp-action="Delete" method="post">
+        <form asp-action="Delete" method="post" id="deleteForm">
             <input type="hidden" asp-for="Id" />
+            
+            @if (haDati)
+            {
+                <div class="form-check mb-3">
+                    <input type="checkbox" class="form-check-input" id="confermaEliminazione" required>
+                    <label class="form-check-label text-danger fw-bold" for="confermaEliminazione">
+                        Confermo di voler eliminare TUTTI i dati di questo anno fiscale
+                    </label>
+                </div>
+            }
+
             <div class="d-flex justify-content-between">
-                <a asp-action="Index" class="btn btn-outline-secondary">
+                <a asp-action="Index" class="btn btn-outline-secondary btn-lg">
                     <i class="fas fa-arrow-left me-1"></i>Annulla
                 </a>
-                <button type="submit" class="btn btn-danger">
+                <button type="submit" class="btn btn-danger btn-lg" id="btnElimina" @(haDati ? "disabled" : "")>
                     <i class="fas fa-trash me-1"></i>Elimina Definitivamente
                 </button>
             </div>
         </form>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        document.getElementById('confermaEliminazione')?.addEventListener('change', function() {
+            document.getElementById('btnElimina').disabled = !this.checked;
+        });
+        
+        document.getElementById('deleteForm').addEventListener('submit', function(e) {
+            @if (haDati)
+            {
+                <text>
+                if (!document.getElementById('confermaEliminazione').checked) {
+                    e.preventDefault();
+                    alert('Devi confermare di voler eliminare tutti i dati.');
+                    return false;
+                }
+                </text>
+            }
+            return confirm('Sei ASSOLUTAMENTE SICURO di voler eliminare l\'anno @Model.Anno e tutti i dati collegati?\n\nQuesta operazione NON può essere annullata!');
+        });
+    </script>
+}
 

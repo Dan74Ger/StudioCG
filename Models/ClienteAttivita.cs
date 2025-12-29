@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace StudioCG.Web.Models
 {
+    // Enum mantenuto per retrocompatibilità durante la migrazione
     public enum StatoAttivita
     {
         [Display(Name = "Da Fare")]
@@ -31,8 +32,13 @@ namespace StudioCG.Web.Models
         [Required]
         public int AttivitaAnnualeId { get; set; }
 
-        [Display(Name = "Stato")]
+        // Vecchio campo enum - mantenuto per retrocompatibilità durante migrazione
+        [Display(Name = "Stato (Legacy)")]
         public StatoAttivita Stato { get; set; } = StatoAttivita.DaFare;
+
+        // Nuovo campo FK per stati dinamici
+        [Display(Name = "Stato")]
+        public int? StatoAttivitaTipoId { get; set; }
 
         [Display(Name = "Data Completamento")]
         [DataType(DataType.Date)]
@@ -52,6 +58,9 @@ namespace StudioCG.Web.Models
 
         [ForeignKey("AttivitaAnnualeId")]
         public virtual AttivitaAnnuale? AttivitaAnnuale { get; set; }
+
+        [ForeignKey("StatoAttivitaTipoId")]
+        public virtual StatoAttivitaTipo? StatoAttivitaTipoNav { get; set; }
 
         public virtual ICollection<ClienteAttivitaValore> Valori { get; set; } = new List<ClienteAttivitaValore>();
     }

@@ -2,6 +2,7 @@
 
 @{
     ViewData["Title"] = $"Elimina {Model.Nome}";
+    var totaleClientiAssegnati = ViewBag.TotaleClientiAssegnati as int? ?? 0;
 }
 
 <div class="card border-danger">
@@ -11,13 +12,14 @@
     <div class="card-body">
         <p class="lead">Sei sicuro di voler eliminare il tipo di attività <strong>@Model.Nome</strong>?</p>
         
-        <div class="alert alert-warning">
+        <div class="alert alert-danger">
             <i class="fas fa-exclamation-circle me-2"></i>
-            <strong>Attenzione:</strong> Questa azione eliminerà:
+            <strong>Attenzione:</strong> Questa azione eliminerà DEFINITIVAMENTE:
             <ul class="mb-0 mt-2">
-                <li>@Model.Campi.Count campi configurati</li>
-                <li>@Model.AttivitaAnnuali.Count abbinamenti con anni fiscali</li>
-                <li>Tutti i dati delle attività dei clienti associati</li>
+                <li><strong>@Model.Campi.Count</strong> campi configurati</li>
+                <li><strong>@Model.Stati.Count</strong> stati configurati</li>
+                <li><strong>@Model.AttivitaAnnuali.Count</strong> abbinamenti con anni fiscali</li>
+                <li><strong>@totaleClientiAssegnati</strong> assegnazioni clienti-attività (tutti i dati persi!)</li>
             </ul>
         </div>
 

@@ -38,8 +38,11 @@ namespace StudioCG.Web.Controllers
 
             var attivita = await _context.AttivitaAnnuali
                 .Include(aa => aa.AttivitaTipo)
+                    .ThenInclude(at => at!.Stati)
                 .Include(aa => aa.ClientiAttivita)
                     .ThenInclude(ca => ca.Cliente)
+                .Include(aa => aa.ClientiAttivita)
+                    .ThenInclude(ca => ca.StatoAttivitaTipoNav)
                 .Where(aa => aa.AnnualitaFiscaleId == annoCorrente.Id && aa.IsActive)
                 .OrderBy(aa => aa.AttivitaTipo!.DisplayOrder)
                 .ThenBy(aa => aa.AttivitaTipo!.Nome)
@@ -69,7 +72,7 @@ namespace StudioCG.Web.Controllers
         }
 
         // GET: Attivita/Tipo/5 - Dettaglio attività con lista clienti
-        public async Task<IActionResult> Tipo(int? id, int? annoId, string? searchNome, int? filtroStato, string? ordinamento)
+        public async Task<IActionResult> Tipo(int? id, int? annoId, string? searchNome, int? filtroStatoId, string? ordinamento)
         {
             if (id == null) return NotFound();
 
@@ -86,11 +89,15 @@ namespace StudioCG.Web.Controllers
             var attivitaAnnuale = await _context.AttivitaAnnuali
                 .Include(aa => aa.AttivitaTipo)
                     .ThenInclude(at => at!.Campi.OrderBy(c => c.DisplayOrder))
+                .Include(aa => aa.AttivitaTipo)
+                    .ThenInclude(at => at!.Stati.OrderBy(s => s.DisplayOrder))
                 .Include(aa => aa.AnnualitaFiscale)
                 .Include(aa => aa.ClientiAttivita)
                     .ThenInclude(ca => ca.Cliente)
                 .Include(aa => aa.ClientiAttivita)
                     .ThenInclude(ca => ca.Valori)
+                .Include(aa => aa.ClientiAttivita)
+                    .ThenInclude(ca => ca.StatoAttivitaTipoNav)
                 .FirstOrDefaultAsync(aa => aa.AttivitaTipoId == id && aa.AnnualitaFiscaleId == annoCorrente.Id);
 
             if (attivitaAnnuale == null)
@@ -98,6 +105,13 @@ namespace StudioCG.Web.Controllers
                 TempData["Error"] = "Attività non trovata per questo anno.";
                 return RedirectToAction(nameof(Index));
             }
+
+            // Carica gli stati disponibili per questa attività
+            var statiDisponibili = attivitaAnnuale.AttivitaTipo?.Stati
+                .Where(s => s.IsActive)
+                .OrderBy(s => s.DisplayOrder)
+                .ToList() ?? new List<StatoAttivitaTipo>();
+            ViewBag.StatiDisponibili = statiDisponibili;
 
             // Applica filtri ai ClientiAttivita
             var clientiFiltrati = attivitaAnnuale.ClientiAttivita.AsEnumerable();
@@ -109,11 +123,10 @@ namespace StudioCG.Web.Controllers
                     ca.Cliente != null && ca.Cliente.RagioneSociale.Contains(searchNome, StringComparison.OrdinalIgnoreCase));
             }
 
-            // Filtro per stato
-            if (filtroStato.HasValue)
+            // Filtro per stato dinamico
+            if (filtroStatoId.HasValue)
             {
-                var statoFiltro = (StatoAttivita)filtroStato.Value;
-                clientiFiltrati = clientiFiltrati.Where(ca => ca.Stato == statoFiltro);
+                clientiFiltrati = clientiFiltrati.Where(ca => ca.StatoAttivitaTipoId == filtroStatoId.Value);
             }
 
             // Ordinamento
@@ -131,7 +144,7 @@ namespace StudioCG.Web.Controllers
 
             // Passa i parametri di filtro alla view
             ViewBag.SearchNome = searchNome;
-            ViewBag.FiltroStato = filtroStato;
+            ViewBag.FiltroStatoId = filtroStatoId;
             ViewBag.Ordinamento = ordinamento ?? "asc";
 
             ViewBag.TuttiAnni = await _context.AnnualitaFiscali
@@ -182,11 +195,21 @@ namespace StudioCG.Web.Controllers
                     .ThenInclude(aa => aa!.AttivitaTipo)
                         .ThenInclude(at => at!.Campi.OrderBy(c => c.DisplayOrder))
                 .Include(ca => ca.AttivitaAnnuale)
+                    .ThenInclude(aa => aa!.AttivitaTipo)
+                        .ThenInclude(at => at!.Stati.OrderBy(s => s.DisplayOrder))
+                .Include(ca => ca.AttivitaAnnuale)
                     .ThenInclude(aa => aa!.AnnualitaFiscale)
                 .Include(ca => ca.Valori)
+                .Include(ca => ca.StatoAttivitaTipoNav)
                 .FirstOrDefaultAsync(ca => ca.Id == id);
 
             if (clienteAttivita == null) return NotFound();
+
+            // Carica gli stati disponibili
+            ViewBag.StatiDisponibili = clienteAttivita.AttivitaAnnuale?.AttivitaTipo?.Stati
+                .Where(s => s.IsActive)
+                .OrderBy(s => s.DisplayOrder)
+                .ToList() ?? new List<StatoAttivitaTipo>();
 
             return View(clienteAttivita);
         }
@@ -194,7 +217,7 @@ namespace StudioCG.Web.Controllers
         // POST: Attivita/ClienteAttivita/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ClienteAttivita(int id, StatoAttivita stato, string? note, IFormCollection form)
+        public async Task<IActionResult> ClienteAttivita(int id, int? statoId, string? note, IFormCollection form)
         {
             var clienteAttivita = await _context.ClientiAttivita
                 .Include(ca => ca.Valori)
@@ -205,16 +228,24 @@ namespace StudioCG.Web.Controllers
 
             if (clienteAttivita == null) return NotFound();
 
-            // Aggiorna stato e note
-            clienteAttivita.Stato = stato;
+            // Carica il nuovo stato
+            StatoAttivitaTipo? nuovoStato = null;
+            if (statoId.HasValue)
+            {
+                nuovoStato = await _context.StatiAttivitaTipo.FindAsync(statoId.Value);
+            }
+
+            // Aggiorna stato dinamico e note
+            clienteAttivita.StatoAttivitaTipoId = statoId;
             clienteAttivita.Note = note;
             clienteAttivita.UpdatedAt = DateTime.Now;
 
-            if (stato == StatoAttivita.DRInviate && !clienteAttivita.DataCompletamento.HasValue)
+            // Gestione data completamento basata su stato dinamico
+            if (nuovoStato != null && nuovoStato.IsFinale && !clienteAttivita.DataCompletamento.HasValue)
             {
                 clienteAttivita.DataCompletamento = DateTime.Now;
             }
-            else if (stato == StatoAttivita.DaFare || stato == StatoAttivita.Sospesa)
+            else if (nuovoStato != null && nuovoStato.IsDefault)
             {
                 clienteAttivita.DataCompletamento = null;
             }
@@ -263,7 +294,7 @@ namespace StudioCG.Web.Controllers
             });
         }
 
-        // POST: Attivita/CambiaStato
+        // POST: Attivita/CambiaStato (legacy - manteniamo per retrocompatibilità)
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CambiaStato(int id, StatoAttivita nuovoStato, int? returnToTipoId, int? annoId)
@@ -295,12 +326,52 @@ namespace StudioCG.Web.Controllers
             return RedirectToAction(nameof(Index), new { annoId = annoId });
         }
 
+        // POST: Attivita/CambiaStatoDinamico - Nuovo metodo per stati dinamici
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CambiaStatoDinamico(int id, int nuovoStatoId, int? returnToTipoId, int? annoId)
+        {
+            var clienteAttivita = await _context.ClientiAttivita
+                .Include(ca => ca.AttivitaAnnuale)
+                .FirstOrDefaultAsync(ca => ca.Id == id);
+
+            if (clienteAttivita == null) return NotFound();
+
+            // Verifica che lo stato esista
+            var nuovoStato = await _context.StatiAttivitaTipo.FindAsync(nuovoStatoId);
+            if (nuovoStato == null) return NotFound();
+
+            clienteAttivita.StatoAttivitaTipoId = nuovoStatoId;
+            clienteAttivita.UpdatedAt = DateTime.Now;
+
+            // Se lo stato è finale, imposta la data di completamento
+            if (nuovoStato.IsFinale && !clienteAttivita.DataCompletamento.HasValue)
+            {
+                clienteAttivita.DataCompletamento = DateTime.Now;
+            }
+            // Se lo stato è default (iniziale), rimuove la data di completamento
+            else if (nuovoStato.IsDefault)
+            {
+                clienteAttivita.DataCompletamento = null;
+            }
+
+            await _context.SaveChangesAsync();
+
+            if (returnToTipoId.HasValue)
+            {
+                return RedirectToAction(nameof(Tipo), new { id = returnToTipoId, annoId = annoId ?? clienteAttivita.AttivitaAnnuale?.AnnualitaFiscaleId });
+            }
+            return RedirectToAction(nameof(Index), new { annoId = annoId });
+        }
+
         // POST: Attivita/NuovoClienteAttivita - Aggiunge un cliente all'attività
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> NuovoClienteAttivita(int attivitaAnnualeId, int clienteId)
         {
-            var attivitaAnnuale = await _context.AttivitaAnnuali.FindAsync(attivitaAnnualeId);
+            var attivitaAnnuale = await _context.AttivitaAnnuali
+                .Include(aa => aa.AttivitaTipo)
+                .FirstOrDefaultAsync(aa => aa.Id == attivitaAnnualeId);
             if (attivitaAnnuale == null) return NotFound();
 
             // Verifica che il cliente non sia già assegnato
@@ -313,11 +384,19 @@ namespace StudioCG.Web.Controllers
                 return RedirectToAction(nameof(Tipo), new { id = attivitaAnnuale.AttivitaTipoId, annoId = attivitaAnnuale.AnnualitaFiscaleId });
             }
 
+            // Trova lo stato default per questo tipo di attività (con fallback al primo disponibile)
+            var statoDefault = await _context.StatiAttivitaTipo
+                .Where(s => s.AttivitaTipoId == attivitaAnnuale.AttivitaTipoId && s.IsActive)
+                .OrderByDescending(s => s.IsDefault) // Prima quelli default
+                .ThenBy(s => s.DisplayOrder)         // Poi per ordine
+                .FirstOrDefaultAsync();
+
             var clienteAttivita = new ClienteAttivita
             {
                 ClienteId = clienteId,
                 AttivitaAnnualeId = attivitaAnnualeId,
-                Stato = StatoAttivita.DaFare,
+                Stato = StatoAttivita.DaFare, // Manteniamo per retrocompatibilità
+                StatoAttivitaTipoId = statoDefault?.Id,
                 CreatedAt = DateTime.Now
             };
 
@@ -333,6 +412,16 @@ namespace StudioCG.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> AssegnaTutti(int attivitaAnnualeId)
         {
+            var attivitaAnnuale = await _context.AttivitaAnnuali.FindAsync(attivitaAnnualeId);
+            if (attivitaAnnuale == null) return NotFound();
+
+            // Trova lo stato default per questo tipo di attività (con fallback al primo disponibile)
+            var statoDefault = await _context.StatiAttivitaTipo
+                .Where(s => s.AttivitaTipoId == attivitaAnnuale.AttivitaTipoId && s.IsActive)
+                .OrderByDescending(s => s.IsDefault)
+                .ThenBy(s => s.DisplayOrder)
+                .FirstOrDefaultAsync();
+
             var clientiAttivi = await _context.Clienti
                 .Where(c => c.IsActive)
                 .ToListAsync();
@@ -352,6 +441,7 @@ namespace StudioCG.Web.Controllers
                         ClienteId = cliente.Id,
                         AttivitaAnnualeId = attivitaAnnualeId,
                         Stato = StatoAttivita.DaFare,
+                        StatoAttivitaTipoId = statoDefault?.Id,
                         CreatedAt = DateTime.Now
                     });
                     nuoviAssegnati++;
@@ -360,12 +450,11 @@ namespace StudioCG.Web.Controllers
 
             await _context.SaveChangesAsync();
 
-            var attivitaAnnuale = await _context.AttivitaAnnuali.FindAsync(attivitaAnnualeId);
             TempData["Success"] = $"Attività assegnata a {nuoviAssegnati} nuovi clienti.";
 
             return RedirectToAction(nameof(Tipo), new { 
-                id = attivitaAnnuale?.AttivitaTipoId,
-                annoId = attivitaAnnuale?.AnnualitaFiscaleId
+                id = attivitaAnnuale.AttivitaTipoId,
+                annoId = attivitaAnnuale.AnnualitaFiscaleId
             });
         }
 
@@ -406,6 +495,13 @@ namespace StudioCG.Web.Controllers
                     .Select(ca => ca.ClienteId)
                     .ToHashSet();
 
+                // Trova lo stato default per questa attività (con fallback al primo disponibile)
+                var statoDefault = await _context.StatiAttivitaTipo
+                    .Where(s => s.AttivitaTipoId == tipoId && s.IsActive)
+                    .OrderByDescending(s => s.IsDefault)
+                    .ThenBy(s => s.DisplayOrder)
+                    .FirstOrDefaultAsync();
+
                 foreach (var clienteAttivita in attivitaSorgente.ClientiAttivita)
                 {
                     if (!clientiGiaAssegnati.Contains(clienteAttivita.ClienteId))
@@ -415,6 +511,7 @@ namespace StudioCG.Web.Controllers
                             ClienteId = clienteAttivita.ClienteId,
                             AttivitaAnnualeId = attivitaDestinazioneRecord.Id,
                             Stato = StatoAttivita.DaFare,
+                            StatoAttivitaTipoId = statoDefault?.Id,
                             CreatedAt = DateTime.Now
                         });
                         totaleCopiati++;
@@ -460,6 +557,13 @@ namespace StudioCG.Web.Controllers
                 .Select(ca => ca.ClienteId)
                 .ToHashSet();
 
+            // Trova lo stato default per questa attività (con fallback al primo disponibile)
+            var statoDefault = await _context.StatiAttivitaTipo
+                .Where(s => s.AttivitaTipoId == attivitaAnnualeDestinazione.AttivitaTipoId && s.IsActive)
+                .OrderByDescending(s => s.IsDefault)
+                .ThenBy(s => s.DisplayOrder)
+                .FirstOrDefaultAsync();
+
             int copiati = 0;
             foreach (var clienteAttivita in attivitaAnnoPrecedente.ClientiAttivita)
             {
@@ -470,6 +574,7 @@ namespace StudioCG.Web.Controllers
                         ClienteId = clienteAttivita.ClienteId,
                         AttivitaAnnualeId = attivitaAnnualeId,
                         Stato = StatoAttivita.DaFare,
+                        StatoAttivitaTipoId = statoDefault?.Id,
                         CreatedAt = DateTime.Now
                     });
                     copiati++;
@@ -501,6 +606,8 @@ namespace StudioCG.Web.Controllers
                     .ThenInclude(ca => ca.Cliente)
                 .Include(aa => aa.ClientiAttivita)
                     .ThenInclude(ca => ca.Valori)
+                .Include(aa => aa.ClientiAttivita)
+                    .ThenInclude(ca => ca.StatoAttivitaTipoNav)
                 .FirstOrDefaultAsync(aa => aa.Id == id);
 
             if (attivitaAnnuale == null) return NotFound();
@@ -539,8 +646,8 @@ namespace StudioCG.Web.Controllers
                 worksheet.Cell(row, col++).Value = ca.Cliente?.RagioneSociale ?? "";
                 worksheet.Cell(row, col++).Value = ca.Cliente?.CodiceAteco ?? "";
                 
-                // Stato
-                var statoText = ca.Stato switch
+                // Stato - usa stato dinamico se disponibile, altrimenti legacy
+                var statoText = ca.StatoAttivitaTipoNav?.Nome ?? ca.Stato switch
                 {
                     StatoAttivita.DaFare => "Da Fare",
                     StatoAttivita.Completata => "Completata",
@@ -596,6 +703,58 @@ namespace StudioCG.Web.Controllers
 
             var fileName = $"{attivitaAnnuale.AttivitaTipo?.Nome ?? "Attivita"}_{attivitaAnnuale.AnnualitaFiscale?.Anno}_{DateTime.Now:yyyyMMdd}.xlsx";
             return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        }
+
+        // ==================== FIX STATI NULLI ====================
+        // POST: Attivita/FixStatiNulli - Corregge tutti i ClienteAttivita senza stato assegnato
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> FixStatiNulli()
+        {
+            // Trova tutti i ClienteAttivita con StatoAttivitaTipoId nullo
+            var clientiAttivitaSenzaStato = await _context.ClientiAttivita
+                .Include(ca => ca.AttivitaAnnuale)
+                .Where(ca => ca.StatoAttivitaTipoId == null)
+                .ToListAsync();
+
+            if (!clientiAttivitaSenzaStato.Any())
+            {
+                TempData["Success"] = "Nessuna attività cliente da correggere.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            int corretti = 0;
+            var statiCache = new Dictionary<int, int?>(); // Cache degli stati default per tipo
+
+            foreach (var ca in clientiAttivitaSenzaStato)
+            {
+                if (ca.AttivitaAnnuale == null) continue;
+                
+                var tipoId = ca.AttivitaAnnuale.AttivitaTipoId;
+                
+                // Usa cache per evitare query ripetute
+                if (!statiCache.TryGetValue(tipoId, out var statoId))
+                {
+                    var statoDefault = await _context.StatiAttivitaTipo
+                        .Where(s => s.AttivitaTipoId == tipoId && s.IsActive)
+                        .OrderByDescending(s => s.IsDefault)
+                        .ThenBy(s => s.DisplayOrder)
+                        .FirstOrDefaultAsync();
+                    
+                    statoId = statoDefault?.Id;
+                    statiCache[tipoId] = statoId;
+                }
+
+                if (statoId.HasValue)
+                {
+                    ca.StatoAttivitaTipoId = statoId.Value;
+                    corretti++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            TempData["Success"] = $"Corretti {corretti} record con stato nullo. Assegnato stato di default.";
+            return RedirectToAction(nameof(Index));
         }
     }
 }

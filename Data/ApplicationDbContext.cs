@@ -34,6 +34,7 @@ namespace StudioCG.Web.Data
         public DbSet<AttivitaAnnuale> AttivitaAnnuali { get; set; }
         public DbSet<ClienteAttivita> ClientiAttivita { get; set; }
         public DbSet<ClienteAttivitaValore> ClientiAttivitaValori { get; set; }
+        public DbSet<StatoAttivitaTipo> StatiAttivitaTipo { get; set; }
 
         // Tabelle Amministrazione/Fatturazione
         public DbSet<AnnoFatturazione> AnniFatturazione { get; set; }
@@ -224,6 +225,23 @@ namespace StudioCG.Web.Data
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
+            // StatoAttivitaTipo configuration
+            modelBuilder.Entity<StatoAttivitaTipo>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Icon).HasMaxLength(50);
+                entity.Property(e => e.ColoreTesto).HasMaxLength(20);
+                entity.Property(e => e.ColoreSfondo).HasMaxLength(20);
+
+                entity.HasOne(e => e.AttivitaTipo)
+                    .WithMany(t => t.Stati)
+                    .HasForeignKey(e => e.AttivitaTipoId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => new { e.AttivitaTipoId, e.Nome }).IsUnique();
+            });
+
             // AttivitaAnnuale configuration
             modelBuilder.Entity<AttivitaAnnuale>(entity =>
             {
@@ -256,6 +274,11 @@ namespace StudioCG.Web.Data
                     .WithMany(a => a.ClientiAttivita)
                     .HasForeignKey(e => e.AttivitaAnnualeId)
                     .OnDelete(DeleteBehavior.NoAction); // Evita cicli
+
+                entity.HasOne(e => e.StatoAttivitaTipoNav)
+                    .WithMany()
+                    .HasForeignKey(e => e.StatoAttivitaTipoId)
+                    .OnDelete(DeleteBehavior.SetNull); // Se lo stato viene cancellato, imposta NULL
             });
 
             // ClienteAttivitaValore configuration
