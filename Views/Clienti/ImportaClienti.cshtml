@@ -1,0 +1,187 @@
+@{
+    ViewData["Title"] = "Importa Clienti da Excel";
+}
+
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-earmark-excel me-2"></i>
+                        Importa Clienti da Excel
+                    </h5>
+                    <a asp-action="Index" class="btn btn-light btn-sm">
+                        <i class="bi bi-arrow-left"></i> Torna ai Clienti
+                    </a>
+                </div>
+                <div class="card-body">
+                    @if (TempData["Error"] != null)
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            @TempData["Error"]
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
+
+                    <div class="alert alert-info">
+                        <h6><i class="bi bi-info-circle me-2"></i>Come funziona:</h6>
+                        <ol class="mb-0">
+                            <li>Scarica il <strong>template Excel</strong> con le colonne corrette</li>
+                            <li>Compila il file con i dati dei clienti da importare</li>
+                            <li>Carica il file qui sotto</li>
+                            <li>Verifica l'anteprima e conferma l'importazione</li>
+                        </ol>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-download display-4 text-success mb-3"></i>
+                                    <h6>Passo 1: Scarica il Template</h6>
+                                    <p class="text-muted small">File Excel con le colonne corrette e dati di esempio</p>
+                                    <a asp-action="DownloadTemplateClienti" class="btn btn-success">
+                                        <i class="bi bi-file-earmark-arrow-down me-1"></i>
+                                        Scarica Template
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-upload display-4 text-primary mb-3"></i>
+                                    <h6>Passo 2: Carica il File</h6>
+                                    <p class="text-muted small">Seleziona il file Excel compilato</p>
+                                    <form asp-action="ImportaClienti" method="post" enctype="multipart/form-data" id="uploadForm">
+                                        @Html.AntiForgeryToken()
+                                        <div class="mb-3">
+                                            <input type="file" class="form-control" name="file" id="fileInput" accept=".xlsx" required />
+                                        </div>
+                                        <button type="submit" class="btn btn-primary" id="btnCarica">
+                                            <i class="bi bi-cloud-upload me-1"></i>
+                                            Carica e Verifica
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card border-secondary">
+                        <div class="card-header bg-secondary text-white">
+                            <i class="bi bi-table me-2"></i>Colonne del Template
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Colonna</th>
+                                            <th>Obbligatoria</th>
+                                            <th>Descrizione</th>
+                                            <th>Esempio</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><code>RagioneSociale</code></td>
+                                            <td><span class="badge bg-danger">Sì</span></td>
+                                            <td>Nome del cliente</td>
+                                            <td>MARIO ROSSI SRL</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>TipoSoggetto</code></td>
+                                            <td><span class="badge bg-secondary">No</span></td>
+                                            <td>SC, PF, SP, PROF, ALTRO</td>
+                                            <td>SC</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>PartitaIVA</code></td>
+                                            <td><span class="badge bg-secondary">No</span></td>
+                                            <td>11 caratteri</td>
+                                            <td>12345678901</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>CodiceFiscale</code></td>
+                                            <td><span class="badge bg-secondary">No</span></td>
+                                            <td>16 caratteri</td>
+                                            <td>RSSMRA80A01F205X</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>CodiceAteco</code></td>
+                                            <td><span class="badge bg-secondary">No</span></td>
+                                            <td>Codice ATECO</td>
+                                            <td>631021</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>Indirizzo</code></td>
+                                            <td><span class="badge bg-secondary">No</span></td>
+                                            <td>Via e numero</td>
+                                            <td>Via Roma 1</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>Citta</code></td>
+                                            <td><span class="badge bg-secondary">No</span></td>
+                                            <td>Comune</td>
+                                            <td>Milano</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>Provincia</code></td>
+                                            <td><span class="badge bg-secondary">No</span></td>
+                                            <td>Sigla (2 lettere)</td>
+                                            <td>MI</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>CAP</code></td>
+                                            <td><span class="badge bg-secondary">No</span></td>
+                                            <td>5 cifre</td>
+                                            <td>20100</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>Email</code></td>
+                                            <td><span class="badge bg-secondary">No</span></td>
+                                            <td>Email standard</td>
+                                            <td>info@azienda.it</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>PEC</code></td>
+                                            <td><span class="badge bg-secondary">No</span></td>
+                                            <td>PEC certificata</td>
+                                            <td>azienda@pec.it</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>Telefono</code></td>
+                                            <td><span class="badge bg-secondary">No</span></td>
+                                            <td>Numero telefono</td>
+                                            <td>0212345678</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>Note</code></td>
+                                            <td><span class="badge bg-secondary">No</span></td>
+                                            <td>Note aggiuntive</td>
+                                            <td>Cliente storico</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function() {
+            var btn = document.getElementById('btnCarica');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Elaborazione...';
+        });
+    </script>
+}
+

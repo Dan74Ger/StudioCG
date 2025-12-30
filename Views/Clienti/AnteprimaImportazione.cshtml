@@ -1,0 +1,263 @@
+@model List<StudioCG.Web.Controllers.ClienteImportDto>
+@{
+    ViewData["Title"] = "Anteprima Importazione Clienti";
+    var errori = TempData["ErroriImportazione"] as List<string> ?? new List<string>();
+    var nomeFile = TempData["NomeFile"]?.ToString() ?? "file";
+    var nuovi = Model.Count(c => !c.EsisteGia);
+    var duplicati = Model.Count(c => c.EsisteGia);
+    // I dati sono salvati in Session (lato server), non in TempData
+}
+
+<div class="container-fluid py-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-eye me-2"></i>
+                Anteprima Importazione - @nomeFile
+            </h5>
+            <a asp-action="ImportaClienti" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-left"></i> Carica altro file
+            </a>
+        </div>
+        <div class="card-body">
+            @if (errori.Any())
+            {
+                <div class="alert alert-warning">
+                    <h6><i class="bi bi-exclamation-triangle me-2"></i>Avvisi durante la lettura:</h6>
+                    <ul class="mb-0">
+                        @foreach (var errore in errori)
+                        {
+                            <li>@errore</li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            <!-- Statistiche -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body text-center py-3">
+                            <h3 class="mb-0">@Model.Count</h3>
+                            <small>Clienti trovati</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center py-3">
+                            <h3 class="mb-0">@nuovi</h3>
+                            <small>Nuovi clienti</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-warning text-dark">
+                        <div class="card-body text-center py-3">
+                            <h3 class="mb-0">@duplicati</h3>
+                            <small>Già esistenti</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (duplicati > 0)
+            {
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Attenzione:</strong> Trovati <strong>@duplicati duplicati</strong>. 
+                    Per ogni duplicato puoi scegliere se <strong>Saltare</strong> (non importare) o <strong>Sovrascrivere</strong> (aggiornare i dati esistenti).
+                </div>
+            }
+
+            <form asp-action="EseguiImportazione" method="post" id="formImportazione">
+                @Html.AntiForgeryToken()
+
+                <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                    <table class="table table-sm table-hover table-bordered" style="font-size: 0.85rem;">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th style="width: 35px;">
+                                    <input type="checkbox" class="form-check-input" id="selectAll" checked title="Seleziona/Deseleziona tutti">
+                                </th>
+                                <th style="width: 40px;">Riga</th>
+                                <th style="width: 80px;">Stato</th>
+                                <th style="width: 120px;">Azione</th>
+                                <th>Ragione Sociale</th>
+                                <th style="width: 50px;">Tipo</th>
+                                <th style="width: 100px;">P.IVA</th>
+                                <th style="width: 130px;">Cod. Fiscale</th>
+                                <th style="width: 70px;">Ateco</th>
+                                <th>Indirizzo</th>
+                                <th>Città</th>
+                                <th style="width: 40px;">Prov</th>
+                                <th style="width: 50px;">CAP</th>
+                                <th>Email</th>
+                                <th>PEC</th>
+                                <th style="width: 100px;">Telefono</th>
+                                <th>Note</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var cliente in Model)
+                            {
+                                <tr class="@(cliente.EsisteGia ? "table-warning" : "")">
+                                    <td class="text-center">
+                                        <input type="checkbox" class="form-check-input row-checkbox" 
+                                               name="righeSelezionate" value="@cliente.Riga" checked
+                                               data-duplicato="@(cliente.EsisteGia ? "true" : "false")">
+                                    </td>
+                                    <td class="text-center">@cliente.Riga</td>
+                                    <td>
+                                        @if (cliente.EsisteGia)
+                                        {
+                                            <span class="badge bg-warning text-dark" style="font-size: 0.7rem;">
+                                                <i class="bi bi-exclamation-triangle"></i> Duplicato
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-success" style="font-size: 0.7rem;">
+                                                <i class="bi bi-plus-circle"></i> Nuovo
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (cliente.EsisteGia)
+                                        {
+                                            <select name="azioneDuplicato_@cliente.Riga" class="form-select form-select-sm azione-duplicato" 
+                                                    data-riga="@cliente.Riga" title="Scegli cosa fare con questo duplicato" style="font-size: 0.75rem;">
+                                                <option value="salta" selected>🚫 Salta</option>
+                                                <option value="sovrascrivi">✏️ Sovrascrivi</option>
+                                            </select>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td><strong>@cliente.RagioneSociale</strong></td>
+                                    <td class="text-center">
+                                        @if (!string.IsNullOrEmpty(cliente.TipoSoggetto))
+                                        {
+                                            <span class="badge bg-info" style="font-size: 0.7rem;">@cliente.TipoSoggetto</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td><code class="small">@(cliente.PartitaIVA ?? "-")</code></td>
+                                    <td><code class="small">@(cliente.CodiceFiscale ?? "-")</code></td>
+                                    <td class="text-center">@(cliente.CodiceAteco ?? "-")</td>
+                                    <td>@(cliente.Indirizzo ?? "-")</td>
+                                    <td>@(cliente.Citta ?? "-")</td>
+                                    <td class="text-center">@(cliente.Provincia ?? "-")</td>
+                                    <td class="text-center">@(cliente.CAP ?? "-")</td>
+                                    <td>@(cliente.Email ?? "-")</td>
+                                    <td>@(cliente.PEC ?? "-")</td>
+                                    <td>@(cliente.Telefono ?? "-")</td>
+                                    <td>@(cliente.Note ?? "-")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mt-4">
+                    <div>
+                        <span class="text-muted">
+                            <i class="bi bi-info-circle"></i>
+                            Seleziona i clienti da importare. Per i duplicati, scegli l'azione dalla colonna "Azione Duplicato".
+                        </span>
+                    </div>
+                    <div>
+                        <a asp-action="ImportaClienti" class="btn btn-secondary me-2">
+                            <i class="bi bi-x-circle"></i> Annulla
+                        </a>
+                        <button type="submit" class="btn btn-success btn-lg" id="btnImporta">
+                            <i class="bi bi-check-circle me-1"></i>
+                            Importa <span id="countSelected">@nuovi</span> Clienti
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Inizializzazione: deseleziona i duplicati per default
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.row-checkbox[data-duplicato="true"]').forEach(function(cb) {
+                cb.checked = false;
+            });
+            updateCount();
+        });
+
+        // Select All (solo i nuovi, non i duplicati)
+        document.getElementById('selectAll').addEventListener('change', function() {
+            var isChecked = this.checked;
+            document.querySelectorAll('.row-checkbox').forEach(function(cb) {
+                if (cb.dataset.duplicato === 'false') {
+                    cb.checked = isChecked;
+                }
+            });
+            updateCount();
+        });
+
+        // Update count on individual checkbox change
+        document.querySelectorAll('.row-checkbox').forEach(function(cb) {
+            cb.addEventListener('change', updateCount);
+        });
+
+        // Quando si cambia l'azione del duplicato
+        document.querySelectorAll('.azione-duplicato').forEach(function(select) {
+            select.addEventListener('change', function() {
+                var riga = this.dataset.riga;
+                var checkbox = document.querySelector('.row-checkbox[value="' + riga + '"]');
+                
+                if (this.value === 'sovrascrivi') {
+                    checkbox.checked = true;
+                    this.parentElement.parentElement.classList.remove('table-warning');
+                    this.parentElement.parentElement.classList.add('table-info');
+                } else {
+                    checkbox.checked = false;
+                    this.parentElement.parentElement.classList.remove('table-info');
+                    this.parentElement.parentElement.classList.add('table-warning');
+                }
+                updateCount();
+            });
+        });
+
+        function updateCount() {
+            var countNuovi = 0;
+            var countSovrascritti = 0;
+            
+            document.querySelectorAll('.row-checkbox:checked').forEach(function(cb) {
+                if (cb.dataset.duplicato === 'true') {
+                    countSovrascritti++;
+                } else {
+                    countNuovi++;
+                }
+            });
+            
+            var total = countNuovi + countSovrascritti;
+            var text = total + ' Client' + (total === 1 ? 'e' : 'i');
+            if (countSovrascritti > 0) {
+                text += ' (' + countNuovi + ' nuovi, ' + countSovrascritti + ' da sovrascrivere)';
+            }
+            
+            document.getElementById('countSelected').textContent = text;
+            document.getElementById('btnImporta').disabled = total === 0;
+        }
+
+        // Form submit loading
+        document.getElementById('formImportazione').addEventListener('submit', function() {
+            var btn = document.getElementById('btnImporta');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Importazione in corso...';
+        });
+    </script>
+}
