@@ -819,8 +819,8 @@ namespace StudioCG.Web.Controllers
                     return View();
                 }
 
-                var rowCount = worksheet.Dimension?.Rows ?? 0;
-                if (rowCount < 2)
+                var dimension = worksheet.Dimension;
+                if (dimension == null || dimension.Rows < 2)
                 {
                     TempData["Error"] = "Il file Excel non contiene dati (solo intestazione o vuoto).";
                     return View();
@@ -828,7 +828,7 @@ namespace StudioCG.Web.Controllers
 
                 // Leggi intestazioni per mappare le colonne
                 var headers = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                for (int col = 1; col <= worksheet.Dimension.Columns; col++)
+                for (int col = 1; col <= dimension.Columns; col++)
                 {
                     var headerValue = worksheet.Cells[1, col].Text?.Trim();
                     if (!string.IsNullOrEmpty(headerValue))
@@ -845,7 +845,7 @@ namespace StudioCG.Web.Controllers
                 }
 
                 // Leggi i dati
-                for (int row = 2; row <= rowCount; row++)
+                for (int row = 2; row <= dimension.Rows; row++)
                 {
                     var ragioneSociale = GetCellValue(worksheet, row, headers, "RagioneSociale", "Ragione Sociale");
                     
