@@ -81,6 +81,91 @@
                 <textarea asp-for="Note" class="form-control" rows="3" placeholder="Note aggiuntive..."></textarea>
             </div>
 
+            @if (ViewBag.CampiCustom != null && ((IEnumerable<StudioCG.Web.Models.CampoCustomCliente>)ViewBag.CampiCustom).Any())
+            {
+                <hr class="my-4">
+                <h6 class="text-primary mb-3"><i class="fas fa-th-list me-2"></i>Campi Personalizzati</h6>
+                <div class="row">
+                    @foreach (var campo in (IEnumerable<StudioCG.Web.Models.CampoCustomCliente>)ViewBag.CampiCustom)
+                    {
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">
+                                @campo.Label
+                                @if (campo.IsRequired)
+                                {
+                                    <span class="text-danger">*</span>
+                                }
+                            </label>
+                            @switch (campo.TipoCampo)
+                            {
+                                case "textarea":
+                                    <textarea name="custom_@campo.Id" class="form-control" rows="2" 
+                                              placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "")>@campo.DefaultValue</textarea>
+                                    break;
+                                case "number":
+                                    <input type="number" name="custom_@campo.Id" class="form-control" 
+                                           placeholder="@campo.Placeholder" value="@campo.DefaultValue" @(campo.IsRequired ? "required" : "") />
+                                    break;
+                                case "decimal":
+                                    <input type="number" step="0.01" name="custom_@campo.Id" class="form-control" 
+                                           placeholder="@campo.Placeholder" value="@campo.DefaultValue" @(campo.IsRequired ? "required" : "") />
+                                    break;
+                                case "date":
+                                    <input type="date" name="custom_@campo.Id" class="form-control" 
+                                           value="@campo.DefaultValue" @(campo.IsRequired ? "required" : "") />
+                                    break;
+                                case "datetime":
+                                    <input type="datetime-local" name="custom_@campo.Id" class="form-control" 
+                                           value="@campo.DefaultValue" @(campo.IsRequired ? "required" : "") />
+                                    break;
+                                case "checkbox":
+                                    <div class="form-check mt-2">
+                                        <input type="checkbox" name="custom_@campo.Id" value="true" class="form-check-input" 
+                                               id="custom_@campo.Id" @(campo.DefaultValue == "true" ? "checked" : "") />
+                                        <label class="form-check-label" for="custom_@campo.Id">Sì</label>
+                                    </div>
+                                    break;
+                                case "dropdown":
+                                    <select name="custom_@campo.Id" class="form-select" @(campo.IsRequired ? "required" : "")>
+                                        <option value="">-- Seleziona --</option>
+                                        @if (!string.IsNullOrEmpty(campo.Options))
+                                        {
+                                            foreach (var opt in campo.Options.Split('|'))
+                                            {
+                                                if (opt == campo.DefaultValue)
+                                                {
+                                                    <option value="@opt" selected>@opt</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="@opt">@opt</option>
+                                                }
+                                            }
+                                        }
+                                    </select>
+                                    break;
+                                case "email":
+                                    <input type="email" name="custom_@campo.Id" class="form-control" 
+                                           placeholder="@campo.Placeholder" value="@campo.DefaultValue" @(campo.IsRequired ? "required" : "") />
+                                    break;
+                                case "phone":
+                                    <input type="tel" name="custom_@campo.Id" class="form-control" 
+                                           placeholder="@campo.Placeholder" value="@campo.DefaultValue" @(campo.IsRequired ? "required" : "") />
+                                    break;
+                                case "url":
+                                    <input type="url" name="custom_@campo.Id" class="form-control" 
+                                           placeholder="@campo.Placeholder" value="@campo.DefaultValue" @(campo.IsRequired ? "required" : "") />
+                                    break;
+                                default:
+                                    <input type="text" name="custom_@campo.Id" class="form-control" 
+                                           placeholder="@campo.Placeholder" value="@campo.DefaultValue" @(campo.IsRequired ? "required" : "") />
+                                    break;
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
             <div class="d-flex justify-content-between">
                 <a asp-action="Index" class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left me-1"></i>Annulla

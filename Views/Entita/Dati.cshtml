@@ -1,0 +1,306 @@
+@model IEnumerable<StudioCG.Web.Models.Entita.RecordEntita>
+@using StudioCG.Web.Models.Entita
+@{
+    var entita = ViewBag.Entita as EntitaDinamica;
+    ViewData["Title"] = entita?.NomePluruale ?? "Dati";
+    var clienteId = ViewBag.ClienteId as int?;
+    var statoId = ViewBag.StatoId as int?;
+    var search = ViewBag.Search as string;
+    var clienti = ViewBag.Clienti as List<StudioCG.Web.Models.Cliente> ?? new List<StudioCG.Web.Models.Cliente>();
+    var campiInLista = entita?.Campi.Where(c => c.ShowInList).ToList() ?? new List<CampoEntita>();
+    var campiFiltrabili = entita?.Campi.Where(c => c.UseAsFilter).ToList() ?? new List<CampoEntita>();
+    var filtriCampi = ViewBag.FiltriCampi as Dictionary<int, string> ?? new Dictionary<int, string>();
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>
+                <i class="@entita?.Icon me-2" style="color: @entita?.Colore;"></i>
+                @entita?.NomePluruale
+            </h2>
+            <p class="text-muted mb-0">@entita?.Descrizione</p>
+        </div>
+        <div class="btn-group">
+            <a asp-action="NuovoRecord" asp-route-id="@entita?.Id" asp-route-clienteId="@clienteId" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Nuovo Record
+            </a>
+            <a asp-action="Gestione" class="btn btn-outline-secondary">
+                <i class="fas fa-cog me-1"></i>Gestione
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Statistiche Stati -->
+    @if (entita?.Stati.Any() == true)
+    {
+        <div class="row mb-4">
+            @foreach (var stato in entita.Stati.OrderBy(s => s.DisplayOrder))
+            {
+                var count = Model.Count(r => r.StatoEntitaId == stato.Id);
+                <div class="col-auto">
+                    <a href="@Url.Action("Dati", new { id = entita.Id, statoId = stato.Id })" 
+                       class="card text-decoration-none @(statoId == stato.Id ? "border-3 border-dark" : "")" 
+                       style="border-left: 4px solid @stato.ColoreSfondo;">
+                        <div class="card-body py-2 px-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge" style="background-color: @stato.ColoreSfondo; color: @stato.ColoreTesto;">
+                                    <i class="@stato.Icon"></i>
+                                </span>
+                                <span class="fw-bold">@count</span>
+                                <small class="text-muted">@stato.Nome</small>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            }
+            <div class="col-auto">
+                <a href="@Url.Action("Dati", new { id = entita.Id })" class="card text-decoration-none">
+                    <div class="card-body py-2 px-3">
+                        <span class="fw-bold">@Model.Count()</span>
+                        <small class="text-muted ms-1">Totale</small>
+                    </div>
+                </a>
+            </div>
+        </div>
+    }
+
+    <!-- Filtri -->
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <form asp-action="Dati" method="get" class="row g-2 align-items-center">
+                <input type="hidden" name="id" value="@entita?.Id" />
+                
+                @if (entita?.CollegataACliente == true)
+                {
+                    <div class="col-md-3">
+                        <select name="clienteId" class="form-select form-select-sm">
+                            <option value="">-- Tutti i Clienti --</option>
+                            @foreach (var c in clienti)
+                            {
+                                if (c.Id == clienteId) { <option value="@c.Id" selected>@c.RagioneSociale</option> }
+                                else { <option value="@c.Id">@c.RagioneSociale</option> }
+                            }
+                        </select>
+                    </div>
+                }
+                
+                <div class="col-md-2">
+                    <select name="statoId" class="form-select form-select-sm">
+                        <option value="">-- Tutti gli Stati --</option>
+                        @if (entita?.Stati != null)
+                        {
+                            foreach (var s in entita.Stati)
+                            {
+                                if (s.Id == statoId) { <option value="@s.Id" selected>@s.Nome</option> }
+                                else { <option value="@s.Id">@s.Nome</option> }
+                            }
+                        }
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <input type="text" name="search" class="form-control form-select-sm" placeholder="Cerca titolo..." value="@search" />
+                </div>
+
+                @foreach (var campo in campiFiltrabili)
+                {
+                    var valoreFiltro = filtriCampi.ContainsKey(campo.Id) ? filtriCampi[campo.Id] : "";
+                    <div class="col-auto">
+                        @if (campo.TipoCampo == "checkbox")
+                        {
+                            <select name="filtro_@campo.Id" class="form-select form-select-sm" style="min-width: 120px;">
+                                <option value="">@campo.Label</option>
+                                <option value="true" selected="@(valoreFiltro == "true")">✓ Sì</option>
+                                <option value="false" selected="@(valoreFiltro == "false")">✗ No</option>
+                            </select>
+                        }
+                        else if (campo.TipoCampo == "dropdown" && !string.IsNullOrEmpty(campo.Options))
+                        {
+                            <select name="filtro_@campo.Id" class="form-select form-select-sm" style="min-width: 120px;">
+                                <option value="">@campo.Label</option>
+                                @foreach (var opt in campo.Options.Split('|'))
+                                {
+                                    <option value="@opt" selected="@(valoreFiltro == opt)">@opt</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <input type="text" name="filtro_@campo.Id" class="form-control form-control-sm" 
+                                   placeholder="@campo.Label" value="@valoreFiltro" style="min-width: 100px;" />
+                        }
+                    </div>
+                }
+                
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-search"></i></button>
+                    <a asp-action="Dati" asp-route-id="@entita?.Id" class="btn btn-outline-secondary btn-sm"><i class="fas fa-times"></i></a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabella Records -->
+    <div class="card" style="overflow: visible;">
+        <div class="card-body p-0" style="overflow: visible;">
+            @if (!Model.Any())
+            {
+                <div class="text-center py-5 text-muted">
+                    <i class="fas fa-database fa-3x mb-3"></i>
+                    <p>Nessun record trovato.</p>
+                    <a asp-action="NuovoRecord" asp-route-id="@entita?.Id" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>Crea il primo record
+                    </a>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive" style="overflow: visible;">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                @if (entita?.CollegataACliente == true)
+                                {
+                                    <th>Cliente</th>
+                                }
+                                <th>Titolo</th>
+                                @foreach (var campo in campiInLista.Take(4))
+                                {
+                                    <th>@campo.Label</th>
+                                }
+                                <th style="width: 140px;">Stato</th>
+                                <th>Data</th>
+                                <th style="width: 120px;" class="text-end">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var record in Model)
+                            {
+                                <tr class="align-middle">
+                                    @if (entita?.CollegataACliente == true)
+                                    {
+                                        <td>
+                                            @if (record.Cliente != null)
+                                            {
+                                                <a asp-controller="Clienti" asp-action="Details" asp-route-id="@record.ClienteId">
+                                                    @record.Cliente.RagioneSociale
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                    }
+                                    <td><strong>@(record.Titolo ?? $"Record #{record.Id}")</strong></td>
+                                    @foreach (var campo in campiInLista.Take(4))
+                                    {
+                                        var valore = record.Valori.FirstOrDefault(v => v.CampoEntitaId == campo.Id)?.Valore;
+                                        <td>
+                                            @if (campo.TipoCampo == "checkbox")
+                                            {
+                                                if (valore == "true") { <i class="fas fa-check text-success"></i> }
+                                                else { <i class="fas fa-times text-muted"></i> }
+                                            }
+                                            else
+                                            {
+                                                @(valore ?? "-")
+                                            }
+                                        </td>
+                                    }
+                                    <td>
+                                        @if (record.StatoEntita != null)
+                                        {
+                                            <span class="badge px-2 py-1" style="background-color: @record.StatoEntita.ColoreSfondo; color: @record.StatoEntita.ColoreTesto;">
+                                                <i class="@record.StatoEntita.Icon me-1"></i>@record.StatoEntita.Nome
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Nessuno</span>
+                                        }
+                                    </td>
+                                    <td><small class="text-muted">@record.CreatedAt.ToString("dd/MM/yyyy")</small></td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm">
+                                            <a asp-action="EditRecord" asp-route-id="@record.Id" class="btn btn-outline-primary" title="Modifica dettagli">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            @if (entita?.Stati?.Any() == true)
+                                            {
+                                                <button type="button" class="btn btn-outline-secondary" title="Cambia stato"
+                                                        data-bs-toggle="modal" data-bs-target="#modalCambiaStato"
+                                                        onclick="impostaRecordId(@record.Id)">
+                                                    <i class="fas fa-exchange-alt"></i>
+                                                </button>
+                                            }
+                                            <form asp-action="EliminaRecord" method="post" class="d-inline" onsubmit="return confirm('Eliminare questo record?')">
+                                                <input type="hidden" name="id" value="@record.Id" />
+                                                <button type="submit" class="btn btn-outline-danger" title="Elimina"><i class="fas fa-trash"></i></button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal Cambia Stato -->
+<div class="modal fade" id="modalCambiaStato" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="fas fa-exchange-alt me-2 text-warning"></i>Cambia Stato</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+            </div>
+            <div class="modal-body p-2">
+                @if (entita?.Stati?.Any() == true)
+                {
+                    @foreach (var stato in entita.Stati.OrderBy(s => s.DisplayOrder))
+                    {
+                        <form asp-action="CambiaStatoRapido" method="post" class="mb-2">
+                            <input type="hidden" name="recordId" class="hidden-record-id" value="" />
+                            <input type="hidden" name="nuovoStatoId" value="@stato.Id" />
+                            <input type="hidden" name="clienteId" value="@clienteId" />
+                            <input type="hidden" name="statoIdFiltro" value="@statoId" />
+                            <button type="submit" class="btn w-100 text-start" 
+                                    style="background-color: @stato.ColoreSfondo; color: @stato.ColoreTesto;">
+                                <i class="@stato.Icon me-2"></i>@stato.Nome
+                            </button>
+                        </form>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function impostaRecordId(recordId) {
+        document.querySelectorAll('.hidden-record-id').forEach(input => {
+            input.value = recordId;
+        });
+    }
+</script>

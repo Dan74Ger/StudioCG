@@ -1,0 +1,332 @@
+@model StudioCG.Web.Models.Entita.EntitaDinamica
+@{
+    ViewData["Title"] = $"Configura: {Model.Nome}";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>
+                <i class="@Model.Icon me-2" style="color: @Model.Colore;"></i>
+                Configura: @Model.Nome
+            </h2>
+            <p class="text-muted mb-0">Definisci campi e stati per questa entità</p>
+        </div>
+        <div class="btn-group">
+            <a asp-action="Dati" asp-route-id="@Model.Id" class="btn btn-primary">
+                <i class="fas fa-database me-1"></i>Vai ai Dati
+            </a>
+            <a asp-action="Gestione" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Torna a Gestione
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Impostazioni Entità -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-cog me-2"></i>Impostazioni Entità</h5>
+        </div>
+        <div class="card-body">
+            <form asp-action="AggiornaEntita" method="post">
+                <input type="hidden" name="id" value="@Model.Id" />
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Nome</label>
+                        <input type="text" name="nome" class="form-control" value="@Model.Nome" required />
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Nome Plurale</label>
+                        <input type="text" name="nomePluruale" class="form-control" value="@Model.NomePluruale" />
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label">Icona</label>
+                        <input type="text" name="icon" class="form-control" value="@Model.Icon" />
+                    </div>
+                    <div class="col-md-1 mb-3">
+                        <label class="form-label">Colore</label>
+                        <input type="color" name="colore" class="form-control form-control-color" value="@Model.Colore" />
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Descrizione</label>
+                        <input type="text" name="descrizione" class="form-control" value="@Model.Descrizione" />
+                    </div>
+                </div>
+                <div class="d-flex gap-3 align-items-center">
+                    <div class="form-check">
+                        <input type="checkbox" name="collegataACliente" value="true" class="form-check-input" 
+                               id="collegata" @(Model.CollegataACliente ? "checked" : "")>
+                        <label class="form-check-label" for="collegata">Collegata a Cliente</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-save me-1"></i>Salva Impostazioni
+                    </button>
+                    <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteEntitaModal">
+                        <i class="fas fa-trash me-1"></i>Elimina Entità
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- CAMPI (Form Builder) -->
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-th-list me-2"></i>Campi (@Model.Campi.Count())</h5>
+                    <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addCampoModal">
+                        <i class="fas fa-plus me-1"></i>Aggiungi Campo
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    @if (!Model.Campi.Any())
+                    {
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-th-list fa-2x mb-2"></i>
+                            <p class="mb-0">Nessun campo definito. Aggiungi il primo campo.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 50px;"></th>
+                                        <th>Campo</th>
+                                        <th>Tipo</th>
+                                        <th class="text-center">Opzioni</th>
+                                        <th style="width: 100px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var campo in Model.Campi)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <div class="btn-group-vertical btn-group-sm">
+                                                    <form asp-action="MoveCampoUp" method="post" class="d-inline">
+                                                        <input type="hidden" name="id" value="@campo.Id" />
+                                                        <button type="submit" class="btn btn-outline-secondary btn-sm py-0"><i class="fas fa-chevron-up"></i></button>
+                                                    </form>
+                                                    <form asp-action="MoveCampoDown" method="post" class="d-inline">
+                                                        <input type="hidden" name="id" value="@campo.Id" />
+                                                        <button type="submit" class="btn btn-outline-secondary btn-sm py-0"><i class="fas fa-chevron-down"></i></button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <strong>@campo.Label</strong><br>
+                                                <small class="text-muted">@campo.Nome</small>
+                                            </td>
+                                            <td>
+                                                @{
+                                                    var tipoIcon = campo.TipoCampo switch {
+                                                        "text" => "📝", "textarea" => "📄", "number" => "🔢", "decimal" => "💰",
+                                                        "date" => "📅", "datetime" => "📅⏰", "checkbox" => "☑️", "dropdown" => "📋",
+                                                        "email" => "✉️", "phone" => "📞", "url" => "🌐", "cliente" => "👤", _ => "❓"
+                                                    };
+                                                }
+                                                @tipoIcon @campo.TipoCampo
+                                            </td>
+                                            <td class="text-center">
+                                                @if (campo.IsRequired) { <span class="badge bg-danger">OBB</span> }
+                                                @if (campo.ShowInList) { <span class="badge bg-info">LISTA</span> }
+                                                @if (campo.UseAsFilter) { <span class="badge bg-warning text-dark">FILTRO</span> }
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editCampoModal@(campo.Id)">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <form asp-action="DeleteCampo" method="post" class="d-inline" onsubmit="return confirm('Eliminare questo campo?')">
+                                                    <input type="hidden" name="id" value="@campo.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                                </form>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Modal Edit Campo -->
+                                        <div class="modal fade" id="editCampoModal@(campo.Id)" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <form asp-action="EditCampo" method="post">
+                                                        <input type="hidden" name="id" value="@campo.Id" />
+                                                        <div class="modal-header"><h5 class="modal-title">Modifica Campo</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                                                        <div class="modal-body">
+                                                            <div class="mb-3"><label class="form-label">Etichetta</label><input type="text" name="label" class="form-control" value="@campo.Label" required /></div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Tipo</label>
+                                                                <select name="tipoCampo" class="form-select">
+                                                                    @foreach (var t in new[] { ("text","Testo"), ("textarea","Testo Lungo"), ("number","Numero"), ("decimal","Decimale"), ("date","Data"), ("datetime","Data/Ora"), ("checkbox","Checkbox"), ("dropdown","Dropdown"), ("email","Email"), ("phone","Telefono"), ("url","URL") })
+                                                                    {
+                                                                        if (campo.TipoCampo == t.Item1) { <option value="@t.Item1" selected>@t.Item2</option> } else { <option value="@t.Item1">@t.Item2</option> }
+                                                                    }
+                                                                </select>
+                                                            </div>
+                                                            <div class="mb-3"><label class="form-label">Opzioni (per dropdown)</label><input type="text" name="options" class="form-control" value="@campo.Options" placeholder="Opz1|Opz2|Opz3" /></div>
+                                                            <div class="mb-3"><label class="form-label">Valore Default</label><input type="text" name="defaultValue" class="form-control" value="@campo.DefaultValue" /></div>
+                                                            <div class="mb-3"><label class="form-label">Placeholder</label><input type="text" name="placeholder" class="form-control" value="@campo.Placeholder" /></div>
+                                                            <div class="mb-3"><label class="form-label">Larghezza (1-12)</label><input type="number" name="colWidth" class="form-control" value="@campo.ColWidth" min="1" max="12" /></div>
+                                                            <div class="row">
+                                                                <div class="col-4"><div class="form-check"><input type="checkbox" name="isRequired" value="true" class="form-check-input" @(campo.IsRequired ? "checked" : "") /><label class="form-check-label">Obbligatorio</label></div></div>
+                                                                <div class="col-4"><div class="form-check"><input type="checkbox" name="showInList" value="true" class="form-check-input" @(campo.ShowInList ? "checked" : "") /><label class="form-check-label">In Lista</label></div></div>
+                                                                <div class="col-4"><div class="form-check"><input type="checkbox" name="useAsFilter" value="true" class="form-check-input" @(campo.UseAsFilter ? "checked" : "") /><label class="form-check-label">Filtro</label></div></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button><button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Salva</button></div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- STATI -->
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-flag me-2"></i>Stati (@Model.Stati.Count())</h5>
+                    <button class="btn btn-dark btn-sm" data-bs-toggle="modal" data-bs-target="#addStatoModal">
+                        <i class="fas fa-plus me-1"></i>Aggiungi
+                    </button>
+                </div>
+                <ul class="list-group list-group-flush">
+                    @if (!Model.Stati.Any())
+                    {
+                        <li class="list-group-item text-center text-muted py-4">
+                            <i class="fas fa-flag fa-2x mb-2"></i>
+                            <p class="mb-0">Nessuno stato definito.</p>
+                        </li>
+                    }
+                    @foreach (var stato in Model.Stati)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge me-2" style="background-color: @stato.ColoreSfondo; color: @stato.ColoreTesto;">
+                                    <i class="@stato.Icon me-1"></i>@stato.Nome
+                                </span>
+                                @if (stato.IsDefault) { <span class="badge bg-primary">Default</span> }
+                                @if (stato.IsFinale) { <span class="badge bg-success">Finale</span> }
+                            </div>
+                            <form asp-action="DeleteStato" method="post" class="d-inline" onsubmit="return confirm('Eliminare questo stato?')">
+                                <input type="hidden" name="id" value="@stato.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                            </form>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Aggiungi Campo -->
+<div class="modal fade" id="addCampoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="AddCampo" method="post">
+                <input type="hidden" name="EntitaDinamicaId" value="@Model.Id" />
+                <div class="modal-header bg-info text-white"><h5 class="modal-title"><i class="fas fa-plus me-2"></i>Nuovo Campo</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="form-label">Nome Campo *</label><input type="text" name="Nome" class="form-control" required pattern="[A-Za-z0-9_]+" placeholder="es: DataDecesso" /><small class="text-muted">Solo lettere, numeri, underscore</small></div>
+                    <div class="mb-3"><label class="form-label">Etichetta *</label><input type="text" name="Label" class="form-control" required placeholder="es: Data Decesso" /></div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo Campo</label>
+                        <select name="TipoCampo" class="form-select" id="newCampoTipo">
+                            <option value="text">📝 Testo</option>
+                            <option value="textarea">📄 Testo Lungo</option>
+                            <option value="number">🔢 Numero</option>
+                            <option value="decimal">💰 Decimale</option>
+                            <option value="date">📅 Data</option>
+                            <option value="datetime">📅⏰ Data/Ora</option>
+                            <option value="checkbox">☑️ Checkbox</option>
+                            <option value="dropdown">📋 Dropdown</option>
+                            <option value="email">✉️ Email</option>
+                            <option value="phone">📞 Telefono</option>
+                            <option value="url">🌐 URL</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="optionsContainer" style="display:none;"><label class="form-label">Opzioni (separate da |)</label><input type="text" name="Options" class="form-control" placeholder="Opz1|Opz2|Opz3" /></div>
+                    <div class="mb-3"><label class="form-label">Placeholder</label><input type="text" name="Placeholder" class="form-control" /></div>
+                    <div class="row">
+                        <div class="col-4"><div class="form-check"><input type="checkbox" name="IsRequired" value="true" class="form-check-input" id="newReq" /><label class="form-check-label" for="newReq">Obbligatorio</label></div></div>
+                        <div class="col-4"><div class="form-check"><input type="checkbox" name="ShowInList" value="true" class="form-check-input" id="newList" checked /><label class="form-check-label" for="newList">In Lista</label></div></div>
+                        <div class="col-4"><div class="form-check"><input type="checkbox" name="UseAsFilter" value="true" class="form-check-input" id="newFilter" /><label class="form-check-label" for="newFilter">Filtro</label></div></div>
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button><button type="submit" class="btn btn-info"><i class="fas fa-plus me-1"></i>Aggiungi</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Aggiungi Stato -->
+<div class="modal fade" id="addStatoModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form asp-action="AddStato" method="post">
+                <input type="hidden" name="EntitaDinamicaId" value="@Model.Id" />
+                <div class="modal-header bg-warning"><h5 class="modal-title"><i class="fas fa-flag me-2"></i>Nuovo Stato</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="form-label">Nome *</label><input type="text" name="Nome" class="form-control" required /></div>
+                    <div class="mb-3"><label class="form-label">Icona</label><input type="text" name="Icon" class="form-control" value="fas fa-circle" /></div>
+                    <div class="row mb-3">
+                        <div class="col-6"><label class="form-label">Sfondo</label><input type="color" name="ColoreSfondo" class="form-control form-control-color w-100" value="#6c757d" /></div>
+                        <div class="col-6"><label class="form-label">Testo</label><input type="color" name="ColoreTesto" class="form-control form-control-color w-100" value="#FFFFFF" /></div>
+                    </div>
+                    <div class="form-check"><input type="checkbox" name="IsDefault" value="true" class="form-check-input" id="newDefault" /><label class="form-check-label" for="newDefault">Stato Default</label></div>
+                    <div class="form-check"><input type="checkbox" name="IsFinale" value="true" class="form-check-input" id="newFinale" /><label class="form-check-label" for="newFinale">Stato Finale</label></div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button><button type="submit" class="btn btn-warning"><i class="fas fa-plus me-1"></i>Aggiungi</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Elimina Entità -->
+<div class="modal fade" id="deleteEntitaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white"><h5 class="modal-title">Conferma Eliminazione</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <p>Sei sicuro di voler eliminare l'entità <strong>@Model.Nome</strong>?</p>
+                <div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>Verranno eliminati TUTTI i dati, campi e stati associati!</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                <form asp-action="EliminaEntita" method="post"><input type="hidden" name="id" value="@Model.Id" /><button type="submit" class="btn btn-danger"><i class="fas fa-trash me-1"></i>Elimina</button></form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.getElementById('newCampoTipo').addEventListener('change', function() {
+    document.getElementById('optionsContainer').style.display = this.value === 'dropdown' ? 'block' : 'none';
+});
+</script>
+}

@@ -1,5 +1,6 @@
 @model StudioCG.Web.Models.Cliente
 @using StudioCG.Web.Models
+@using StudioCG.Web.Models.Entita
 
 @{
     ViewData["Title"] = Model.RagioneSociale;
@@ -11,6 +12,9 @@
     var legaliRappresentanti = Model.Soggetti.Where(s => s.TipoSoggetto == TipoSoggetto.LegaleRappresentante).ToList();
     var consiglieri = Model.Soggetti.Where(s => s.TipoSoggetto == TipoSoggetto.Consigliere).ToList();
     var soci = Model.Soggetti.Where(s => s.TipoSoggetto == TipoSoggetto.Socio).ToList();
+    
+    var entitaCollegate = ViewBag.EntitaCollegate as List<EntitaDinamica> ?? new List<EntitaDinamica>();
+    var recordsPerEntita = ViewBag.RecordsPerEntita as Dictionary<int, int> ?? new Dictionary<int, int>();
 }
 
 <!-- Header -->
@@ -40,7 +44,7 @@
 
 <div class="row">
     <!-- Colonna Sinistra: Dati Cliente -->
-    <div class="col-lg-4">
+    <div class="col-lg-3">
         <!-- Dati Anagrafici -->
         <div class="card mb-4">
             <div class="card-header">
@@ -82,10 +86,62 @@
                 }
             </div>
         </div>
+
+        @{
+            var campiCustom = ViewBag.CampiCustom as IEnumerable<CampoCustomCliente>;
+            var valoriCustom = ViewBag.ValoriCampiCustom as Dictionary<int, string?> ?? new Dictionary<int, string?>();
+        }
+        @if (campiCustom != null && campiCustom.Any())
+        {
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-th-list me-2"></i>Campi Personalizzati</h6>
+                </div>
+                <div class="card-body">
+                    @foreach (var campo in campiCustom)
+                    {
+                        var valore = valoriCustom.ContainsKey(campo.Id) ? valoriCustom[campo.Id] : null;
+                        @if (!string.IsNullOrEmpty(valore))
+                        {
+                            <p class="mb-2">
+                                <strong class="text-muted">@campo.Label:</strong>
+                                @if (campo.TipoCampo == "checkbox")
+                                {
+                                    if (valore == "true")
+                                    {
+                                        <span class="badge bg-success"><i class="fas fa-check"></i> Sì</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary"><i class="fas fa-times"></i> No</span>
+                                    }
+                                }
+                                else if (campo.TipoCampo == "url" && !string.IsNullOrEmpty(valore))
+                                {
+                                    <a href="@valore" target="_blank">@valore</a>
+                                }
+                                else if (campo.TipoCampo == "email" && !string.IsNullOrEmpty(valore))
+                                {
+                                    <a href="mailto:@valore">@valore</a>
+                                }
+                                else
+                                {
+                                    @valore
+                                }
+                            </p>
+                        }
+                    }
+                    @if (!valoriCustom.Any(v => !string.IsNullOrEmpty(v.Value)))
+                    {
+                        <p class="text-muted small mb-0">Nessun valore inserito</p>
+                    }
+                </div>
+            </div>
+        }
     </div>
 
     <!-- Colonna Centrale: Soggetti -->
-    <div class="col-lg-4">
+    <div class="col-lg-3">
         <!-- Legale Rappresentante -->
         <div class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center py-2">
@@ -190,8 +246,8 @@
         </div>
     </div>
 
-    <!-- Colonna Destra: Attività -->
-    <div class="col-lg-4">
+    <!-- Colonna Attività -->
+    <div class="col-lg-3">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h6 class="mb-0">
@@ -302,6 +358,60 @@
                 }
             </div>
         </div>
+    </div>
+
+    <!-- Colonna Entità -->
+    <div class="col-lg-3">
+        @if (entitaCollegate.Any())
+        {
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-cube me-2"></i>Entità</h6>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        @foreach (var entita in entitaCollegate)
+                        {
+                            var count = recordsPerEntita.ContainsKey(entita.Id) ? recordsPerEntita[entita.Id] : 0;
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <a asp-controller="Entita" asp-action="Dati" asp-route-id="@entita.Id" asp-route-clienteId="@Model.Id"
+                                   class="text-decoration-none" style="color: @entita.Colore;">
+                                    <i class="@entita.Icon me-2"></i>@entita.NomePluruale
+                                </a>
+                                <div>
+                                    @if (count > 0)
+                                    {
+                                        <span class="badge bg-primary rounded-pill me-1">@count</span>
+                                    }
+                                    <a asp-controller="Entita" asp-action="NuovoRecord" asp-route-id="@entita.Id" asp-route-clienteId="@Model.Id"
+                                       class="btn btn-sm btn-outline-success" title="Nuovo @entita.Nome">
+                                        <i class="fas fa-plus"></i>
+                                    </a>
+                                    <a asp-controller="Entita" asp-action="Dati" asp-route-id="@entita.Id" asp-route-clienteId="@Model.Id"
+                                       class="btn btn-sm btn-outline-primary" title="Visualizza">
+                                        <i class="fas fa-list"></i>
+                                    </a>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-cube me-2"></i>Entità</h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-0">
+                        Nessuna entità collegata a clienti.
+                        <a asp-controller="Entita" asp-action="Gestione" class="text-primary">Crea un'entità</a>
+                    </p>
+                </div>
+            </div>
+        }
     </div>
 </div>
 

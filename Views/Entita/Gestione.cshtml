@@ -1,0 +1,150 @@
+@model IEnumerable<StudioCG.Web.Models.Entita.EntitaDinamica>
+@{
+    ViewData["Title"] = "Gestione Entità";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-cubes me-2"></i>Gestione Entità Dinamiche</h2>
+            <p class="text-muted mb-0">Crea e configura entità personalizzate per gestire i tuoi dati</p>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="row">
+        <!-- Form Nuova Entità -->
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Nuova Entità</h5>
+                </div>
+                <div class="card-body">
+                    <form asp-action="CreaEntita" method="post">
+                        <div class="mb-3">
+                            <label class="form-label">Nome Entità *</label>
+                            <input type="text" name="Nome" class="form-control" required placeholder="es: Pratica Successoria">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nome Plurale</label>
+                            <input type="text" name="NomePluruale" class="form-control" placeholder="es: Pratiche Successorie">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Descrizione</label>
+                            <textarea name="Descrizione" class="form-control" rows="2" placeholder="Descrizione opzionale"></textarea>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-8">
+                                <label class="form-label">Icona</label>
+                                <input type="text" name="Icon" class="form-control" value="fas fa-folder" placeholder="fas fa-folder">
+                                <small class="text-muted">FontAwesome</small>
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label">Colore</label>
+                                <input type="color" name="Colore" class="form-control form-control-color" value="#6c757d">
+                            </div>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input type="checkbox" name="CollegataACliente" value="true" class="form-check-input" id="newCollegata" checked>
+                            <label class="form-check-label" for="newCollegata">Collegata a Cliente</label>
+                            <small class="d-block text-muted">Se abilitato, ogni record sarà associato a un cliente</small>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-plus me-1"></i> Crea Entità
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista Entità -->
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Entità Create (@Model.Count())</h5>
+                </div>
+                <div class="card-body">
+                    @if (!Model.Any())
+                    {
+                        <div class="text-center py-5 text-muted">
+                            <i class="fas fa-cubes fa-3x mb-3"></i>
+                            <p>Nessuna entità creata.</p>
+                            <p>Crea la prima entità dal form a sinistra.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="row">
+                            @foreach (var entita in Model)
+                            {
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100" style="border-left: 4px solid @entita.Colore;">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <h5 class="card-title mb-1">
+                                                        <i class="@entita.Icon me-2" style="color: @entita.Colore;"></i>
+                                                        @entita.Nome
+                                                    </h5>
+                                                    <p class="text-muted small mb-2">@entita.NomePluruale</p>
+                                                </div>
+                                                @if (!entita.IsActive)
+                                                {
+                                                    <span class="badge bg-secondary">Inattiva</span>
+                                                }
+                                            </div>
+                                            
+                                            @if (!string.IsNullOrEmpty(entita.Descrizione))
+                                            {
+                                                <p class="small text-muted mb-2">@entita.Descrizione</p>
+                                            }
+
+                                            <div class="d-flex gap-2 mb-2">
+                                                <span class="badge bg-info">
+                                                    <i class="fas fa-th-list me-1"></i>@entita.Campi.Count() campi
+                                                </span>
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-flag me-1"></i>@entita.Stati.Count() stati
+                                                </span>
+                                                @if (entita.CollegataACliente)
+                                                {
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-link me-1"></i>Cliente
+                                                    </span>
+                                                }
+                                            </div>
+
+                                            <div class="btn-group btn-group-sm w-100">
+                                                <a asp-action="Dati" asp-route-id="@entita.Id" class="btn btn-outline-primary">
+                                                    <i class="fas fa-database me-1"></i>Dati
+                                                </a>
+                                                <a asp-action="Configura" asp-route-id="@entita.Id" class="btn btn-outline-secondary">
+                                                    <i class="fas fa-cog me-1"></i>Configura
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

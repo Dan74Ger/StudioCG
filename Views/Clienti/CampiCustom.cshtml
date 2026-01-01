@@ -1,0 +1,366 @@
+@model IEnumerable<StudioCG.Web.Models.CampoCustomCliente>
+@{
+    ViewData["Title"] = "Campi Personalizzati Cliente";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-th-list me-2"></i>Campi Personalizzati Cliente</h2>
+            <p class="text-muted mb-0">Definisci campi aggiuntivi per l'anagrafica clienti</p>
+        </div>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Torna ai Clienti
+        </a>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="row">
+        <!-- Form Nuovo Campo -->
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Nuovo Campo</h5>
+                </div>
+                <div class="card-body">
+                    <form asp-action="AddCampoCustom" method="post">
+                        <div class="mb-3">
+                            <label class="form-label">Nome Campo (univoco) *</label>
+                            <input type="text" name="Nome" class="form-control" required 
+                                   placeholder="es: SettoreMerceologico" pattern="[A-Za-z0-9_]+" 
+                                   title="Solo lettere, numeri e underscore">
+                            <small class="text-muted">Identificativo tecnico, senza spazi</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Etichetta *</label>
+                            <input type="text" name="Label" class="form-control" required 
+                                   placeholder="es: Settore Merceologico">
+                            <small class="text-muted">Testo visualizzato nel form</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Tipo Campo *</label>
+                            <select name="TipoCampo" class="form-select" required id="newTipoCampo">
+                                <option value="text">📝 Testo</option>
+                                <option value="textarea">📄 Testo Lungo</option>
+                                <option value="number">🔢 Numero Intero</option>
+                                <option value="decimal">💰 Decimale/Valuta</option>
+                                <option value="date">📅 Data</option>
+                                <option value="datetime">📅⏰ Data e Ora</option>
+                                <option value="checkbox">☑️ Checkbox (Sì/No)</option>
+                                <option value="dropdown">📋 Dropdown (Scelta singola)</option>
+                                <option value="email">✉️ Email</option>
+                                <option value="phone">📞 Telefono</option>
+                                <option value="url">🌐 URL</option>
+                            </select>
+                        </div>
+                        <div class="mb-3" id="newOptionsContainer" style="display: none;">
+                            <label class="form-label">Opzioni (separate da |)</label>
+                            <input type="text" name="Options" class="form-control" 
+                                   placeholder="es: Opzione1|Opzione2|Opzione3">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Valore Default</label>
+                            <input type="text" name="DefaultValue" class="form-control" 
+                                   placeholder="Valore predefinito">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Suggerimento (Placeholder)</label>
+                            <input type="text" name="Placeholder" class="form-control" 
+                                   placeholder="Testo di suggerimento nel campo">
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input type="checkbox" name="IsRequired" value="true" class="form-check-input" id="newIsRequired">
+                                    <label class="form-check-label" for="newIsRequired">Obbligatorio</label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input type="checkbox" name="ShowInList" value="true" class="form-check-input" id="newShowInList">
+                                    <label class="form-check-label" for="newShowInList">Mostra in Lista</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input type="checkbox" name="UseAsFilter" value="true" class="form-check-input" id="newUseAsFilter">
+                            <label class="form-check-label" for="newUseAsFilter">Usa come Filtro</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-plus me-1"></i> Aggiungi Campo
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista Campi -->
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Campi Configurati (@Model.Count())</h5>
+                </div>
+                <div class="card-body p-0">
+                    @if (!Model.Any())
+                    {
+                        <div class="text-center py-5 text-muted">
+                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                            <p>Nessun campo personalizzato configurato.</p>
+                            <p>Aggiungi il primo campo dal form a sinistra.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 60px;">Ordine</th>
+                                        <th>Campo</th>
+                                        <th>Tipo</th>
+                                        <th class="text-center">Opzioni</th>
+                                        <th style="width: 120px;">Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var campo in Model)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <div class="btn-group-vertical btn-group-sm">
+                                                    <form asp-action="MoveCampoCustomUp" method="post" class="d-inline">
+                                                        <input type="hidden" name="id" value="@campo.Id" />
+                                                        <button type="submit" class="btn btn-outline-secondary btn-sm py-0">
+                                                            <i class="fas fa-chevron-up"></i>
+                                                        </button>
+                                                    </form>
+                                                    <form asp-action="MoveCampoCustomDown" method="post" class="d-inline">
+                                                        <input type="hidden" name="id" value="@campo.Id" />
+                                                        <button type="submit" class="btn btn-outline-secondary btn-sm py-0">
+                                                            <i class="fas fa-chevron-down"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <strong>@campo.Label</strong><br>
+                                                <small class="text-muted">@campo.Nome</small>
+                                            </td>
+                                            <td>
+                                                @{
+                                                    var tipoIcon = campo.TipoCampo switch
+                                                    {
+                                                        "text" => "📝",
+                                                        "textarea" => "📄",
+                                                        "number" => "🔢",
+                                                        "decimal" => "💰",
+                                                        "date" => "📅",
+                                                        "datetime" => "📅⏰",
+                                                        "checkbox" => "☑️",
+                                                        "dropdown" => "📋",
+                                                        "email" => "✉️",
+                                                        "phone" => "📞",
+                                                        "url" => "🌐",
+                                                        _ => "❓"
+                                                    };
+                                                }
+                                                @tipoIcon @campo.TipoCampo
+                                                @if (campo.TipoCampo == "dropdown" && !string.IsNullOrEmpty(campo.Options))
+                                                {
+                                                    <br><small class="text-muted">@campo.Options</small>
+                                                }
+                                            </td>
+                                            <td class="text-center">
+                                                @if (campo.IsRequired)
+                                                {
+                                                    <span class="badge bg-danger" title="Obbligatorio">OBB</span>
+                                                }
+                                                @if (campo.ShowInList)
+                                                {
+                                                    <span class="badge bg-info" title="Mostra in Lista">LISTA</span>
+                                                }
+                                                @if (campo.UseAsFilter)
+                                                {
+                                                    <span class="badge bg-warning text-dark" title="Filtro">FILTRO</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                        data-bs-toggle="modal" data-bs-target="#editModal@(campo.Id)">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                        data-bs-toggle="modal" data-bs-target="#deleteModal@(campo.Id)">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Modal Modifica -->
+                                        <div class="modal fade" id="editModal@(campo.Id)" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <form asp-action="EditCampoCustom" method="post">
+                                                        <input type="hidden" name="id" value="@campo.Id" />
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title">Modifica Campo: @campo.Nome</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Etichetta *</label>
+                                                                <input type="text" name="label" class="form-control" 
+                                                                       value="@campo.Label" required>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Tipo Campo</label>
+                                                                @{
+                                                                    var tipiCampoEdit = new[] {
+                                                                        ("text", "📝 Testo"),
+                                                                        ("textarea", "📄 Testo Lungo"),
+                                                                        ("number", "🔢 Numero Intero"),
+                                                                        ("decimal", "💰 Decimale/Valuta"),
+                                                                        ("date", "📅 Data"),
+                                                                        ("datetime", "📅⏰ Data e Ora"),
+                                                                        ("checkbox", "☑️ Checkbox"),
+                                                                        ("dropdown", "📋 Dropdown"),
+                                                                        ("email", "✉️ Email"),
+                                                                        ("phone", "📞 Telefono"),
+                                                                        ("url", "🌐 URL")
+                                                                    };
+                                                                }
+                                                                <select name="tipoCampo" class="form-select" onchange="toggleOptions(this, 'options@(campo.Id)')">
+                                                                    @foreach (var (val, label) in tipiCampoEdit)
+                                                                    {
+                                                                        if (campo.TipoCampo == val)
+                                                                        {
+                                                                            <option value="@val" selected>@label</option>
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            <option value="@val">@label</option>
+                                                                        }
+                                                                    }
+                                                                </select>
+                                                            </div>
+                                                            <div class="mb-3" id="options@(campo.Id)" style="@(campo.TipoCampo == "dropdown" ? "" : "display: none;")">
+                                                                <label class="form-label">Opzioni (separate da |)</label>
+                                                                <input type="text" name="options" class="form-control" 
+                                                                       value="@campo.Options" placeholder="Opzione1|Opzione2|Opzione3">
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Valore Default</label>
+                                                                <input type="text" name="defaultValue" class="form-control" 
+                                                                       value="@campo.DefaultValue">
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Placeholder</label>
+                                                                <input type="text" name="placeholder" class="form-control" 
+                                                                       value="@campo.Placeholder">
+                                                            </div>
+                                                            <div class="row">
+                                                                <div class="col-4">
+                                                                    <div class="form-check">
+                                                                        <input type="checkbox" name="isRequired" value="true" 
+                                                                               class="form-check-input" id="req@(campo.Id)"
+                                                                               @(campo.IsRequired ? "checked" : "")>
+                                                                        <label class="form-check-label" for="req@(campo.Id)">Obbligatorio</label>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="col-4">
+                                                                    <div class="form-check">
+                                                                        <input type="checkbox" name="showInList" value="true" 
+                                                                               class="form-check-input" id="list@(campo.Id)"
+                                                                               @(campo.ShowInList ? "checked" : "")>
+                                                                        <label class="form-check-label" for="list@(campo.Id)">In Lista</label>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="col-4">
+                                                                    <div class="form-check">
+                                                                        <input type="checkbox" name="useAsFilter" value="true" 
+                                                                               class="form-check-input" id="filter@(campo.Id)"
+                                                                               @(campo.UseAsFilter ? "checked" : "")>
+                                                                        <label class="form-check-label" for="filter@(campo.Id)">Filtro</label>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                                                            <button type="submit" class="btn btn-primary">
+                                                                <i class="fas fa-save me-1"></i> Salva
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Modal Elimina -->
+                                        <div class="modal fade" id="deleteModal@(campo.Id)" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header bg-danger text-white">
+                                                        <h5 class="modal-title">Conferma Eliminazione</h5>
+                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <p>Sei sicuro di voler eliminare il campo <strong>@campo.Label</strong>?</p>
+                                                        <div class="alert alert-warning">
+                                                            <i class="fas fa-exclamation-triangle me-2"></i>
+                                                            <strong>Attenzione!</strong> Verranno eliminati anche tutti i valori 
+                                                            già inseriti per questo campo in tutti i clienti.
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                                                        <form asp-action="DeleteCampoCustom" method="post" class="d-inline">
+                                                            <input type="hidden" name="id" value="@campo.Id" />
+                                                            <button type="submit" class="btn btn-danger">
+                                                                <i class="fas fa-trash me-1"></i> Elimina
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // Mostra/nasconde opzioni per dropdown
+    document.getElementById('newTipoCampo').addEventListener('change', function() {
+        var container = document.getElementById('newOptionsContainer');
+        container.style.display = this.value === 'dropdown' ? 'block' : 'none';
+    });
+
+    function toggleOptions(select, optionsId) {
+        var container = document.getElementById(optionsId);
+        container.style.display = select.value === 'dropdown' ? 'block' : 'none';
+    }
+</script>
+}

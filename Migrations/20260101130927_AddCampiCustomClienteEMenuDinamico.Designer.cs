@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StudioCG.Web.Data;
 
@@ -11,9 +12,11 @@ using StudioCG.Web.Data;
 namespace StudioCG.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260101130927_AddCampiCustomClienteEMenuDinamico")]
+    partial class AddCampiCustomClienteEMenuDinamico
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1080,248 +1083,6 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("DynamicPageId");
 
                     b.ToTable("DynamicRecords");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.Entita.CampoEntita", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("ColWidth")
-                        .HasColumnType("int");
-
-                    b.Property<string>("DefaultValue")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
-
-                    b.Property<int>("EntitaDinamicaId")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsRequired")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Label")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Nome")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Options")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("Placeholder")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<bool>("ShowInList")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("TipoCampo")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<bool>("UseAsFilter")
-                        .HasColumnType("bit");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EntitaDinamicaId", "Nome")
-                        .IsUnique();
-
-                    b.ToTable("CampiEntita");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.Entita.EntitaDinamica", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("CollegataACliente")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Colore")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Descrizione")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Icon")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Nome")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("NomePluruale")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Nome")
-                        .IsUnique();
-
-                    b.ToTable("EntitaDinamiche");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.Entita.RecordEntita", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("ClienteId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("CreatedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("EntitaDinamicaId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Note")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("StatoEntitaId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Titolo")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClienteId");
-
-                    b.HasIndex("CreatedByUserId");
-
-                    b.HasIndex("EntitaDinamicaId");
-
-                    b.HasIndex("StatoEntitaId");
-
-                    b.ToTable("RecordsEntita");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.Entita.StatoEntita", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ColoreSfondo")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("ColoreTesto")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
-
-                    b.Property<int>("EntitaDinamicaId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Icon")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDefault")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsFinale")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Nome")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EntitaDinamicaId", "Nome")
-                        .IsUnique();
-
-                    b.ToTable("StatiEntita");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.Entita.ValoreCampoEntita", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("CampoEntitaId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("RecordEntitaId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Valore")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CampoEntitaId");
-
-                    b.HasIndex("RecordEntitaId", "CampoEntitaId")
-                        .IsUnique();
-
-                    b.ToTable("ValoriCampiEntita");
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.AccessoCliente", b =>
@@ -2509,79 +2270,6 @@ namespace StudioCG.Web.Migrations
                     b.Navigation("DynamicPage");
                 });
 
-            modelBuilder.Entity("StudioCG.Web.Models.Entita.CampoEntita", b =>
-                {
-                    b.HasOne("StudioCG.Web.Models.Entita.EntitaDinamica", "EntitaDinamica")
-                        .WithMany("Campi")
-                        .HasForeignKey("EntitaDinamicaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("EntitaDinamica");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.Entita.RecordEntita", b =>
-                {
-                    b.HasOne("StudioCG.Web.Models.Cliente", "Cliente")
-                        .WithMany()
-                        .HasForeignKey("ClienteId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("StudioCG.Web.Models.User", "CreatedByUser")
-                        .WithMany()
-                        .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("StudioCG.Web.Models.Entita.EntitaDinamica", "EntitaDinamica")
-                        .WithMany("Records")
-                        .HasForeignKey("EntitaDinamicaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("StudioCG.Web.Models.Entita.StatoEntita", "StatoEntita")
-                        .WithMany()
-                        .HasForeignKey("StatoEntitaId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("Cliente");
-
-                    b.Navigation("CreatedByUser");
-
-                    b.Navigation("EntitaDinamica");
-
-                    b.Navigation("StatoEntita");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.Entita.StatoEntita", b =>
-                {
-                    b.HasOne("StudioCG.Web.Models.Entita.EntitaDinamica", "EntitaDinamica")
-                        .WithMany("Stati")
-                        .HasForeignKey("EntitaDinamicaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("EntitaDinamica");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.Entita.ValoreCampoEntita", b =>
-                {
-                    b.HasOne("StudioCG.Web.Models.Entita.CampoEntita", "CampoEntita")
-                        .WithMany("Valori")
-                        .HasForeignKey("CampoEntitaId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.HasOne("StudioCG.Web.Models.Entita.RecordEntita", "RecordEntita")
-                        .WithMany("Valori")
-                        .HasForeignKey("RecordEntitaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CampoEntita");
-
-                    b.Navigation("RecordEntita");
-                });
-
             modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.AccessoCliente", b =>
                 {
                     b.HasOne("StudioCG.Web.Models.Cliente", "Cliente")
@@ -2858,25 +2546,6 @@ namespace StudioCG.Web.Migrations
             modelBuilder.Entity("StudioCG.Web.Models.DynamicRecord", b =>
                 {
                     b.Navigation("FieldValues");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.Entita.CampoEntita", b =>
-                {
-                    b.Navigation("Valori");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.Entita.EntitaDinamica", b =>
-                {
-                    b.Navigation("Campi");
-
-                    b.Navigation("Records");
-
-                    b.Navigation("Stati");
-                });
-
-            modelBuilder.Entity("StudioCG.Web.Models.Entita.RecordEntita", b =>
-                {
-                    b.Navigation("Valori");
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.IncassoFattura", b =>

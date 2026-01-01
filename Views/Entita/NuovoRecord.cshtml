@@ -1,0 +1,166 @@
+@model StudioCG.Web.Models.Entita.RecordEntita
+@using StudioCG.Web.Models.Entita
+@{
+    var entita = ViewBag.Entita as EntitaDinamica;
+    ViewData["Title"] = $"Nuovo {entita?.Nome}";
+    var clienteId = ViewBag.ClienteId as int?;
+    var clienti = ViewBag.Clienti as List<StudioCG.Web.Models.Cliente> ?? new List<StudioCG.Web.Models.Cliente>();
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>
+                <i class="@entita?.Icon me-2" style="color: @entita?.Colore;"></i>
+                Nuovo @entita?.Nome
+            </h2>
+        </div>
+        <a asp-action="Dati" asp-route-id="@entita?.Id" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Annulla
+        </a>
+    </div>
+
+    <form asp-action="CreaRecord" method="post">
+        <input type="hidden" name="EntitaDinamicaId" value="@entita?.Id" />
+        
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Informazioni Base</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    @if (entita?.CollegataACliente == true)
+                    {
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Cliente</label>
+                            <select name="ClienteId" class="form-select">
+                                <option value="">-- Nessun Cliente --</option>
+                                @foreach (var c in clienti)
+                                {
+                                    if (c.Id == clienteId) { <option value="@c.Id" selected>@c.RagioneSociale</option> }
+                                    else { <option value="@c.Id">@c.RagioneSociale</option> }
+                                }
+                            </select>
+                        </div>
+                    }
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Titolo / Riferimento</label>
+                        <input type="text" name="Titolo" class="form-control" placeholder="Identificativo del record" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Stato</label>
+                        <select name="StatoEntitaId" class="form-select">
+                            @if (entita?.Stati != null)
+                            {
+                                foreach (var stato in entita.Stati.OrderBy(s => s.DisplayOrder))
+                                {
+                                    if (stato.IsDefault) { <option value="@stato.Id" selected>@stato.Nome (Default)</option> }
+                                    else { <option value="@stato.Id">@stato.Nome</option> }
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (entita?.Campi.Any() == true)
+        {
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-th-list me-2"></i>Campi</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        @foreach (var campo in entita.Campi.OrderBy(c => c.DisplayOrder))
+                        {
+                            var fieldId = $"campo_{campo.Id}";
+                            <div class="col-md-@campo.ColWidth mb-3">
+                                <label class="form-label">
+                                    @campo.Label
+                                    @if (campo.IsRequired) { <span class="text-danger">*</span> }
+                                </label>
+                                
+                                @switch (campo.TipoCampo)
+                                {
+                                    case "textarea":
+                                        <textarea name="@fieldId" class="form-control" rows="3" 
+                                                  placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "")>@campo.DefaultValue</textarea>
+                                        break;
+                                    case "number":
+                                        <input type="number" name="@fieldId" class="form-control" 
+                                               value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
+                                        break;
+                                    case "decimal":
+                                        <input type="number" step="0.01" name="@fieldId" class="form-control" 
+                                               value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
+                                        break;
+                                    case "date":
+                                        <input type="date" name="@fieldId" class="form-control" 
+                                               value="@campo.DefaultValue" @(campo.IsRequired ? "required" : "") />
+                                        break;
+                                    case "datetime":
+                                        <input type="datetime-local" name="@fieldId" class="form-control" 
+                                               value="@campo.DefaultValue" @(campo.IsRequired ? "required" : "") />
+                                        break;
+                                    case "checkbox":
+                                        <div class="form-check">
+                                            <input type="checkbox" name="@fieldId" value="true" class="form-check-input" 
+                                                   @(campo.DefaultValue == "true" ? "checked" : "") />
+                                            <label class="form-check-label">@campo.Label</label>
+                                        </div>
+                                        break;
+                                    case "dropdown":
+                                        <select name="@fieldId" class="form-select" @(campo.IsRequired ? "required" : "")>
+                                            <option value="">-- Seleziona --</option>
+                                            @if (!string.IsNullOrEmpty(campo.Options))
+                                            {
+                                                foreach (var opt in campo.Options.Split('|'))
+                                                {
+                                                    if (opt == campo.DefaultValue) { <option value="@opt" selected>@opt</option> }
+                                                    else { <option value="@opt">@opt</option> }
+                                                }
+                                            }
+                                        </select>
+                                        break;
+                                    case "email":
+                                        <input type="email" name="@fieldId" class="form-control" 
+                                               value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
+                                        break;
+                                    case "phone":
+                                        <input type="tel" name="@fieldId" class="form-control" 
+                                               value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
+                                        break;
+                                    case "url":
+                                        <input type="url" name="@fieldId" class="form-control" 
+                                               value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
+                                        break;
+                                    default:
+                                        <input type="text" name="@fieldId" class="form-control" 
+                                               value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
+                                        break;
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Note</label>
+                    <textarea name="Note" class="form-control" rows="3" placeholder="Note aggiuntive..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save me-1"></i>Salva
+            </button>
+            <a asp-action="Dati" asp-route-id="@entita?.Id" class="btn btn-outline-secondary">Annulla</a>
+        </div>
+    </form>
+</div>

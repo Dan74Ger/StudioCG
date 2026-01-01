@@ -1,5 +1,6 @@
 @using StudioCG.Web.Services
 @inject IPermissionService PermissionService
+@inject IMenuService MenuService
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -26,10 +27,7 @@
             min-height: 100vh;
         }
 
-        /* Sidebar collapsed mode (for wide pages like Budget Studio) */
-        body.sidebar-collapsed {
-            --sidebar-width: var(--sidebar-collapsed-width);
-        }
+        body.sidebar-collapsed { --sidebar-width: var(--sidebar-collapsed-width); }
         
         .sidebar {
             position: fixed;
@@ -54,69 +52,21 @@
             gap: 8px;
         }
         
-        .sidebar-logo {
-            cursor: pointer;
-            transition: all 0.2s ease;
-            padding: 5px;
-            border-radius: 8px;
-        }
-        
-        .sidebar-logo:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: scale(1.02);
-        }
-        
-        .sidebar-header img {
-            max-width: 160px;
-            height: auto;
-            flex-shrink: 1;
-        }
-
-        body.sidebar-collapsed .sidebar-header {
-            justify-content: center;
-            padding: 12px 8px;
-        }
-
-        body.sidebar-collapsed .sidebar-header img {
-            max-width: 42px;
-        }
-        
-        body.sidebar-collapsed .nav-item {
-            margin: 5px 8px;
-        }
-
-        /* Menu compatto: stili e tooltip */
-        body.sidebar-collapsed .nav-link {
-            position: relative;
-            justify-content: center;
-            padding: 12px 12px;
-            gap: 0;
-        }
-        
-        /* Tooltip gestiti da Bootstrap quando menu collapsed */
-
+        .sidebar-logo { cursor: pointer; transition: all 0.2s ease; padding: 5px; border-radius: 8px; }
+        .sidebar-logo:hover { background: rgba(255, 255, 255, 0.1); transform: scale(1.02); }
+        .sidebar-header img { max-width: 160px; height: auto; flex-shrink: 1; }
+        body.sidebar-collapsed .sidebar-header { justify-content: center; padding: 12px 8px; }
+        body.sidebar-collapsed .sidebar-header img { max-width: 42px; }
+        body.sidebar-collapsed .nav-item { margin: 5px 8px; }
+        body.sidebar-collapsed .nav-link { position: relative; justify-content: center; padding: 12px 12px; gap: 0; }
         body.sidebar-collapsed .nav-link span,
         body.sidebar-collapsed .section-title,
         body.sidebar-collapsed .section-arrow,
-        body.sidebar-collapsed .nav-section-title {
-            display: none !important;
-        }
-
-        body.sidebar-collapsed .submenu,
-        body.sidebar-collapsed .submenu-inner {
-            padding-left: 0;
-        }
+        body.sidebar-collapsed .nav-section-title { display: none !important; }
+        body.sidebar-collapsed .submenu, body.sidebar-collapsed .submenu-inner { padding-left: 0; }
         
-        .sidebar-nav {
-            padding: 20px 0;
-            max-height: calc(100vh - 200px);
-            overflow-y: auto;
-        }
-        
-        .nav-item {
-            margin: 5px 15px;
-        }
-        
+        .sidebar-nav { padding: 20px 0; max-height: calc(100vh - 200px); overflow-y: auto; }
+        .nav-item { margin: 5px 15px; }
         .nav-link {
             color: var(--text-light) !important;
             padding: 12px 20px;
@@ -126,204 +76,53 @@
             align-items: center;
             gap: 12px;
         }
-        
-        .nav-link:hover, .nav-link.active {
-            background: rgba(255, 255, 255, 0.15);
-            color: var(--accent-color) !important;
-            transform: translateX(5px);
-        }
-        
-        .nav-link i {
-            width: 24px;
-            text-align: center;
-        }
+        .nav-link:hover, .nav-link.active { background: rgba(255, 255, 255, 0.15); color: var(--accent-color) !important; transform: translateX(5px); }
+        .nav-link i { width: 24px; text-align: center; }
+        .nav-section-title { color: rgba(255, 255, 255, 0.5); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; padding: 15px 20px 5px; margin-top: 10px; }
+        .main-content { margin-left: var(--sidebar-width); min-height: 100vh; }
+        .top-navbar { background: white; padding: 15px 30px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); display: flex; justify-content: space-between; align-items: center; }
+        .page-title { font-size: 1.5rem; font-weight: 600; color: var(--primary-color); margin: 0; }
+        .user-dropdown .dropdown-toggle { display: flex; align-items: center; gap: 10px; padding: 8px 16px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; color: var(--primary-color); }
+        .user-dropdown .dropdown-toggle:hover { background: #f7fafc; }
+        .user-avatar { width: 36px; height: 36px; background: var(--primary-color); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+        .content-wrapper { padding: 30px; }
+        .card { border: none; border-radius: 12px; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); }
+        .card-header { background: white; border-bottom: 1px solid #e2e8f0; padding: 20px; border-radius: 12px 12px 0 0 !important; }
+        .btn-primary { background: var(--primary-color); border-color: var(--primary-color); }
+        .btn-primary:hover { background: var(--secondary-color); border-color: var(--secondary-color); }
+        .table { margin-bottom: 0; }
+        .table th { background: #f7fafc; font-weight: 600; color: var(--primary-color); border-bottom: 2px solid #e2e8f0; }
+        .badge-active { background: #48bb78; }
+        .badge-inactive { background: #fc8181; }
+        .sidebar-footer { position: absolute; bottom: 0; left: 0; right: 0; padding: 15px; border-top: 1px solid rgba(255, 255, 255, 0.1); background: rgba(0, 0, 0, 0.1); }
+        .alert { border: none; border-radius: 8px; }
 
-        .nav-section-title {
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            padding: 15px 20px 5px;
-            margin-top: 10px;
-        }
-        
-        .main-content {
-            margin-left: var(--sidebar-width);
-            min-height: 100vh;
-        }
-        
-        .top-navbar {
-            background: white;
-            padding: 15px 30px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .page-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--primary-color);
-            margin: 0;
-        }
-        
-        .user-dropdown .dropdown-toggle {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 8px 16px;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            background: white;
-            color: var(--primary-color);
-        }
-        
-        .user-dropdown .dropdown-toggle:hover {
-            background: #f7fafc;
-        }
-        
-        .user-avatar {
-            width: 36px;
-            height: 36px;
-            background: var(--primary-color);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-        }
-        
-        .content-wrapper {
-            padding: 30px;
-        }
-        
-        .card {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-        }
-        
-        .card-header {
-            background: white;
-            border-bottom: 1px solid #e2e8f0;
-            padding: 20px;
-            border-radius: 12px 12px 0 0 !important;
-        }
-        
-        .btn-primary {
-            background: var(--primary-color);
-            border-color: var(--primary-color);
-        }
-        
-        .btn-primary:hover {
-            background: var(--secondary-color);
-            border-color: var(--secondary-color);
-        }
-        
-        .table {
-            margin-bottom: 0;
-        }
-        
-        .table th {
-            background: #f7fafc;
-            font-weight: 600;
-            color: var(--primary-color);
-            border-bottom: 2px solid #e2e8f0;
-        }
-        
-        .badge-active {
-            background: #48bb78;
-        }
-        
-        .badge-inactive {
-            background: #fc8181;
-        }
-
-        .sidebar-footer {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            padding: 15px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            background: rgba(0, 0, 0, 0.1);
-        }
-
-        .alert {
-            border: none;
-            border-radius: 8px;
-        }
-
-        /* Accordion Menu */
-        .section-toggle {
-            cursor: pointer;
-        }
-        
-        .section-toggle .section-title {
-            color: white !important;
-            font-weight: 700;
-            text-transform: uppercase;
-            font-size: 0.85rem;
-            letter-spacing: 0.5px;
-        }
-        
-        .section-toggle .section-arrow {
-            transition: transform 0.3s ease;
-            font-size: 0.7rem;
-        }
-        
-        .section-toggle:not(.collapsed) .section-arrow {
-            transform: rotate(180deg);
-        }
-        
-        .submenu {
-            padding-left: 15px;
-            margin-top: 5px;
-        }
-        
-        .submenu .nav-link {
-            padding: 10px 20px;
-            font-size: 0.9rem;
-        }
-        
-        .submenu .nav-link:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        /* Sub-accordion styles */
-        .subsection-toggle {
-            padding: 8px 15px !important;
-        }
-        
-        .subsection-title {
-            color: rgba(255, 255, 255, 0.9) !important;
-            font-weight: 600;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        }
-        
-        .submenu-inner {
-            padding-left: 20px;
-            margin-top: 3px;
-            border-left: 2px solid rgba(255, 255, 255, 0.2);
-            margin-left: 15px;
-        }
-        
-        .submenu-inner .nav-link {
-            padding: 8px 15px;
-            font-size: 0.85rem;
-        }
+        .section-toggle { cursor: pointer; }
+        .section-toggle .section-title { color: white !important; font-weight: 700; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px; }
+        .section-toggle .section-arrow { transition: transform 0.3s ease; font-size: 0.7rem; }
+        .section-toggle:not(.collapsed) .section-arrow { transform: rotate(180deg); }
+        .submenu { padding-left: 15px; margin-top: 5px; }
+        .submenu .nav-link { padding: 10px 20px; font-size: 0.9rem; }
+        .submenu .nav-link:hover { background: rgba(255, 255, 255, 0.1); }
+        .subsection-toggle { padding: 8px 15px !important; }
+        .subsection-title { color: rgba(255, 255, 255, 0.9) !important; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.3px; }
+        .submenu-inner { padding-left: 20px; margin-top: 3px; border-left: 2px solid rgba(255, 255, 255, 0.2); margin-left: 15px; }
+        .submenu-inner .nav-link { padding: 8px 15px; font-size: 0.85rem; }
     </style>
     @RenderSection("Styles", required: false)
 </head>
 <body>
     @if (User.Identity?.IsAuthenticated == true)
     {
-        var isMainAdmin = User.Identity?.Name?.ToLower() == "admin";
+        var username = User.Identity?.Name ?? "";
+        var isMainAdmin = username.ToLower() == "admin";
         var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+        var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+        var currentId = ViewContext.RouteData.Values["id"]?.ToString();
+        var currentPath = $"/{currentController}" + (!string.IsNullOrEmpty(currentAction) && currentAction != "Index" ? $"/{currentAction}" : "");
+        
+        // Carica menu dinamico
+        var menuItems = await MenuService.GetMenuForUserAsync(username);
         
         <!-- Sidebar -->
         <div class="sidebar">
@@ -334,432 +133,15 @@
             </div>
             <nav class="sidebar-nav">
                 <ul class="nav flex-column">
-                    <!-- Dashboard sempre visibile per tutti -->
-                    <li class="nav-item">
-                        <a class="nav-link @(currentController == "Home" ? "active" : "")" asp-controller="Home" asp-action="Index" data-tooltip="Dashboard">
-                            <i class="fas fa-home"></i>
-                            <span>Dashboard</span>
-                        </a>
-                    </li>
-
-                    @if (isMainAdmin)
+                    @foreach (var item in menuItems)
                     {
-                        <!-- Menu Admin - Solo per utente "admin" -->
-                        <li class="nav-item">
-                            @{
-                                var isInUtentiSection = currentController == "Users" || currentController == "Permissions";
-                            }
-                            <a class="nav-link section-toggle @(isInUtentiSection ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuUtenti" role="button" aria-expanded="@(isInUtentiSection ? "true" : "false")" aria-controls="menuUtenti" data-tooltip="Utenti">
-                                <i class="fas fa-users-cog"></i>
-                                <span class="section-title">UTENTI</span>
-                                <i class="fas fa-chevron-down section-arrow ms-auto"></i>
-                            </a>
-                            <div class="collapse @(isInUtentiSection ? "show" : "")" id="menuUtenti">
-                                <ul class="nav flex-column submenu">
-                                    <li class="nav-item">
-                                        <a class="nav-link @(currentController == "Users" ? "active" : "")" asp-controller="Users" asp-action="Index" data-tooltip="Gestione Utenti">
-                                            <i class="fas fa-users"></i>
-                                            <span>Gestione Utenti</span>
-                                        </a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link @(currentController == "Permissions" ? "active" : "")" asp-controller="Permissions" asp-action="Pages" data-tooltip="Gestione Pagine">
-                                            <i class="fas fa-key"></i>
-                                            <span>Gestione Pagine</span>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </div>
-                        </li>
-                    }
-                    
-                    @{
-                        <!-- Menu ANAGRAFICA -->
-                        var isInAnagrafica = currentController == "Clienti" || currentController == "Annualita" || currentController == "AttivitaTipi";
-                    }
-                    <li class="nav-item">
-                        <a class="nav-link section-toggle @(isInAnagrafica ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuAnagrafica" role="button" aria-expanded="@(isInAnagrafica ? "true" : "false")" aria-controls="menuAnagrafica" data-tooltip="Anagrafica">
-                            <i class="fas fa-address-book"></i>
-                            <span class="section-title">ANAGRAFICA</span>
-                            <i class="fas fa-chevron-down section-arrow ms-auto"></i>
-                        </a>
-                        <div class="collapse @(isInAnagrafica ? "show" : "")" id="menuAnagrafica">
-                            <ul class="nav flex-column submenu">
-                                <li class="nav-item">
-                                    <a class="nav-link @(currentController == "Clienti" ? "active" : "")" asp-controller="Clienti" asp-action="Index" data-tooltip="Clienti">
-                                        <i class="fas fa-building"></i>
-                                        <span>Clienti</span>
-                                    </a>
-                                </li>
-                                @if (isMainAdmin)
-                                {
-                                    <li class="nav-item">
-                                        <a class="nav-link @(currentController == "Annualita" ? "active" : "")" asp-controller="Annualita" asp-action="Index" data-tooltip="Annualità Fiscali">
-                                            <i class="fas fa-calendar-alt"></i>
-                                            <span>Annualità Fiscali</span>
-                                        </a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link @(currentController == "AttivitaTipi" ? "active" : "")" asp-controller="AttivitaTipi" asp-action="Index" data-tooltip="Tipi Attività">
-                                            <i class="fas fa-cogs"></i>
-                                            <span>Tipi Attività</span>
-                                        </a>
-                                    </li>
-                                }
-                            </ul>
-                        </div>
-                    </li>
-                    
-                    @{
-                        <!-- Menu ATTIVITÀ -->
-                        var usernameAttivita = User.Identity?.Name ?? "";
-                        var annoCorrente = await PermissionService.GetAnnoCorrenteAsync();
-                        var attivitaUtente = await PermissionService.GetUserAttivitaAsync(usernameAttivita);
-                        var isInAttivita = currentController == "Attivita";
-                        
-                        if (attivitaUtente.Any() || isMainAdmin)
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link section-toggle @(isInAttivita ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuAttivita" role="button" aria-expanded="@(isInAttivita ? "true" : "false")" aria-controls="menuAttivita" data-tooltip="Attività">
-                                    <i class="fas fa-tasks"></i>
-                                    <span class="section-title">ATTIVITÀ</span>
-                                    <i class="fas fa-chevron-down section-arrow ms-auto"></i>
-                                </a>
-                                <div class="collapse @(isInAttivita ? "show" : "")" id="menuAttivita">
-                                    <ul class="nav flex-column submenu">
-                                        <li class="nav-item">
-                                            <a class="nav-link @(currentController == "Attivita" && ViewContext.RouteData.Values["action"]?.ToString() == "Index" ? "active" : "")" asp-controller="Attivita" asp-action="Index" data-tooltip="Riepilogo">
-                                                <i class="fas fa-chart-pie"></i>
-                                                <span>Riepilogo</span>
-                                            </a>
-                                        </li>
-                                        @foreach (var att in attivitaUtente)
-                                        {
-                                            var attId = ViewContext.RouteData.Values["id"]?.ToString();
-                                            var isActiveAtt = isInAttivita && attId == att.AttivitaTipoId.ToString();
-                                            <li class="nav-item">
-                                                <a class="nav-link @(isActiveAtt ? "active" : "")" asp-controller="Attivita" asp-action="Tipo" asp-route-id="@att.AttivitaTipoId" data-tooltip="@att.AttivitaTipo?.Nome">
-                                                    <i class="@att.AttivitaTipo?.Icon"></i>
-                                                    <span>@att.AttivitaTipo?.Nome</span>
-                                                </a>
-                                            </li>
-                                        }
-                                        @if (!attivitaUtente.Any() && isMainAdmin)
-                                        {
-                                            <li class="nav-item">
-                                                <span class="nav-link text-muted small"><i class="fas fa-info-circle me-1"></i>Nessuna attività</span>
-                                            </li>
-                                        }
-                                    </ul>
-                                </div>
-                            </li>
-                        }
-                    }
-                    
-                    @{
-                        <!-- Menu DATI UTENZA -->
-                        // Ottieni pagine dinamiche filtrate per i permessi dell'utente corrente
-                        var currentUsername = User.Identity?.Name ?? "";
-                        var dynPagesRiservati = await PermissionService.GetUserDynamicPagesAsync(currentUsername, "DatiRiservati");
-                        var dynPagesGenerali = await PermissionService.GetUserDynamicPagesAsync(currentUsername, "DatiGenerali");
-                        
-                        // Verifica se siamo in una pagina dinamica
-                        var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
-                        var currentId = ViewContext.RouteData.Values["id"]?.ToString();
-                        var isInDynamicPages = currentController == "DynamicPages";
-                        var isInDynamicData = currentController == "DynamicData";
-                        
-                        int.TryParse(currentId, out int currentPageId);
-                        var isInDatiRiservati = isInDynamicData && dynPagesRiservati.Any(p => p.Id == currentPageId);
-                        var isInDatiGenerali = isInDynamicData && dynPagesGenerali.Any(p => p.Id == currentPageId);
-                        var isInDatiUtenza = isInDynamicPages || isInDatiRiservati || isInDatiGenerali;
-                        
-                        // Mostra accordion DATI UTENZA
-                        if (dynPagesRiservati.Any() || dynPagesGenerali.Any() || isMainAdmin)
-                        {
-                            <!-- DATI UTENZA Accordion -->
-                            <li class="nav-item">
-                                <a class="nav-link section-toggle @(isInDatiUtenza ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuDatiUtenza" role="button" aria-expanded="@(isInDatiUtenza ? "true" : "false")" aria-controls="menuDatiUtenza" data-tooltip="Dati Utenza">
-                                    <i class="fas fa-database"></i>
-                                    <span class="section-title">DATI UTENZA</span>
-                                    <i class="fas fa-chevron-down section-arrow ms-auto"></i>
-                                </a>
-                                <div class="collapse @(isInDatiUtenza ? "show" : "")" id="menuDatiUtenza">
-                                    <ul class="nav flex-column submenu">
-                                        
-                                        <!-- Gestione Pagine Dinamiche - Solo Admin -->
-                                        @if (isMainAdmin)
-                                        {
-                                            <li class="nav-item">
-                                                <a class="nav-link @(isInDynamicPages ? "active" : "")" asp-controller="DynamicPages" asp-action="Index" data-tooltip="Gestione Pagine">
-                                                    <i class="fas fa-cogs"></i>
-                                                    <span>Gestione Pagine Dati Utenza</span>
-                                                </a>
-                                            </li>
-                                        }
-                                        
-                                        <!-- DATI Riservati Sub-Accordion -->
-                                        @if (dynPagesRiservati.Any() || isMainAdmin)
-                                        {
-                                            <li class="nav-item">
-                                                <a class="nav-link section-toggle @(isInDatiRiservati ? "" : "collapsed") subsection-toggle" data-bs-toggle="collapse" href="#menuDatiRiservati" role="button" aria-expanded="@(isInDatiRiservati ? "true" : "false")" data-tooltip="Dati Riservati">
-                                                    <i class="fas fa-lock"></i>
-                                                    <span class="subsection-title">DATI Riservati</span>
-                                                    <i class="fas fa-chevron-down section-arrow ms-auto"></i>
-                                                </a>
-                                                <div class="collapse @(isInDatiRiservati ? "show" : "")" id="menuDatiRiservati">
-                                                    <ul class="nav flex-column submenu-inner">
-                                                        @foreach (var dynPage in dynPagesRiservati)
-                                                        {
-                                                            var isActive = isInDynamicData && currentPageId == dynPage.Id;
-                                                            <li class="nav-item">
-                                                                <a class="nav-link @(isActive ? "active" : "")" asp-controller="DynamicData" asp-action="Page" asp-route-id="@dynPage.Id" data-tooltip="@dynPage.Name">
-                                                                    <i class="@dynPage.Icon"></i>
-                                                                    <span>@dynPage.Name</span>
-                                                                </a>
-                                                            </li>
-                                                        }
-                                                        @if (!dynPagesRiservati.Any())
-                                                        {
-                                                            <li class="nav-item">
-                                                                <span class="nav-link text-muted small"><i class="fas fa-info-circle me-1"></i>Nessuna pagina</span>
-                                                            </li>
-                                                        }
-                                                    </ul>
-                                                </div>
-                                            </li>
-                                        }
-                                        
-                                        <!-- DATI Generali Sub-Accordion -->
-                                        @if (dynPagesGenerali.Any() || isMainAdmin)
-                                        {
-                                            <li class="nav-item">
-                                                <a class="nav-link section-toggle @(isInDatiGenerali ? "" : "collapsed") subsection-toggle" data-bs-toggle="collapse" href="#menuDatiGenerali" role="button" aria-expanded="@(isInDatiGenerali ? "true" : "false")" data-tooltip="Dati Generali">
-                                                    <i class="fas fa-folder-open"></i>
-                                                    <span class="subsection-title">DATI Generali</span>
-                                                    <i class="fas fa-chevron-down section-arrow ms-auto"></i>
-                                                </a>
-                                                <div class="collapse @(isInDatiGenerali ? "show" : "")" id="menuDatiGenerali">
-                                                    <ul class="nav flex-column submenu-inner">
-                                                        @foreach (var dynPage in dynPagesGenerali)
-                                                        {
-                                                            var isActive = isInDynamicData && currentPageId == dynPage.Id;
-                                                            <li class="nav-item">
-                                                                <a class="nav-link @(isActive ? "active" : "")" asp-controller="DynamicData" asp-action="Page" asp-route-id="@dynPage.Id" data-tooltip="@dynPage.Name">
-                                                                    <i class="@dynPage.Icon"></i>
-                                                                    <span>@dynPage.Name</span>
-                                                                </a>
-                                                            </li>
-                                                        }
-                                                        @if (!dynPagesGenerali.Any())
-                                                        {
-                                                            <li class="nav-item">
-                                                                <span class="nav-link text-muted small"><i class="fas fa-info-circle me-1"></i>Nessuna pagina</span>
-                                                            </li>
-                                                        }
-                                                    </ul>
-                                                </div>
-                                            </li>
-                                        }
-                                        
-                                    </ul>
-                                </div>
-                            </li>
-                        }
-                    }
-                    
-                    @{
-                        // Budget Studio - voce principale autonoma
-                        var userHasBudgetStudio = isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/BudgetStudio");
-                        if (userHasBudgetStudio)
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link @(currentController == "BudgetStudio" ? "active" : "")"
-                                   asp-controller="BudgetStudio" asp-action="Index" data-tooltip="Budget Studio">
-                                    <i class="fas fa-coins"></i>
-                                    <span>Budget Studio</span>
-                                </a>
-                            </li>
-                        }
-
-                        <!-- Menu DOCUMENTI -->
-                        var isInDocumenti = currentController == "Documenti";
-                        var userHasDocumenti = isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Documenti");
-                        
-                        if (userHasDocumenti)
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link section-toggle @(isInDocumenti ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuDocumenti" role="button" aria-expanded="@(isInDocumenti ? "true" : "false")" aria-controls="menuDocumenti" data-tooltip="Documenti">
-                                    <i class="fas fa-file-alt"></i>
-                                    <span class="section-title">DOCUMENTI</span>
-                                    <i class="fas fa-chevron-down section-arrow ms-auto"></i>
-                                </a>
-                                <div class="collapse @(isInDocumenti ? "show" : "")" id="menuDocumenti">
-                                    <ul class="nav flex-column submenu">
-                                        @{
-                                            var docAction = ViewContext.RouteData.Values["action"]?.ToString();
-                                        }
-                                        <li class="nav-item">
-                                            <a class="nav-link @(isInDocumenti && docAction == "Index" ? "active" : "")" asp-controller="Documenti" asp-action="Index" data-tooltip="Dashboard Documenti">
-                                                <i class="fas fa-tachometer-alt"></i>
-                                                <span>Dashboard</span>
-                                            </a>
-                                        </li>
-                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Documenti/ImpostazioniStudio"))
-                                        {
-                                            <li class="nav-item">
-                                                <a class="nav-link @(isInDocumenti && docAction == "ImpostazioniStudio" ? "active" : "")" asp-controller="Documenti" asp-action="ImpostazioniStudio" data-tooltip="Impostazioni Studio">
-                                                    <i class="fas fa-building"></i>
-                                                    <span>Impostazioni Studio</span>
-                                                </a>
-                                            </li>
-                                        }
-                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Documenti/Clausole"))
-                                        {
-                                            <li class="nav-item">
-                                                <a class="nav-link @(isInDocumenti && docAction == "Clausole" ? "active" : "")" asp-controller="Documenti" asp-action="Clausole" data-tooltip="Clausole">
-                                                    <i class="fas fa-paragraph"></i>
-                                                    <span>Clausole</span>
-                                                </a>
-                                            </li>
-                                        }
-                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Documenti/Template"))
-                                        {
-                                            <li class="nav-item">
-                                                <a class="nav-link @(isInDocumenti && docAction == "Template" ? "active" : "")" asp-controller="Documenti" asp-action="Template" data-tooltip="Template">
-                                                    <i class="fas fa-file-signature"></i>
-                                                    <span>Template</span>
-                                                </a>
-                                            </li>
-                                        }
-                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Documenti/Genera"))
-                                        {
-                                            <li class="nav-item">
-                                                <a class="nav-link @(isInDocumenti && docAction == "Genera" ? "active" : "")" asp-controller="Documenti" asp-action="Genera" data-tooltip="Genera Documento">
-                                                    <i class="fas fa-file-export"></i>
-                                                    <span>Genera Documento</span>
-                                                </a>
-                                            </li>
-                                        }
-                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Documenti/Archivio"))
-                                        {
-                                            <li class="nav-item">
-                                                <a class="nav-link @(isInDocumenti && docAction == "Archivio" ? "active" : "")" asp-controller="Documenti" asp-action="Archivio" data-tooltip="Archivio">
-                                                    <i class="fas fa-archive"></i>
-                                                    <span>Archivio</span>
-                                                </a>
-                                            </li>
-                                        }
-                                    </ul>
-                                </div>
-                            </li>
-                        }
-
-                        <!-- Menu AMMINISTRAZIONE -->
-                        var isInAmministrazione = currentController == "Amministrazione";
-                        var userHasAmministrazione = isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione");
-                        
-                        if (userHasAmministrazione)
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link section-toggle @(isInAmministrazione ? "" : "collapsed")" data-bs-toggle="collapse" href="#menuAmministrazione" role="button" aria-expanded="@(isInAmministrazione ? "true" : "false")" aria-controls="menuAmministrazione" data-tooltip="Amministrazione">
-                                    <i class="fas fa-file-invoice-dollar"></i>
-                                    <span class="section-title">AMMINISTRAZIONE</span>
-                                    <i class="fas fa-chevron-down section-arrow ms-auto"></i>
-                                </a>
-                                <div class="collapse @(isInAmministrazione ? "show" : "")" id="menuAmministrazione">
-                                    <ul class="nav flex-column submenu">
-                                        @{
-                                            var ammAction = ViewContext.RouteData.Values["action"]?.ToString();
-                                        }
-                                        <li class="nav-item">
-                                            <a class="nav-link @(isInAmministrazione && ammAction == "Index" ? "active" : "")" asp-controller="Amministrazione" asp-action="Index" data-tooltip="Dashboard Amm.">
-                                                <i class="fas fa-chart-line"></i>
-                                                <span>Dashboard</span>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a class="nav-link @(isInAmministrazione && ammAction == "GestioneAnni" ? "active" : "")" asp-controller="Amministrazione" asp-action="GestioneAnni" data-tooltip="Gestione Anni">
-                                                <i class="fas fa-calendar-alt"></i>
-                                                <span>Gestione Anni</span>
-                                            </a>
-                                        </li>
-                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/Mandati"))
-                                        {
-                                            <li class="nav-item">
-                                                <a class="nav-link @(isInAmministrazione && ammAction == "Mandati" ? "active" : "")" asp-controller="Amministrazione" asp-action="Mandati" data-tooltip="Mandati Clienti">
-                                                    <i class="fas fa-file-contract"></i>
-                                                    <span>Mandati Clienti</span>
-                                                </a>
-                                            </li>
-                                        }
-                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/Scadenze"))
-                                        {
-                                            <li class="nav-item">
-                                                <a class="nav-link @(isInAmministrazione && ammAction == "Scadenze" ? "active" : "")" asp-controller="Amministrazione" asp-action="Scadenze" data-tooltip="Fatturazione">
-                                                    <i class="fas fa-file-invoice-dollar"></i>
-                                                    <span>Fatturazione</span>
-                                                </a>
-                                            </li>
-                                        }
-                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/SpesePratiche"))
-                                        {
-                                            <li class="nav-item">
-                                                <a class="nav-link @(isInAmministrazione && ammAction == "SpesePratiche" ? "active" : "")" asp-controller="Amministrazione" asp-action="SpesePratiche" data-tooltip="Spese Pratiche">
-                                                    <i class="fas fa-receipt"></i>
-                                                    <span>Spese Pratiche</span>
-                                                </a>
-                                            </li>
-                                        }
-                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/AccessiClienti"))
-                                        {
-                                            <li class="nav-item">
-                                                <a class="nav-link @(isInAmministrazione && ammAction == "AccessiClienti" ? "active" : "")" asp-controller="Amministrazione" asp-action="AccessiClienti" data-tooltip="Accessi Clienti">
-                                                    <i class="fas fa-door-open"></i>
-                                                    <span>Accessi Clienti</span>
-                                                </a>
-                                            </li>
-                                        }
-                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/FattureCloud"))
-                                        {
-                                            <li class="nav-item">
-                                                <a class="nav-link @(isInAmministrazione && ammAction == "FattureCloud" ? "active" : "")" asp-controller="Amministrazione" asp-action="FattureCloud" data-tooltip="Fatture in Cloud">
-                                                    <i class="fas fa-cloud"></i>
-                                                    <span>Fatture in Cloud</span>
-                                                </a>
-                                            </li>
-                                        }
-                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/BilanciCEE"))
-                                        {
-                                            <li class="nav-item">
-                                                <a class="nav-link @(isInAmministrazione && ammAction == "BilanciCEE" ? "active" : "")" asp-controller="Amministrazione" asp-action="BilanciCEE" data-tooltip="Bilanci CEE">
-                                                    <i class="fas fa-balance-scale"></i>
-                                                    <span>Bilanci CEE</span>
-                                                </a>
-                                            </li>
-                                        }
-                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/Incassi"))
-                                        {
-                                            <li class="nav-item">
-                                                <a class="nav-link @(isInAmministrazione && ammAction == "Incassi" ? "active" : "")" asp-controller="Amministrazione" asp-action="Incassi" data-tooltip="Incassi">
-                                                    <i class="fas fa-money-bill-wave"></i>
-                                                    <span>Incassi</span>
-                                                </a>
-                                            </li>
-                                        }
-                                        @if (isMainAdmin || await PermissionService.UserHasPermissionAsync(currentUsername, "/Amministrazione/ReportProfessionisti"))
-                                        {
-                                            <li class="nav-item">
-                                                <a class="nav-link @(isInAmministrazione && ammAction == "ReportProfessionisti" ? "active" : "")" asp-controller="Amministrazione" asp-action="ReportProfessionisti" data-tooltip="Report Professionisti">
-                                                    <i class="fas fa-user-tie"></i>
-                                                    <span>Report Professionisti</span>
-                                                </a>
-                                            </li>
-                                        }
-                                    </ul>
-                                </div>
-                            </li>
-                        }
+                        @await Html.PartialAsync("_MenuItemPartial", item, new ViewDataDictionary(ViewData) { 
+                            { "CurrentController", currentController }, 
+                            { "CurrentAction", currentAction },
+                            { "CurrentId", currentId },
+                            { "CurrentPath", currentPath },
+                            { "IsMainAdmin", isMainAdmin }
+                        })
                     }
                 </ul>
             </nav>
@@ -823,65 +205,45 @@
             const logoToggle = document.getElementById('sidebarLogoToggle');
             let tooltipInstances = [];
 
-            // Funzione per attivare/disattivare tooltip Bootstrap
             function updateTooltips() {
-                // Distruggi tooltip esistenti
                 tooltipInstances.forEach(t => { try { t.dispose(); } catch(e) {} });
                 tooltipInstances = [];
                 
-                // Se menu collapsed, attiva tooltip Bootstrap
                 if (body.classList.contains('sidebar-collapsed')) {
                     document.querySelectorAll('.sidebar-nav .nav-link[data-tooltip]').forEach(function(link) {
-                        // NON modificare i link che hanno già data-bs-toggle="collapse" (menu accordion)
                         if (link.getAttribute('data-bs-toggle') === 'collapse') {
-                            // Per questi, usa solo title nativo
                             link.setAttribute('title', link.getAttribute('data-tooltip'));
                         } else {
-                            // Per gli altri, usa tooltip Bootstrap
                             link.setAttribute('title', link.getAttribute('data-tooltip'));
-                            var tooltip = new bootstrap.Tooltip(link, {
-                                trigger: 'hover',
-                                placement: 'right',
-                                delay: { show: 100, hide: 0 }
-                            });
+                            var tooltip = new bootstrap.Tooltip(link, { trigger: 'hover', placement: 'right', delay: { show: 100, hide: 0 } });
                             tooltipInstances.push(tooltip);
                         }
                     });
                 } else {
-                    // Rimuovi attributi tooltip quando menu aperto
                     document.querySelectorAll('.sidebar-nav .nav-link[data-tooltip]').forEach(function(link) {
                         link.removeAttribute('title');
                     });
                 }
             }
 
-            // Restore stato salvato
             try {
                 const saved = localStorage.getItem(KEY);
                 if (saved === '1') body.classList.add('sidebar-collapsed');
             } catch { }
 
-            // Toggle al click sul logo
             if (logoToggle) {
                 logoToggle.addEventListener('click', function () {
                     body.classList.toggle('sidebar-collapsed');
-                    try {
-                        localStorage.setItem(KEY, body.classList.contains('sidebar-collapsed') ? '1' : '0');
-                    } catch { }
-                    // Aggiorna tooltip dopo il toggle
+                    try { localStorage.setItem(KEY, body.classList.contains('sidebar-collapsed') ? '1' : '0'); } catch { }
                     setTimeout(updateTooltips, 100);
                 });
             }
             
-            // Aggiungi data-tooltip dinamicamente ai nav-link che non ce l'hanno
             document.querySelectorAll('.sidebar-nav .nav-link:not([data-tooltip])').forEach(function(link) {
                 var textEl = link.querySelector('span, .section-title, .subsection-title');
-                if (textEl) {
-                    link.setAttribute('data-tooltip', textEl.textContent.trim());
-                }
+                if (textEl) link.setAttribute('data-tooltip', textEl.textContent.trim());
             });
             
-            // Inizializza tooltip al caricamento
             setTimeout(updateTooltips, 200);
         })();
     </script>

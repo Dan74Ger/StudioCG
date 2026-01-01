@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using StudioCG.Web.Models;
 using StudioCG.Web.Models.BudgetStudio;
 using StudioCG.Web.Models.Documenti;
+using StudioCG.Web.Models.Entita;
 using StudioCG.Web.Models.Fatturazione;
 
 namespace StudioCG.Web.Data
@@ -60,6 +61,21 @@ namespace StudioCG.Web.Data
         public DbSet<ClausolaDocumento> ClausoleDocumenti { get; set; }
         public DbSet<TemplateDocumento> TemplateDocumenti { get; set; }
         public DbSet<DocumentoGenerato> DocumentiGenerati { get; set; }
+
+        // Tabelle Campi Custom Cliente
+        public DbSet<CampoCustomCliente> CampiCustomClienti { get; set; }
+        public DbSet<ValoreCampoCustomCliente> ValoriCampiCustomClienti { get; set; }
+
+        // Tabelle Menu Dinamico
+        public DbSet<VoceMenu> VociMenu { get; set; }
+        public DbSet<ConfigurazioneMenuUtente> ConfigurazioniMenuUtenti { get; set; }
+
+        // Tabelle Entità Dinamiche
+        public DbSet<EntitaDinamica> EntitaDinamiche { get; set; }
+        public DbSet<CampoEntita> CampiEntita { get; set; }
+        public DbSet<StatoEntita> StatiEntita { get; set; }
+        public DbSet<RecordEntita> RecordsEntita { get; set; }
+        public DbSet<ValoreCampoEntita> ValoriCampiEntita { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -855,6 +871,158 @@ namespace StudioCG.Web.Data
 
                 entity.HasIndex(e => e.ClienteId);
                 entity.HasIndex(e => e.GeneratoIl);
+            });
+
+            // ============ CAMPI CUSTOM CLIENTE ============
+            modelBuilder.Entity<CampoCustomCliente>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Label).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.TipoCampo).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Options).HasMaxLength(500);
+                entity.Property(e => e.DefaultValue).HasMaxLength(200);
+                entity.Property(e => e.Placeholder).HasMaxLength(200);
+                entity.HasIndex(e => e.Nome).IsUnique();
+            });
+
+            modelBuilder.Entity<ValoreCampoCustomCliente>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.ClienteId, e.CampoCustomClienteId }).IsUnique();
+
+                entity.HasOne(e => e.Cliente)
+                    .WithMany()
+                    .HasForeignKey(e => e.ClienteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.CampoCustom)
+                    .WithMany(c => c.Valori)
+                    .HasForeignKey(e => e.CampoCustomClienteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ============ MENU DINAMICO ============
+            modelBuilder.Entity<VoceMenu>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Url).HasMaxLength(255);
+                entity.Property(e => e.Icon).HasMaxLength(50);
+                entity.Property(e => e.Categoria).HasMaxLength(50);
+                entity.Property(e => e.TipoVoce).HasMaxLength(50);
+
+                entity.HasOne(e => e.Parent)
+                    .WithMany(e => e.Children)
+                    .HasForeignKey(e => e.ParentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<ConfigurazioneMenuUtente>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.UserId, e.VoceMenuId }).IsUnique();
+
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.VoceMenu)
+                    .WithMany()
+                    .HasForeignKey(e => e.VoceMenuId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ============ ENTITÀ DINAMICHE ============
+            modelBuilder.Entity<EntitaDinamica>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.NomePluruale).HasMaxLength(100);
+                entity.Property(e => e.Descrizione).HasMaxLength(500);
+                entity.Property(e => e.Icon).HasMaxLength(50);
+                entity.Property(e => e.Colore).HasMaxLength(20);
+                entity.HasIndex(e => e.Nome).IsUnique();
+            });
+
+            modelBuilder.Entity<CampoEntita>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Label).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.TipoCampo).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Options).HasMaxLength(1000);
+                entity.Property(e => e.DefaultValue).HasMaxLength(200);
+                entity.Property(e => e.Placeholder).HasMaxLength(200);
+
+                entity.HasOne(e => e.EntitaDinamica)
+                    .WithMany(ed => ed.Campi)
+                    .HasForeignKey(e => e.EntitaDinamicaId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => new { e.EntitaDinamicaId, e.Nome }).IsUnique();
+            });
+
+            modelBuilder.Entity<StatoEntita>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Icon).HasMaxLength(50);
+                entity.Property(e => e.ColoreTesto).HasMaxLength(20);
+                entity.Property(e => e.ColoreSfondo).HasMaxLength(20);
+
+                entity.HasOne(e => e.EntitaDinamica)
+                    .WithMany(ed => ed.Stati)
+                    .HasForeignKey(e => e.EntitaDinamicaId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => new { e.EntitaDinamicaId, e.Nome }).IsUnique();
+            });
+
+            modelBuilder.Entity<RecordEntita>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Titolo).HasMaxLength(200);
+
+                entity.HasOne(e => e.EntitaDinamica)
+                    .WithMany(ed => ed.Records)
+                    .HasForeignKey(e => e.EntitaDinamicaId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Cliente)
+                    .WithMany()
+                    .HasForeignKey(e => e.ClienteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.StatoEntita)
+                    .WithMany()
+                    .HasForeignKey(e => e.StatoEntitaId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.CreatedByUser)
+                    .WithMany()
+                    .HasForeignKey(e => e.CreatedByUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasIndex(e => e.EntitaDinamicaId);
+                entity.HasIndex(e => e.ClienteId);
+            });
+
+            modelBuilder.Entity<ValoreCampoEntita>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.RecordEntitaId, e.CampoEntitaId }).IsUnique();
+
+                entity.HasOne(e => e.RecordEntita)
+                    .WithMany(r => r.Valori)
+                    .HasForeignKey(e => e.RecordEntitaId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.CampoEntita)
+                    .WithMany(c => c.Valori)
+                    .HasForeignKey(e => e.CampoEntitaId)
+                    .OnDelete(DeleteBehavior.NoAction);
             });
 
             // Seed anno fiscale corrente

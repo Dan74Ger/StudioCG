@@ -116,28 +116,74 @@ namespace StudioCG.Web.Controllers
                 ViewBag.AnnoSelezionato = annoCorrente.Id;
             }
 
+            // Carica campi custom per visualizzazione
+            ViewBag.CampiCustom = await _context.CampiCustomClienti
+                .Where(c => c.IsActive)
+                .OrderBy(c => c.DisplayOrder)
+                .ToListAsync();
+
+            // Carica valori campi custom del cliente
+            ViewBag.ValoriCampiCustom = await _context.ValoriCampiCustomClienti
+                .Where(v => v.ClienteId == id)
+                .ToDictionaryAsync(v => v.CampoCustomClienteId, v => v.Valore);
+
+            // Carica entità dinamiche collegate a cliente
+            var entitaCollegate = await _context.EntitaDinamiche
+                .Where(e => e.IsActive && e.CollegataACliente)
+                .OrderBy(e => e.DisplayOrder)
+                .ThenBy(e => e.Nome)
+                .ToListAsync();
+            ViewBag.EntitaCollegate = entitaCollegate;
+
+            // Conta i record per entità del cliente
+            var recordsPerEntita = new Dictionary<int, int>();
+            foreach (var entita in entitaCollegate)
+            {
+                var count = await _context.RecordsEntita
+                    .CountAsync(r => r.EntitaDinamicaId == entita.Id && r.ClienteId == id);
+                recordsPerEntita[entita.Id] = count;
+            }
+            ViewBag.RecordsPerEntita = recordsPerEntita;
+
             return View(cliente);
         }
 
         // GET: Clienti/Create
-        public IActionResult Create()
+        public async Task<IActionResult> Create()
         {
+            // Carica campi custom per il form
+            ViewBag.CampiCustom = await _context.CampiCustomClienti
+                .Where(c => c.IsActive)
+                .OrderBy(c => c.DisplayOrder)
+                .ToListAsync();
+
             return View(new Cliente());
         }
 
         // POST: Clienti/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(Cliente model)
+        public async Task<IActionResult> Create(Cliente model, IFormCollection form)
         {
             if (ModelState.IsValid)
             {
                 model.CreatedAt = DateTime.Now;
                 _context.Clienti.Add(model);
                 await _context.SaveChangesAsync();
+
+                // Salva i valori dei campi custom
+                await SalvaCampiCustom(model.Id, form);
+
                 TempData["Success"] = $"Cliente '{model.RagioneSociale}' creato con successo.";
                 return RedirectToAction(nameof(Details), new { id = model.Id });
             }
+
+            // Ricarica campi custom in caso di errore
+            ViewBag.CampiCustom = await _context.CampiCustomClienti
+                .Where(c => c.IsActive)
+                .OrderBy(c => c.DisplayOrder)
+                .ToListAsync();
+
             return View(model);
         }
 
@@ -149,13 +195,24 @@ namespace StudioCG.Web.Controllers
             var cliente = await _context.Clienti.FindAsync(id);
             if (cliente == null) return NotFound();
 
+            // Carica campi custom
+            ViewBag.CampiCustom = await _context.CampiCustomClienti
+                .Where(c => c.IsActive)
+                .OrderBy(c => c.DisplayOrder)
+                .ToListAsync();
+
+            // Carica valori esistenti
+            ViewBag.ValoriCampiCustom = await _context.ValoriCampiCustomClienti
+                .Where(v => v.ClienteId == id)
+                .ToDictionaryAsync(v => v.CampoCustomClienteId, v => v.Valore);
+
             return View(cliente);
         }
 
         // POST: Clienti/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, Cliente model)
+        public async Task<IActionResult> Edit(int id, Cliente model, IFormCollection form)
         {
             if (id != model.Id) return NotFound();
 
@@ -180,9 +237,24 @@ namespace StudioCG.Web.Controllers
                 cliente.IsActive = model.IsActive;
 
                 await _context.SaveChangesAsync();
+
+                // Salva i valori dei campi custom
+                await SalvaCampiCustom(id, form);
+
                 TempData["Success"] = "Cliente aggiornato con successo.";
                 return RedirectToAction(nameof(Details), new { id = cliente.Id });
             }
+
+            // Ricarica campi custom in caso di errore
+            ViewBag.CampiCustom = await _context.CampiCustomClienti
+                .Where(c => c.IsActive)
+                .OrderBy(c => c.DisplayOrder)
+                .ToListAsync();
+
+            ViewBag.ValoriCampiCustom = await _context.ValoriCampiCustomClienti
+                .Where(v => v.ClienteId == id)
+                .ToDictionaryAsync(v => v.CampoCustomClienteId, v => v.Valore);
+
             return View(model);
         }
 
@@ -1104,6 +1176,49 @@ namespace StudioCG.Web.Controllers
             };
         }
 
+        private async Task SalvaCampiCustom(int clienteId, IFormCollection form)
+        {
+            var campiCustom = await _context.CampiCustomClienti
+                .Where(c => c.IsActive)
+                .ToListAsync();
+
+            foreach (var campo in campiCustom)
+            {
+                var formKey = $"custom_{campo.Id}";
+                var valore = form[formKey].ToString();
+
+                // Gestione checkbox
+                if (campo.TipoCampo == "checkbox")
+                {
+                    valore = form.Keys.Contains(formKey) ? "true" : "false";
+                }
+
+                // Cerca valore esistente
+                var valoreEsistente = await _context.ValoriCampiCustomClienti
+                    .FirstOrDefaultAsync(v => v.ClienteId == clienteId && v.CampoCustomClienteId == campo.Id);
+
+                if (valoreEsistente != null)
+                {
+                    // Aggiorna
+                    valoreEsistente.Valore = valore;
+                    valoreEsistente.UpdatedAt = DateTime.Now;
+                }
+                else if (!string.IsNullOrEmpty(valore))
+                {
+                    // Crea nuovo
+                    _context.ValoriCampiCustomClienti.Add(new ValoreCampoCustomCliente
+                    {
+                        ClienteId = clienteId,
+                        CampoCustomClienteId = campo.Id,
+                        Valore = valore,
+                        UpdatedAt = DateTime.Now
+                    });
+                }
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
         private void AggiornaClienteDaDto(Cliente cliente, ClienteImportDto dto)
         {
             if (!string.IsNullOrEmpty(dto.TipoSoggetto)) cliente.TipoSoggetto = dto.TipoSoggetto;
@@ -1118,6 +1233,159 @@ namespace StudioCG.Web.Controllers
             if (!string.IsNullOrEmpty(dto.PEC)) cliente.PEC = dto.PEC;
             if (!string.IsNullOrEmpty(dto.Telefono)) cliente.Telefono = dto.Telefono;
             if (!string.IsNullOrEmpty(dto.Note)) cliente.Note = dto.Note;
+        }
+
+        // ============ GESTIONE CAMPI CUSTOM CLIENTE ============
+
+        // GET: Clienti/CampiCustom
+        [AdminOnly]
+        public async Task<IActionResult> CampiCustom()
+        {
+            var campi = await _context.CampiCustomClienti
+                .OrderBy(c => c.DisplayOrder)
+                .ThenBy(c => c.Nome)
+                .ToListAsync();
+
+            return View(campi);
+        }
+
+        // POST: Clienti/AddCampoCustom
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [AdminOnly]
+        public async Task<IActionResult> AddCampoCustom(CampoCustomCliente campo)
+        {
+            if (string.IsNullOrWhiteSpace(campo.Nome))
+            {
+                TempData["Error"] = "Il nome del campo è obbligatorio.";
+                return RedirectToAction(nameof(CampiCustom));
+            }
+
+            // Verifica duplicati
+            var esistente = await _context.CampiCustomClienti
+                .AnyAsync(c => c.Nome == campo.Nome);
+
+            if (esistente)
+            {
+                TempData["Error"] = $"Esiste già un campo con nome '{campo.Nome}'.";
+                return RedirectToAction(nameof(CampiCustom));
+            }
+
+            // Imposta ordine
+            var maxOrder = await _context.CampiCustomClienti.MaxAsync(c => (int?)c.DisplayOrder) ?? 0;
+            campo.DisplayOrder = maxOrder + 1;
+            campo.CreatedAt = DateTime.Now;
+            campo.IsActive = true;
+
+            _context.CampiCustomClienti.Add(campo);
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"Campo '{campo.Label}' creato con successo.";
+            return RedirectToAction(nameof(CampiCustom));
+        }
+
+        // POST: Clienti/EditCampoCustom
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [AdminOnly]
+        public async Task<IActionResult> EditCampoCustom(int id, string label, string tipoCampo, bool isRequired, 
+            bool showInList, bool useAsFilter, string? options, string? defaultValue, string? placeholder)
+        {
+            var campo = await _context.CampiCustomClienti.FindAsync(id);
+            if (campo == null)
+            {
+                TempData["Error"] = "Campo non trovato.";
+                return RedirectToAction(nameof(CampiCustom));
+            }
+
+            campo.Label = label;
+            campo.TipoCampo = tipoCampo;
+            campo.IsRequired = isRequired;
+            campo.ShowInList = showInList;
+            campo.UseAsFilter = useAsFilter;
+            campo.Options = options;
+            campo.DefaultValue = defaultValue;
+            campo.Placeholder = placeholder;
+
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"Campo '{campo.Label}' aggiornato con successo.";
+            return RedirectToAction(nameof(CampiCustom));
+        }
+
+        // POST: Clienti/DeleteCampoCustom
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [AdminOnly]
+        public async Task<IActionResult> DeleteCampoCustom(int id)
+        {
+            var campo = await _context.CampiCustomClienti
+                .Include(c => c.Valori)
+                .FirstOrDefaultAsync(c => c.Id == id);
+
+            if (campo == null)
+            {
+                TempData["Error"] = "Campo non trovato.";
+                return RedirectToAction(nameof(CampiCustom));
+            }
+
+            // Elimina anche tutti i valori associati
+            _context.ValoriCampiCustomClienti.RemoveRange(campo.Valori);
+            _context.CampiCustomClienti.Remove(campo);
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"Campo '{campo.Label}' eliminato con successo.";
+            return RedirectToAction(nameof(CampiCustom));
+        }
+
+        // POST: Clienti/MoveCampoCustomUp
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [AdminOnly]
+        public async Task<IActionResult> MoveCampoCustomUp(int id)
+        {
+            var campo = await _context.CampiCustomClienti.FindAsync(id);
+            if (campo == null) return RedirectToAction(nameof(CampiCustom));
+
+            var campoPrecedente = await _context.CampiCustomClienti
+                .Where(c => c.DisplayOrder < campo.DisplayOrder)
+                .OrderByDescending(c => c.DisplayOrder)
+                .FirstOrDefaultAsync();
+
+            if (campoPrecedente != null)
+            {
+                var tempOrder = campo.DisplayOrder;
+                campo.DisplayOrder = campoPrecedente.DisplayOrder;
+                campoPrecedente.DisplayOrder = tempOrder;
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction(nameof(CampiCustom));
+        }
+
+        // POST: Clienti/MoveCampoCustomDown
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [AdminOnly]
+        public async Task<IActionResult> MoveCampoCustomDown(int id)
+        {
+            var campo = await _context.CampiCustomClienti.FindAsync(id);
+            if (campo == null) return RedirectToAction(nameof(CampiCustom));
+
+            var campoSuccessivo = await _context.CampiCustomClienti
+                .Where(c => c.DisplayOrder > campo.DisplayOrder)
+                .OrderBy(c => c.DisplayOrder)
+                .FirstOrDefaultAsync();
+
+            if (campoSuccessivo != null)
+            {
+                var tempOrder = campo.DisplayOrder;
+                campo.DisplayOrder = campoSuccessivo.DisplayOrder;
+                campoSuccessivo.DisplayOrder = tempOrder;
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction(nameof(CampiCustom));
         }
     }
 

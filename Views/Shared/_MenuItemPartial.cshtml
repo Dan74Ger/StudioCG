@@ -1,0 +1,148 @@
+@model StudioCG.Web.Services.MenuItemDto
+@{
+    var currentController = ViewData["CurrentController"]?.ToString() ?? "";
+    var currentAction = ViewData["CurrentAction"]?.ToString() ?? "";
+    var currentId = ViewData["CurrentId"]?.ToString() ?? "";
+    var currentPath = ViewData["CurrentPath"]?.ToString() ?? "";
+    var isMainAdmin = (bool)(ViewData["IsMainAdmin"] ?? false);
+    
+    // Determina se questa voce è attiva
+    var isActive = false;
+    if (!string.IsNullOrEmpty(Model.Url))
+    {
+        // Confronto URL
+        isActive = currentPath.StartsWith(Model.Url, StringComparison.OrdinalIgnoreCase);
+        
+        // Caso speciale per voci con ID
+        if (Model.Url.Contains("/Attivita/Tipo/") || Model.Url.Contains("/Entita/Dati/") || Model.Url.Contains("/DynamicData/Page/"))
+        {
+            isActive = currentPath == Model.Url || (currentPath.StartsWith(Model.Url.Substring(0, Model.Url.LastIndexOf('/'))) && Model.Url.EndsWith(currentId ?? ""));
+        }
+    }
+    
+    // Per i gruppi, controlla se un figlio è attivo
+    var hasActiveChild = Model.Children.Any(c => 
+        !string.IsNullOrEmpty(c.Url) && currentPath.StartsWith(c.Url.Split('?')[0], StringComparison.OrdinalIgnoreCase) ||
+        c.Children.Any(cc => !string.IsNullOrEmpty(cc.Url) && currentPath.StartsWith(cc.Url.Split('?')[0], StringComparison.OrdinalIgnoreCase))
+    );
+    
+    var menuId = $"menu_{Model.Id}";
+}
+
+@{
+    // Gestione URL esterni
+    var finalUrl = Model.Url ?? "";
+    var isExternalUrl = false;
+    
+    if (!string.IsNullOrEmpty(finalUrl))
+    {
+        // Se inizia con www., aggiungi https://
+        if (finalUrl.StartsWith("www.", StringComparison.OrdinalIgnoreCase))
+        {
+            finalUrl = "https://" + finalUrl;
+            isExternalUrl = true;
+        }
+        // Se inizia con http:// o https://, è un link esterno
+        else if (finalUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || 
+                 finalUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            isExternalUrl = true;
+        }
+    }
+}
+
+@if (Model.IsGroup && Model.Children.Any())
+{
+    <!-- GRUPPO CON SOTTO-VOCI -->
+    <li class="nav-item">
+        <a class="nav-link section-toggle @(hasActiveChild ? "" : "collapsed")" 
+           data-bs-toggle="collapse" 
+           href="#@menuId" 
+           role="button" 
+           aria-expanded="@(hasActiveChild ? "true" : "false")" 
+           aria-controls="@menuId" 
+           data-tooltip="@Model.Nome">
+            <i class="@Model.Icon" @(Model.IconColor != null ? $"style=\"color: {Model.IconColor};\"" : "")></i>
+            <span class="section-title">@Model.Nome</span>
+            <i class="fas fa-chevron-down section-arrow ms-auto"></i>
+        </a>
+        <div class="collapse @(hasActiveChild ? "show" : "")" id="@menuId">
+            <ul class="nav flex-column submenu">
+                @foreach (var child in Model.Children)
+                {
+                    @await Html.PartialAsync("_MenuItemPartial", child, ViewData)
+                }
+            </ul>
+        </div>
+    </li>
+}
+else if (Model.IsGroup && !Model.Children.Any() && isMainAdmin)
+{
+    <!-- GRUPPO VUOTO (solo admin vede) -->
+    <li class="nav-item">
+        <a class="nav-link section-toggle collapsed" 
+           data-bs-toggle="collapse" 
+           href="#@menuId" 
+           role="button" 
+           data-tooltip="@Model.Nome">
+            <i class="@Model.Icon"></i>
+            <span class="section-title">@Model.Nome</span>
+            <i class="fas fa-chevron-down section-arrow ms-auto"></i>
+        </a>
+        <div class="collapse" id="@menuId">
+            <ul class="nav flex-column submenu">
+                <li class="nav-item">
+                    <span class="nav-link text-muted small"><i class="fas fa-info-circle me-1"></i>Nessun elemento</span>
+                </li>
+            </ul>
+        </div>
+    </li>
+}
+else if (!string.IsNullOrEmpty(Model.Url))
+{
+    <!-- VOCE SINGOLA CON URL -->
+    <li class="nav-item">
+        @if (isExternalUrl)
+        {
+            <a class="nav-link" href="@finalUrl" target="_blank" rel="noopener noreferrer" data-tooltip="@Model.Nome">
+                <i class="@Model.Icon" @(Model.IconColor != null ? $"style=\"color: {Model.IconColor};\"" : "")></i>
+                <span>@Model.Nome</span>
+                <i class="fas fa-external-link-alt ms-1 small opacity-50"></i>
+            </a>
+        }
+        else
+        {
+            <a class="nav-link @(isActive ? "active" : "")" href="@finalUrl" data-tooltip="@Model.Nome">
+                <i class="@Model.Icon" @(Model.IconColor != null ? $"style=\"color: {Model.IconColor};\"" : "")></i>
+                <span>@Model.Nome</span>
+            </a>
+        }
+    </li>
+}
+else if (Model.TipoVoce == "DynamicGroup" && Model.Children.Any())
+{
+    <!-- SOTTO-GRUPPO DINAMICO (es: Dati Riservati) -->
+    <li class="nav-item">
+        @{
+            var subHasActiveChild = Model.Children.Any(c => !string.IsNullOrEmpty(c.Url) && currentPath.StartsWith(c.Url.Split('?')[0], StringComparison.OrdinalIgnoreCase));
+        }
+        <a class="nav-link section-toggle @(subHasActiveChild ? "" : "collapsed") subsection-toggle" 
+           data-bs-toggle="collapse" 
+           href="#@menuId" 
+           role="button" 
+           aria-expanded="@(subHasActiveChild ? "true" : "false")"
+           data-tooltip="@Model.Nome">
+            <i class="@Model.Icon"></i>
+            <span class="subsection-title">@Model.Nome</span>
+            <i class="fas fa-chevron-down section-arrow ms-auto"></i>
+        </a>
+        <div class="collapse @(subHasActiveChild ? "show" : "")" id="@menuId">
+            <ul class="nav flex-column submenu-inner">
+                @foreach (var child in Model.Children)
+                {
+                    @await Html.PartialAsync("_MenuItemPartial", child, ViewData)
+                }
+            </ul>
+        </div>
+    </li>
+}

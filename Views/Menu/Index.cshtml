@@ -1,0 +1,361 @@
+@model IEnumerable<StudioCG.Web.Models.VoceMenu>
+@using StudioCG.Web.Models
+@using StudioCG.Web.Models.Entita
+@{
+    ViewData["Title"] = "Gestione Menu";
+    var attivita = ViewBag.Attivita as List<AttivitaAnnuale> ?? new List<AttivitaAnnuale>();
+    var entitaDinamiche = ViewBag.EntitaDinamiche as List<EntitaDinamica> ?? new List<EntitaDinamica>();
+    var pagineDinamiche = ViewBag.PagineDinamiche as List<DynamicPage> ?? new List<DynamicPage>();
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-bars me-2"></i>Gestione Menu</h2>
+            <p class="text-muted mb-0">Ordina le voci del menu usando le frecce. Le modifiche sono immediate.</p>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Struttura Menu</h5>
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addVoceModal">
+                        <i class="fas fa-plus me-1"></i>Aggiungi Voce Custom
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        @foreach (var voce in Model.OrderBy(v => v.DisplayOrder))
+                        {
+                            <div class="list-group-item @(!voce.IsVisible ? "bg-light text-muted" : "")">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <!-- Frecce Ordine -->
+                                        <div class="btn-group-vertical btn-group-sm">
+                                            <form asp-action="MoveUp" method="post" class="d-inline">
+                                                <input type="hidden" name="id" value="@voce.Id" />
+                                                <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-1"><i class="fas fa-chevron-up"></i></button>
+                                            </form>
+                                            <form asp-action="MoveDown" method="post" class="d-inline">
+                                                <input type="hidden" name="id" value="@voce.Id" />
+                                                <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-1"><i class="fas fa-chevron-down"></i></button>
+                                            </form>
+                                        </div>
+
+                                        <!-- Icona e Nome -->
+                                        <div>
+                                            <i class="@voce.Icon fa-fw me-2 text-primary"></i>
+                                            <strong>@voce.Nome</strong>
+                                            @if (voce.IsGroup)
+                                            {
+                                                <span class="badge bg-secondary ms-1">Gruppo</span>
+                                            }
+                                            @if (voce.TipoVoce.StartsWith("Dynamic"))
+                                            {
+                                                <span class="badge bg-info ms-1">Dinamico</span>
+                                            }
+                                            @if (voce.TipoVoce == "Custom")
+                                            {
+                                                <span class="badge bg-success ms-1">Custom</span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(voce.Url))
+                                            {
+                                                <br><small class="text-muted ms-4">@voce.Url</small>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div class="btn-group btn-group-sm">
+                                        <!-- Toggle Visibilità -->
+                                        <form asp-action="ToggleVisibility" method="post" class="d-inline">
+                                            <input type="hidden" name="id" value="@voce.Id" />
+                                            <button type="submit" class="btn @(voce.IsVisible ? "btn-outline-success" : "btn-outline-secondary")" title="@(voce.IsVisible ? "Visibile" : "Nascosto")">
+                                                <i class="fas @(voce.IsVisible ? "fa-eye" : "fa-eye-slash")"></i>
+                                            </button>
+                                        </form>
+                                        
+                                        <!-- Modifica/Elimina (solo per voci custom) -->
+                                        @if (voce.TipoVoce == "Custom")
+                                        {
+                                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal@(voce.Id)">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <form asp-action="DeleteVoce" method="post" class="d-inline" onsubmit="return confirm('Eliminare questa voce?')">
+                                                <input type="hidden" name="id" value="@voce.Id" />
+                                                <button type="submit" class="btn btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                            </form>
+                                        }
+                                    </div>
+                                </div>
+
+                                <!-- Sotto-voci statiche -->
+                                @if (voce.Children.Any())
+                                {
+                                    <div class="ms-5 mt-2 border-start ps-3">
+                                        @foreach (var child in voce.Children.OrderBy(c => c.DisplayOrder))
+                                        {
+                                            <div class="d-flex justify-content-between align-items-center py-2 @(!child.IsVisible ? "text-muted" : "")">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <div class="btn-group-vertical btn-group-sm">
+                                                        <form asp-action="MoveUp" method="post" class="d-inline">
+                                                            <input type="hidden" name="id" value="@child.Id" />
+                                                            <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.7rem;"><i class="fas fa-chevron-up"></i></button>
+                                                        </form>
+                                                        <form asp-action="MoveDown" method="post" class="d-inline">
+                                                            <input type="hidden" name="id" value="@child.Id" />
+                                                            <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.7rem;"><i class="fas fa-chevron-down"></i></button>
+                                                        </form>
+                                                    </div>
+                                                    <i class="@child.Icon fa-fw text-secondary"></i>
+                                                    <span>@child.Nome</span>
+                                                    @if (!string.IsNullOrEmpty(child.Url))
+                                                    {
+                                                        <small class="text-muted">(@child.Url)</small>
+                                                    }
+                                                </div>
+                                                <div class="btn-group btn-group-sm">
+                                                    <form asp-action="ToggleVisibility" method="post" class="d-inline">
+                                                        <input type="hidden" name="id" value="@child.Id" />
+                                                        <button type="submit" class="btn btn-sm @(child.IsVisible ? "btn-outline-success" : "btn-outline-secondary")">
+                                                            <i class="fas @(child.IsVisible ? "fa-eye" : "fa-eye-slash")" style="font-size: 0.75rem;"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+
+                                <!-- Voci dinamiche per ATTIVITÀ -->
+                                @if (voce.TipoVoce == "DynamicAttivita" && attivita.Any())
+                                {
+                                    <div class="ms-5 mt-2 border-start border-info ps-3">
+                                        <small class="text-info d-block mb-2"><i class="fas fa-magic me-1"></i>Voci generate automaticamente dalle Attività:</small>
+                                        @foreach (var att in attivita)
+                                        {
+                                            <div class="d-flex align-items-center py-1">
+                                                <i class="@att.AttivitaTipo?.Icon fa-fw text-info me-2"></i>
+                                                <span>@att.AttivitaTipo?.Nome</span>
+                                                <small class="text-muted ms-2">(/Attivita/Tipo/@att.AttivitaTipoId)</small>
+                                                <span class="badge bg-info ms-auto">Auto</span>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+
+                                <!-- Voci dinamiche per ENTITÀ -->
+                                @if (voce.TipoVoce == "DynamicEntita" && entitaDinamiche.Any())
+                                {
+                                    <div class="ms-5 mt-2 border-start border-warning ps-3">
+                                        <small class="text-warning d-block mb-2"><i class="fas fa-magic me-1"></i>Voci generate automaticamente dalle Entità:</small>
+                                        @foreach (var ent in entitaDinamiche)
+                                        {
+                                            <div class="d-flex align-items-center py-1">
+                                                <i class="@ent.Icon fa-fw me-2" style="color: @ent.Colore;"></i>
+                                                <span>@ent.Nome</span>
+                                                <small class="text-muted ms-2">(/Entita/Dati/@ent.Id)</small>
+                                                <span class="badge bg-warning text-dark ms-auto">Auto</span>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+
+                                <!-- Voci dinamiche per DATI UTENZA -->
+                                @if (voce.TipoVoce == "DynamicDatiUtenza" && pagineDinamiche.Any())
+                                {
+                                    <div class="ms-5 mt-2 border-start border-success ps-3">
+                                        <small class="text-success d-block mb-2"><i class="fas fa-magic me-1"></i>Voci generate automaticamente dalle Pagine Dinamiche:</small>
+                                        @foreach (var pg in pagineDinamiche)
+                                        {
+                                            <div class="d-flex align-items-center py-1">
+                                                <i class="@pg.Icon fa-fw text-success me-2"></i>
+                                                <span>@pg.Name</span>
+                                                <small class="text-muted ms-2">(@pg.Category - /DynamicData/Page/@pg.Id)</small>
+                                                <span class="badge bg-success ms-auto">Auto</span>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            <!-- Modal Modifica (solo per voci custom) -->
+                            @if (voce.TipoVoce == "Custom")
+                            {
+                                <div class="modal fade" id="editModal@(voce.Id)" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <form asp-action="EditVoce" method="post">
+                                                <input type="hidden" name="id" value="@voce.Id" />
+                                                <div class="modal-header"><h5 class="modal-title">Modifica Voce</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                                                <div class="modal-body">
+                                                    <div class="mb-3"><label class="form-label">Nome</label><input type="text" name="nome" class="form-control" value="@voce.Nome" required /></div>
+                                                    <div class="mb-3"><label class="form-label">URL</label><input type="text" name="url" class="form-control" value="@voce.Url" /></div>
+                                                    <div class="mb-3"><label class="form-label">Icona</label><input type="text" name="icon" class="form-control" value="@voce.Icon" /></div>
+                                                    <div class="form-check"><input type="checkbox" name="isVisible" value="true" class="form-check-input" @(voce.IsVisible ? "checked" : "") /><label class="form-check-label">Visibile</label></div>
+                                                </div>
+                                                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button><button type="submit" class="btn btn-primary">Salva</button></div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Legenda</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="badge bg-secondary">Gruppo</span>
+                        <small>Contiene sotto-voci</small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="badge bg-info">Dinamico</span>
+                        <small>Genera voci automaticamente</small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="badge bg-success">Custom</span>
+                        <small>Voce personalizzata</small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-info">Auto</span>
+                        <small>Voce generata automaticamente</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Come Funziona</h5>
+                </div>
+                <div class="card-body">
+                    <h6><i class="fas fa-arrows-alt-v me-2"></i>Riordinare</h6>
+                    <p class="small text-muted">Usa le frecce ↑ ↓ per spostare le sezioni principali.</p>
+
+                    <h6><i class="fas fa-eye me-2"></i>Mostrare/Nascondere</h6>
+                    <p class="small text-muted">Clicca l'icona occhio per nascondere una voce dal menu.</p>
+
+                    <h6><i class="fas fa-magic me-2"></i>Voci Automatiche</h6>
+                    <p class="small text-muted mb-0">Le voci con badge <span class="badge bg-info">Auto</span> sono generate automaticamente quando crei Attività, Entità o Pagine Dinamiche.</p>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-book me-2"></i>Guida Voci Custom</h5>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-3">Esempi pratici per creare voci personalizzate:</p>
+                    
+                    <div class="border rounded p-2 mb-3 bg-light">
+                        <h6 class="text-primary mb-2"><i class="fas fa-external-link-alt me-1"></i>1. Link Esterno</h6>
+                        <table class="table table-sm table-borderless mb-0 small">
+                            <tr><td class="fw-bold" style="width:40%">Nome:</td><td>Portale Agenzia Entrate</td></tr>
+                            <tr><td class="fw-bold">URL:</td><td>www.agenziaentrate.gov.it</td></tr>
+                            <tr><td class="fw-bold">Icona:</td><td>fas fa-external-link-alt</td></tr>
+                            <tr><td class="fw-bold">Gruppo:</td><td>-- Voce principale --</td></tr>
+                            <tr><td class="fw-bold">È gruppo:</td><td>NO</td></tr>
+                        </table>
+                        <small class="text-muted d-block mt-1">I link esterni si aprono in una nuova scheda.</small>
+                    </div>
+
+                    <div class="border rounded p-2 mb-3 bg-light">
+                        <h6 class="text-warning mb-2"><i class="fas fa-folder me-1"></i>2. Nuovo Gruppo</h6>
+                        <table class="table table-sm table-borderless mb-0 small">
+                            <tr><td class="fw-bold" style="width:40%">Nome:</td><td>LINK UTILI</td></tr>
+                            <tr><td class="fw-bold">URL:</td><td><em>(lascia vuoto)</em></td></tr>
+                            <tr><td class="fw-bold">Icona:</td><td>fas fa-bookmark</td></tr>
+                            <tr><td class="fw-bold">Gruppo:</td><td>-- Voce principale --</td></tr>
+                            <tr><td class="fw-bold">È gruppo:</td><td>SI ✓</td></tr>
+                        </table>
+                        <small class="text-muted d-block mt-1">Poi aggiungi altre voci scegliendo "LINK UTILI" come Gruppo Padre.</small>
+                    </div>
+
+                    <h6><i class="fas fa-icons me-2"></i>Icone Comuni</h6>
+                    <div class="small">
+                        <code>fas fa-globe</code> 🌐 |
+                        <code>fas fa-link</code> 🔗 |
+                        <code>fas fa-star</code> ⭐ |
+                        <code>fas fa-folder</code> 📁 |
+                        <code>fas fa-chart-bar</code> 📊 |
+                        <code>fas fa-cog</code> ⚙️
+                    </div>
+                    <a href="https://fontawesome.com/icons" target="_blank" class="small text-primary">
+                        <i class="fas fa-external-link-alt me-1"></i>Tutte le icone FontAwesome
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Aggiungi Voce -->
+<div class="modal fade" id="addVoceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="AddVoce" method="post">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Nuova Voce Custom</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nome *</label>
+                        <input type="text" name="Nome" class="form-control" required placeholder="es: Link Esterno" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">URL</label>
+                        <input type="text" name="Url" class="form-control" placeholder="es: https://example.com" />
+                        <small class="text-muted">Lascia vuoto per creare un gruppo</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Icona</label>
+                        <input type="text" name="Icon" class="form-control" value="fas fa-link" placeholder="fas fa-link" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Gruppo Padre</label>
+                        <select name="ParentId" class="form-select">
+                            <option value="">-- Voce principale --</option>
+                            @foreach (var gruppo in Model.Where(v => v.IsGroup))
+                            {
+                                <option value="@gruppo.Id">@gruppo.Nome</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="IsGroup" value="true" class="form-check-input" id="newIsGroup" />
+                        <label class="form-check-label" for="newIsGroup">È un gruppo</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Aggiungi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
