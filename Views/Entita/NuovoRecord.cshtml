@@ -1,10 +1,12 @@
 @model StudioCG.Web.Models.Entita.RecordEntita
 @using StudioCG.Web.Models.Entita
+@using StudioCG.Web.Services
 @{
     var entita = ViewBag.Entita as EntitaDinamica;
     ViewData["Title"] = $"Nuovo {entita?.Nome}";
     var clienteId = ViewBag.ClienteId as int?;
     var clienti = ViewBag.Clienti as List<StudioCG.Web.Models.Cliente> ?? new List<StudioCG.Web.Models.Cliente>();
+    var tuttiCampi = entita?.Campi?.ToList() ?? new List<CampoEntita>();
 }
 
 <div class="container-fluid">
@@ -78,67 +80,90 @@
                             <div class="col-md-@campo.ColWidth mb-3">
                                 <label class="form-label">
                                     @campo.Label
-                                    @if (campo.IsRequired) { <span class="text-danger">*</span> }
+                                    @if (campo.IsCalculated)
+                                    {
+                                        <i class="fas fa-calculator text-warning ms-1" title="Campo calcolato"></i>
+                                    }
+                                    else if (campo.IsRequired)
+                                    {
+                                        <span class="text-danger">*</span>
+                                    }
                                 </label>
                                 
-                                @switch (campo.TipoCampo)
+                                @if (campo.IsCalculated)
                                 {
-                                    case "textarea":
-                                        <textarea name="@fieldId" class="form-control" rows="3" 
-                                                  placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "")>@campo.DefaultValue</textarea>
-                                        break;
-                                    case "number":
-                                        <input type="number" name="@fieldId" class="form-control" 
-                                               value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
-                                        break;
-                                    case "decimal":
-                                        <input type="number" step="0.01" name="@fieldId" class="form-control" 
-                                               value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
-                                        break;
-                                    case "date":
-                                        <input type="date" name="@fieldId" class="form-control" 
-                                               value="@campo.DefaultValue" @(campo.IsRequired ? "required" : "") />
-                                        break;
-                                    case "datetime":
-                                        <input type="datetime-local" name="@fieldId" class="form-control" 
-                                               value="@campo.DefaultValue" @(campo.IsRequired ? "required" : "") />
-                                        break;
-                                    case "checkbox":
-                                        <div class="form-check">
-                                            <input type="checkbox" name="@fieldId" value="true" class="form-check-input" 
-                                                   @(campo.DefaultValue == "true" ? "checked" : "") />
-                                            <label class="form-check-label">@campo.Label</label>
-                                        </div>
-                                        break;
-                                    case "dropdown":
-                                        <select name="@fieldId" class="form-select" @(campo.IsRequired ? "required" : "")>
-                                            <option value="">-- Seleziona --</option>
-                                            @if (!string.IsNullOrEmpty(campo.Options))
-                                            {
-                                                foreach (var opt in campo.Options.Split('|'))
+                                    <!-- Campo calcolato: readonly -->
+                                    <input type="text" 
+                                           class="form-control calculated-field" 
+                                           style="background-color: #fff3cd !important; font-weight: bold;" 
+                                           readonly 
+                                           disabled
+                                           data-campo-id="@campo.Id"
+                                           data-formula="@campo.Formula"
+                                           value="-"
+                                           title="Campo calcolato: @campo.Formula" />
+                                }
+                                else
+                                {
+                                    @switch (campo.TipoCampo)
+                                    {
+                                        case "textarea":
+                                            <textarea name="@fieldId" class="form-control source-field" data-campo-name="@campo.Nome" rows="3" 
+                                                      placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "")>@campo.DefaultValue</textarea>
+                                            break;
+                                        case "number":
+                                            <input type="number" name="@fieldId" class="form-control source-field" data-campo-name="@campo.Nome"
+                                                   value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
+                                            break;
+                                        case "decimal":
+                                            <input type="number" step="0.01" name="@fieldId" class="form-control source-field" data-campo-name="@campo.Nome"
+                                                   value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
+                                            break;
+                                        case "date":
+                                            <input type="date" name="@fieldId" class="form-control source-field" data-campo-name="@campo.Nome"
+                                                   value="@campo.DefaultValue" @(campo.IsRequired ? "required" : "") />
+                                            break;
+                                        case "datetime":
+                                            <input type="datetime-local" name="@fieldId" class="form-control source-field" data-campo-name="@campo.Nome"
+                                                   value="@campo.DefaultValue" @(campo.IsRequired ? "required" : "") />
+                                            break;
+                                        case "checkbox":
+                                            <div class="form-check">
+                                                <input type="checkbox" name="@fieldId" value="true" class="form-check-input source-field" data-campo-name="@campo.Nome"
+                                                       @(campo.DefaultValue == "true" ? "checked" : "") />
+                                                <label class="form-check-label">@campo.Label</label>
+                                            </div>
+                                            break;
+                                        case "dropdown":
+                                            <select name="@fieldId" class="form-select source-field" data-campo-name="@campo.Nome" @(campo.IsRequired ? "required" : "")>
+                                                <option value="">-- Seleziona --</option>
+                                                @if (!string.IsNullOrEmpty(campo.Options))
                                                 {
-                                                    if (opt == campo.DefaultValue) { <option value="@opt" selected>@opt</option> }
-                                                    else { <option value="@opt">@opt</option> }
+                                                    foreach (var opt in campo.Options.Split('|'))
+                                                    {
+                                                        if (opt == campo.DefaultValue) { <option value="@opt" selected>@opt</option> }
+                                                        else { <option value="@opt">@opt</option> }
+                                                    }
                                                 }
-                                            }
-                                        </select>
-                                        break;
-                                    case "email":
-                                        <input type="email" name="@fieldId" class="form-control" 
-                                               value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
-                                        break;
-                                    case "phone":
-                                        <input type="tel" name="@fieldId" class="form-control" 
-                                               value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
-                                        break;
-                                    case "url":
-                                        <input type="url" name="@fieldId" class="form-control" 
-                                               value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
-                                        break;
-                                    default:
-                                        <input type="text" name="@fieldId" class="form-control" 
-                                               value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
-                                        break;
+                                            </select>
+                                            break;
+                                        case "email":
+                                            <input type="email" name="@fieldId" class="form-control source-field" data-campo-name="@campo.Nome"
+                                                   value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
+                                            break;
+                                        case "phone":
+                                            <input type="tel" name="@fieldId" class="form-control source-field" data-campo-name="@campo.Nome"
+                                                   value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
+                                            break;
+                                        case "url":
+                                            <input type="url" name="@fieldId" class="form-control source-field" data-campo-name="@campo.Nome"
+                                                   value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
+                                            break;
+                                        default:
+                                            <input type="text" name="@fieldId" class="form-control source-field" data-campo-name="@campo.Nome"
+                                                   value="@campo.DefaultValue" placeholder="@campo.Placeholder" @(campo.IsRequired ? "required" : "") />
+                                            break;
+                                    }
                                 }
                             </div>
                         }
@@ -164,3 +189,90 @@
         </div>
     </form>
 </div>
+
+@section Scripts {
+    <script>
+        // ========== RICALCOLO CAMPI CALCOLATI IN TEMPO REALE ==========
+        
+        // Formule dei campi calcolati
+        var campiCalcolati = [
+            @if (entita?.Campi != null)
+            {
+                @foreach (var campo in entita.Campi.Where(c => c.IsCalculated && !string.IsNullOrEmpty(c.Formula)))
+                {
+                    @Html.Raw($"{{ id: {campo.Id}, name: '{campo.Nome}', formula: '{campo.Formula!.Replace("'", "\\'")}' }},")
+                }
+            }
+        ];
+
+        // Funzione per calcolare formula lato client
+        function calcolaFormula(formula, valori) {
+            try {
+                // Sostituisci riferimenti ai campi con i loro valori
+                var formulaCalcolata = formula.replace(/\[([^\]]+)\]/g, function(match, nomeCampo) {
+                    var valore = valori[nomeCampo.toUpperCase()] || valori[nomeCampo] || 0;
+                    // Converti virgola in punto per parsing
+                    if (typeof valore === 'string') {
+                        valore = valore.replace(',', '.');
+                    }
+                    var numero = parseFloat(valore);
+                    return isNaN(numero) ? 0 : numero;
+                });
+
+                // Converti virgole in punti (supporto formato italiano es: 0,88 -> 0.88)
+                formulaCalcolata = formulaCalcolata.replace(/,/g, '.');
+
+                // Valida formula (solo numeri, operatori, parentesi)
+                if (!/^[\d\.\+\-\*\/\(\)\s]+$/.test(formulaCalcolata)) {
+                    return null;
+                }
+
+                // Calcola
+                var risultato = eval(formulaCalcolata);
+                
+                // Formatta con 2 decimali e formato italiano
+                return risultato.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            } catch (e) {
+                console.error('Errore calcolo formula:', e);
+                return null;
+            }
+        }
+
+        // Ricalcola tutti i campi calcolati
+        function ricalcolaCampiCalcolati() {
+            if (campiCalcolati.length === 0) return;
+            
+            // Raccogli valori di tutti i campi sorgente
+            var valori = {};
+            document.querySelectorAll('.source-field').forEach(function(input) {
+                var nomeCampo = input.getAttribute('data-campo-name');
+                if (nomeCampo) {
+                    var valore = input.type === 'checkbox' ? (input.checked ? '1' : '0') : input.value;
+                    valori[nomeCampo] = valore;
+                    valori[nomeCampo.toUpperCase()] = valore;
+                }
+            });
+            
+            // Ricalcola ogni campo calcolato
+            campiCalcolati.forEach(function(campoCalc) {
+                var input = document.querySelector('.calculated-field[data-campo-id="' + campoCalc.id + '"]');
+                if (input) {
+                    var risultato = calcolaFormula(campoCalc.formula, valori);
+                    input.value = risultato || '-';
+                }
+            });
+        }
+
+        // Aggiungi evento a tutti i campi sorgente
+        document.querySelectorAll('.source-field').forEach(function(campo) {
+            campo.addEventListener('input', ricalcolaCampiCalcolati);
+            campo.addEventListener('change', ricalcolaCampiCalcolati);
+        });
+
+        // Calcola al caricamento della pagina
+        document.addEventListener('DOMContentLoaded', ricalcolaCampiCalcolati);
+        
+        // Calcola anche immediatamente
+        ricalcolaCampiCalcolati();
+    </script>
+}

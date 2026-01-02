@@ -1,5 +1,6 @@
 @model IEnumerable<StudioCG.Web.Models.Entita.RecordEntita>
 @using StudioCG.Web.Models.Entita
+@using StudioCG.Web.Services
 @{
     var entita = ViewBag.Entita as EntitaDinamica;
     ViewData["Title"] = entita?.NomePluruale ?? "Dati";
@@ -7,9 +8,25 @@
     var statoId = ViewBag.StatoId as int?;
     var search = ViewBag.Search as string;
     var clienti = ViewBag.Clienti as List<StudioCG.Web.Models.Cliente> ?? new List<StudioCG.Web.Models.Cliente>();
-    var campiInLista = entita?.Campi.Where(c => c.ShowInList).ToList() ?? new List<CampoEntita>();
+    var campiInLista = entita?.Campi.Where(c => c.ShowInList).OrderBy(c => c.DisplayOrder).ToList() ?? new List<CampoEntita>();
+    var tuttiCampi = entita?.Campi.ToList() ?? new List<CampoEntita>();
     var campiFiltrabili = entita?.Campi.Where(c => c.UseAsFilter).ToList() ?? new List<CampoEntita>();
     var filtriCampi = ViewBag.FiltriCampi as Dictionary<int, string> ?? new Dictionary<int, string>();
+    
+    // Campo scadenza
+    var campoScadenza = entita?.Campi.FirstOrDefault(c => c.IsDataScadenza);
+    var giorniPreavviso = entita?.GiorniPreavvisoScadenza ?? 15;
+    
+    // Funzione per determinare lo stato scadenza
+    Func<RecordEntita, string> getStatoScadenza = (record) => {
+        if (campoScadenza == null) return "none";
+        var valoreData = record.Valori?.FirstOrDefault(v => v.CampoEntitaId == campoScadenza.Id)?.Valore;
+        if (string.IsNullOrEmpty(valoreData) || !DateTime.TryParse(valoreData, out var dataScadenza)) return "none";
+        var oggi = DateTime.Today;
+        if (dataScadenza < oggi) return "scaduto";
+        if (dataScadenza <= oggi.AddDays(giorniPreavviso)) return "in_scadenza";
+        return "ok";
+    };
 }
 
 <div class="container-fluid">
@@ -22,9 +39,21 @@
             <p class="text-muted mb-0">@entita?.Descrizione</p>
         </div>
         <div class="btn-group">
+            @if (entita?.CollegataACliente == true)
+            {
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalAggiungiClienti">
+                    <i class="fas fa-users me-1"></i>Aggiungi Clienti
+                </button>
+            }
             <a asp-action="NuovoRecord" asp-route-id="@entita?.Id" asp-route-clienteId="@clienteId" class="btn btn-primary">
                 <i class="fas fa-plus me-1"></i>Nuovo Record
             </a>
+            @if (campoScadenza != null)
+            {
+                <a asp-action="Scadenze" class="btn btn-warning">
+                    <i class="fas fa-bell me-1"></i>Scadenze
+                </a>
+            }
             <a asp-action="Gestione" class="btn btn-outline-secondary">
                 <i class="fas fa-cog me-1"></i>Gestione
             </a>
@@ -176,24 +205,64 @@
                     <table class="table table-hover mb-0">
                         <thead class="table-light">
                             <tr>
+                                @if (campoScadenza != null)
+                                {
+                                    <th style="width: 30px;" title="Stato Scadenza"><i class="fas fa-bell text-warning"></i></th>
+                                }
                                 @if (entita?.CollegataACliente == true)
                                 {
-                                    <th>Cliente</th>
+                                    var clienteWidth = entita.LarghezzaColonnaCliente > 0 ? $"width: {entita.LarghezzaColonnaCliente}px;" : "";
+                                    <th style="@clienteWidth">Cliente</th>
                                 }
-                                <th>Titolo</th>
-                                @foreach (var campo in campiInLista.Take(4))
+                                @{
+                                    var titoloWidth = entita?.LarghezzaColonnaTitolo > 0 ? $"width: {entita.LarghezzaColonnaTitolo}px;" : "";
+                                }
+                                <th style="@titoloWidth">Titolo</th>
+                                @foreach (var campo in campiInLista.Take(5))
                                 {
-                                    <th>@campo.Label</th>
+                                    var colWidth = campo.ColumnWidth > 0 ? $"width: {campo.ColumnWidth}px; min-width: {campo.ColumnWidth}px;" : "";
+                                    <th style="@colWidth">
+                                        @campo.Label
+                                        @if (campo.IsCalculated)
+                                        {
+                                            <i class="fas fa-calculator text-warning ms-1" title="Calcolato"></i>
+                                        }
+                                    </th>
                                 }
-                                <th style="width: 140px;">Stato</th>
-                                <th>Data</th>
+                                @{
+                                    var statoWidth = entita?.LarghezzaColonnaStato > 0 ? $"width: {entita.LarghezzaColonnaStato}px;" : "width: 120px;";
+                                }
+                                <th style="@statoWidth">Stato</th>
                                 <th style="width: 120px;" class="text-end">Azioni</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var record in Model)
                             {
-                                <tr class="align-middle">
+                                var statoScadenza = getStatoScadenza(record);
+                                var rowStyle = statoScadenza switch {
+                                    "scaduto" => "background-color: #f8d7da;", // Rosso chiaro
+                                    "in_scadenza" => "background-color: #fff3cd;", // Giallo
+                                    _ => ""
+                                };
+                                <tr class="align-middle" style="@rowStyle">
+                                    @* Badge scadenza *@
+                                    @if (statoScadenza == "scaduto")
+                                    {
+                                        <td class="p-1 text-center" style="width: 30px;">
+                                            <span class="badge bg-danger" title="Scaduto"><i class="fas fa-exclamation-triangle"></i></span>
+                                        </td>
+                                    }
+                                    else if (statoScadenza == "in_scadenza")
+                                    {
+                                        <td class="p-1 text-center" style="width: 30px;">
+                                            <span class="badge bg-warning text-dark" title="In scadenza"><i class="fas fa-bell"></i></span>
+                                        </td>
+                                    }
+                                    else if (campoScadenza != null)
+                                    {
+                                        <td class="p-1" style="width: 30px;"></td>
+                                    }
                                     @if (entita?.CollegataACliente == true)
                                     {
                                         <td>
@@ -209,19 +278,70 @@
                                             }
                                         </td>
                                     }
-                                    <td><strong>@(record.Titolo ?? $"Record #{record.Id}")</strong></td>
-                                    @foreach (var campo in campiInLista.Take(4))
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm inline-edit-titolo"
+                                               data-record="@record.Id" value="@record.Titolo"
+                                               style="min-width: 120px; font-weight: bold;" />
+                                    </td>
+                                    @foreach (var campo in campiInLista.Take(5))
                                     {
-                                        var valore = record.Valori.FirstOrDefault(v => v.CampoEntitaId == campo.Id)?.Valore;
-                                        <td>
-                                            @if (campo.TipoCampo == "checkbox")
+                                        var valore = record.Valori.FirstOrDefault(v => v.CampoEntitaId == campo.Id)?.Valore ?? "";
+                                        var cellWidth = campo.ColumnWidth > 0 ? $"width: {campo.ColumnWidth}px; max-width: {campo.ColumnWidth}px;" : "";
+                                        var inputWidth = campo.ColumnWidth > 0 ? $"width: {campo.ColumnWidth - 10}px;" : "width: 100%; min-width: 80px;";
+                                        <td style="@cellWidth" class="p-1">
+                                            @if (campo.IsCalculated)
                                             {
-                                                if (valore == "true") { <i class="fas fa-check text-success"></i> }
-                                                else { <i class="fas fa-times text-muted"></i> }
+                                                var valoreCalcolato = FormulaCalculatorService.CalcolaPerRecordEntita(campo, record, tuttiCampi);
+                                                <span class="calculated-field badge bg-light text-dark border"
+                                                      style="font-size: 0.85rem; @inputWidth"
+                                                      data-record="@record.Id" data-campo="@campo.Id"
+                                                      data-formula="@campo.Formula">
+                                                    @(valoreCalcolato ?? "-")
+                                                </span>
+                                            }
+                                            else if (campo.TipoCampo == "checkbox")
+                                            {
+                                                <input type="checkbox" class="form-check-input inline-edit-checkbox"
+                                                       data-record="@record.Id" data-campo="@campo.Id"
+                                                       @(valore == "true" ? "checked" : "")
+                                                       style="width: 20px; height: 20px; cursor: pointer;" />
+                                            }
+                                            else if (campo.TipoCampo == "date")
+                                            {
+                                                var dataFormattata = "";
+                                                if (!string.IsNullOrEmpty(valore) && DateTime.TryParse(valore, out var dataVal))
+                                                {
+                                                    dataFormattata = dataVal.ToString("yyyy-MM-dd");
+                                                }
+                                                <input type="date" class="form-control form-control-sm inline-edit-field"
+                                                       data-record="@record.Id" data-campo="@campo.Id"
+                                                       value="@dataFormattata" style="@inputWidth font-size: 0.8rem;" />
+                                            }
+                                            else if (campo.TipoCampo == "number" || campo.TipoCampo == "decimal")
+                                            {
+                                                <input type="text" class="form-control form-control-sm inline-edit-field source-field"
+                                                       data-record="@record.Id" data-campo="@campo.Id"
+                                                       data-campo-name="@campo.Nome" value="@valore"
+                                                       style="@inputWidth font-size: 0.8rem; text-align: center;" inputmode="numeric" />
+                                            }
+                                            else if (campo.TipoCampo == "dropdown" && !string.IsNullOrEmpty(campo.Options))
+                                            {
+                                                <select class="form-select form-select-sm inline-edit-field"
+                                                        data-record="@record.Id" data-campo="@campo.Id"
+                                                        style="@inputWidth font-size: 0.8rem;">
+                                                    <option value="">-</option>
+                                                    @foreach (var opt in campo.Options.Split('|'))
+                                                    {
+                                                        <option value="@opt" selected="@(valore == opt)">@opt</option>
+                                                    }
+                                                </select>
                                             }
                                             else
                                             {
-                                                @(valore ?? "-")
+                                                <input type="text" class="form-control form-control-sm inline-edit-field source-field"
+                                                       data-record="@record.Id" data-campo="@campo.Id"
+                                                       data-campo-name="@campo.Nome" value="@valore"
+                                                       style="@inputWidth font-size: 0.8rem;" />
                                             }
                                         </td>
                                     }
@@ -237,7 +357,6 @@
                                             <span class="badge bg-secondary">Nessuno</span>
                                         }
                                     </td>
-                                    <td><small class="text-muted">@record.CreatedAt.ToString("dd/MM/yyyy")</small></td>
                                     <td class="text-end">
                                         <div class="btn-group btn-group-sm">
                                             <a asp-action="EditRecord" asp-route-id="@record.Id" class="btn btn-outline-primary" title="Modifica dettagli">
@@ -297,10 +416,259 @@
     </div>
 </div>
 
+@if (entita?.CollegataACliente == true)
+{
+    // Clienti già presenti
+    var clientiGiaPresenti = Model.Where(r => r.ClienteId.HasValue).Select(r => r.ClienteId!.Value).ToHashSet();
+    var clientiDisponibili = clienti.Where(c => !clientiGiaPresenti.Contains(c.Id)).ToList();
+    
+    <!-- Modal Aggiungi Clienti -->
+    <div class="modal fade" id="modalAggiungiClienti" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form asp-action="AggiungiRecordMultipli" method="post">
+                    <input type="hidden" name="entitaId" value="@entita?.Id" />
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title"><i class="fas fa-users me-2"></i>Aggiungi Clienti</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        @if (!clientiDisponibili.Any())
+                        {
+                            <div class="alert alert-info mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Tutti i clienti hanno già un record.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="mb-3">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                    <input type="text" id="searchClientiEntita" class="form-control" placeholder="Cerca cliente...">
+                                </div>
+                            </div>
+                            <div class="mb-2 d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="selezionaTuttiEntita()">
+                                    <i class="fas fa-check-double me-1"></i>Tutti
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselezionaTuttiEntita()">
+                                    <i class="fas fa-times me-1"></i>Nessuno
+                                </button>
+                                <span class="ms-auto badge bg-primary" id="contatoreSelezioneEntita">0 selezionati</span>
+                            </div>
+                            <div style="max-height: 400px; overflow-y: auto;">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th style="width: 40px;"></th>
+                                            <th>Cliente</th>
+                                            <th>Codice</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="listaClientiEntitaBody">
+                                        @foreach (var cliente in clientiDisponibili)
+                                        {
+                                            <tr class="cliente-row-entita">
+                                                <td class="text-center">
+                                                    <input type="checkbox" class="form-check-input cliente-checkbox-entita"
+                                                           name="clienteIds" value="@cliente.Id"
+                                                           style="width: 18px; height: 18px; cursor: pointer;"
+                                                           data-nome="@cliente.RagioneSociale.ToLower()" />
+                                                </td>
+                                                <td style="cursor: pointer;" onclick="toggleCheckboxEntita(this)">
+                                                    @cliente.RagioneSociale
+                                                </td>
+                                                <td><code class="small">@cliente.CodiceAteco</code></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                            <small class="text-muted mt-2 d-block">
+                                <i class="fas fa-info-circle me-1"></i>Totale clienti disponibili: @clientiDisponibili.Count
+                            </small>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                        @if (clientiDisponibili.Any())
+                        {
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-plus me-1"></i>Aggiungi Selezionati
+                            </button>
+                        }
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
 <script>
     function impostaRecordId(recordId) {
         document.querySelectorAll('.hidden-record-id').forEach(input => {
             input.value = recordId;
+        });
+    }
+
+    // ========== SELEZIONE CLIENTI MULTIPLA ==========
+    
+    function selezionaTuttiEntita() {
+        document.querySelectorAll('.cliente-checkbox-entita').forEach(cb => { cb.checked = true; });
+        aggiornaContatoreEntita();
+    }
+
+    function deselezionaTuttiEntita() {
+        document.querySelectorAll('.cliente-checkbox-entita').forEach(cb => { cb.checked = false; });
+        aggiornaContatoreEntita();
+    }
+
+    function toggleCheckboxEntita(td) {
+        var checkbox = td.parentElement.querySelector('.cliente-checkbox-entita');
+        checkbox.checked = !checkbox.checked;
+        aggiornaContatoreEntita();
+    }
+
+    function aggiornaContatoreEntita() {
+        var count = document.querySelectorAll('.cliente-checkbox-entita:checked').length;
+        var el = document.getElementById('contatoreSelezioneEntita');
+        if (el) el.textContent = count + ' selezionati';
+    }
+
+    // Ricerca clienti
+    var searchInput = document.getElementById('searchClientiEntita');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            var filtro = this.value.toLowerCase();
+            document.querySelectorAll('.cliente-row-entita').forEach(function(row) {
+                var nome = row.querySelector('.cliente-checkbox-entita').getAttribute('data-nome');
+                row.style.display = nome.includes(filtro) ? '' : 'none';
+            });
+        });
+    }
+
+    // Click su checkbox
+    document.querySelectorAll('.cliente-checkbox-entita').forEach(cb => {
+        cb.addEventListener('change', aggiornaContatoreEntita);
+    });
+
+    // ========== INLINE EDITING ==========
+
+    // Salva titolo inline
+    document.querySelectorAll('.inline-edit-titolo').forEach(function(input) {
+        input.addEventListener('change', function() {
+            var recordId = this.getAttribute('data-record');
+            var valore = this.value;
+            salvaInlineEntita('/Entita/SalvaTitoloInline', { recordId: recordId, titolo: valore }, this);
+        });
+    });
+
+    // Salva checkbox inline
+    document.querySelectorAll('.inline-edit-checkbox').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            var recordId = this.getAttribute('data-record');
+            var campoId = this.getAttribute('data-campo');
+            var valore = this.checked ? 'true' : 'false';
+            salvaInlineEntita('/Entita/SalvaValoreInline', { recordId: recordId, campoId: campoId, valore: valore }, this);
+        });
+    });
+
+    // Salva campi inline
+    document.querySelectorAll('.inline-edit-field').forEach(function(input) {
+        input.addEventListener('change', function() {
+            var recordId = this.getAttribute('data-record');
+            var campoId = this.getAttribute('data-campo');
+            var valore = this.value;
+            salvaInlineEntita('/Entita/SalvaValoreInline', { recordId: recordId, campoId: campoId, valore: valore }, this);
+            
+            // Ricalcola campi calcolati
+            ricalcolaCampiCalcolatiEntita(recordId);
+        });
+    });
+
+    function salvaInlineEntita(url, data, elemento) {
+        elemento.style.opacity = '0.5';
+        
+        var body = Object.keys(data).map(k => k + '=' + encodeURIComponent(data[k])).join('&');
+        
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body
+        })
+        .then(response => response.json())
+        .then(result => {
+            elemento.style.opacity = '1';
+            if (result.success) {
+                elemento.style.backgroundColor = '#d4edda';
+                setTimeout(() => { elemento.style.backgroundColor = ''; }, 500);
+            } else {
+                elemento.style.backgroundColor = '#f8d7da';
+                setTimeout(() => { elemento.style.backgroundColor = ''; }, 1000);
+            }
+        })
+        .catch(err => {
+            elemento.style.opacity = '1';
+            elemento.style.backgroundColor = '#f8d7da';
+            setTimeout(() => { elemento.style.backgroundColor = ''; }, 1000);
+        });
+    }
+
+    // ========== RICALCOLO CAMPI CALCOLATI ==========
+
+    var campiMappaEntita = {
+        @if (entita?.Campi != null)
+        {
+            foreach (var campo in entita.Campi.Where(c => !c.IsCalculated))
+            {
+                @Html.Raw($"'{campo.Nome}': {campo.Id},")
+            }
+        }
+    };
+
+    var campiCalcolatiEntita = [
+        @if (entita?.Campi != null)
+        {
+            foreach (var campo in entita.Campi.Where(c => c.IsCalculated && !string.IsNullOrEmpty(c.Formula)))
+            {
+                @Html.Raw($"{{ id: {campo.Id}, nome: '{campo.Nome}', formula: '{campo.Formula!.Replace("'", "\\'")}' }},")
+            }
+        }
+    ];
+
+    function calcolaFormulaEntita(formula, valori) {
+        try {
+            var formulaCalcolata = formula.replace(/\[([^\]]+)\]/g, function(match, nomeCampo) {
+                var valore = valori[nomeCampo.toUpperCase()] || valori[nomeCampo] || 0;
+                if (typeof valore === 'string') valore = valore.replace(',', '.');
+                var numero = parseFloat(valore);
+                return isNaN(numero) ? 0 : numero;
+            });
+            formulaCalcolata = formulaCalcolata.replace(/,/g, '.');
+            if (!/^[\d\.\+\-\*\/\(\)\s]+$/.test(formulaCalcolata)) return null;
+            var risultato = eval(formulaCalcolata);
+            return risultato.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function ricalcolaCampiCalcolatiEntita(recordId) {
+        var valori = {};
+        document.querySelectorAll('.source-field[data-record="' + recordId + '"]').forEach(function(input) {
+            var nomeCampo = input.getAttribute('data-campo-name');
+            if (nomeCampo) {
+                valori[nomeCampo] = input.value;
+                valori[nomeCampo.toUpperCase()] = input.value;
+            }
+        });
+
+        campiCalcolatiEntita.forEach(function(campo) {
+            var span = document.querySelector('.calculated-field[data-record="' + recordId + '"][data-campo="' + campo.id + '"]');
+            if (span) {
+                var risultato = calcolaFormulaEntita(campo.formula, valori);
+                span.textContent = risultato || '-';
+            }
         });
     }
 </script>

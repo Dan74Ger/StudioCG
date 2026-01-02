@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StudioCG.Web.Data;
 using StudioCG.Web.Models;
+using StudioCG.Web.Services;
 
 namespace StudioCG.Web.Controllers
 {
@@ -712,7 +713,17 @@ namespace StudioCG.Web.Controllers
                 // Campi dinamici
                 foreach (var campo in campi)
                 {
-                    var valore = ca.Valori.FirstOrDefault(v => v.AttivitaCampoId == campo.Id)?.Valore ?? "";
+                    string valore;
+                    
+                    // Se è un campo calcolato, calcola il valore
+                    if (campo.IsCalculated)
+                    {
+                        valore = FormulaCalculatorService.CalcolaPerClienteAttivita(campo, ca, campi) ?? "";
+                    }
+                    else
+                    {
+                        valore = ca.Valori.FirstOrDefault(v => v.AttivitaCampoId == campo.Id)?.Valore ?? "";
+                    }
                     
                     if (campo.FieldType == AttivitaFieldType.Boolean)
                     {

@@ -1,0 +1,261 @@
+@model List<StudioCG.Web.Controllers.EntitaController.ScadenzaDTO>
+@using StudioCG.Web.Models.Entita
+@{
+    ViewData["Title"] = "Scadenze";
+    var giorniFiltro = ViewBag.GiorniFiltro as int? ?? 30;
+    var oggi = ViewBag.Oggi as DateTime? ?? DateTime.Today;
+    var entitaConScadenza = ViewBag.EntitaConScadenza as List<EntitaDinamica> ?? new List<EntitaDinamica>();
+    
+    var scaduti = Model.Where(s => s.IsScaduto).ToList();
+    var inScadenza = Model.Where(s => !s.IsScaduto).ToList();
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-bell text-warning me-2"></i>Scadenze</h2>
+            <p class="text-muted mb-0">Riepilogo di tutte le scadenze in arrivo</p>
+        </div>
+        <a asp-action="Gestione" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Gestione Entità
+        </a>
+    </div>
+
+    <!-- Filtri Periodo -->
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-muted">Mostra scadenze:</span>
+                <div class="btn-group">
+                    <a asp-action="Scadenze" asp-route-giorni="0" class="btn btn-sm @(giorniFiltro == 0 ? "btn-danger" : "btn-outline-danger")">
+                        <i class="fas fa-exclamation-triangle me-1"></i>Scaduti
+                    </a>
+                    <a asp-action="Scadenze" asp-route-giorni="7" class="btn btn-sm @(giorniFiltro == 7 ? "btn-warning" : "btn-outline-warning")">
+                        7 giorni
+                    </a>
+                    <a asp-action="Scadenze" asp-route-giorni="15" class="btn btn-sm @(giorniFiltro == 15 ? "btn-warning" : "btn-outline-warning")">
+                        15 giorni
+                    </a>
+                    <a asp-action="Scadenze" asp-route-giorni="30" class="btn btn-sm @(giorniFiltro == 30 ? "btn-primary" : "btn-outline-primary")">
+                        30 giorni
+                    </a>
+                    <a asp-action="Scadenze" asp-route-giorni="90" class="btn btn-sm @(giorniFiltro == 90 ? "btn-secondary" : "btn-outline-secondary")">
+                        90 giorni
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiche -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-danger">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle bg-danger text-white p-3 me-3">
+                            <i class="fas fa-exclamation-triangle fa-lg"></i>
+                        </div>
+                        <div>
+                            <div class="text-muted small">Scaduti</div>
+                            <div class="fs-3 fw-bold text-danger">@scaduti.Count</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle bg-warning text-dark p-3 me-3">
+                            <i class="fas fa-bell fa-lg"></i>
+                        </div>
+                        <div>
+                            <div class="text-muted small">In Scadenza</div>
+                            <div class="fs-3 fw-bold text-warning">@inScadenza.Count</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle bg-info text-white p-3 me-3">
+                            <i class="fas fa-calendar fa-lg"></i>
+                        </div>
+                        <div>
+                            <div class="text-muted small">Totale</div>
+                            <div class="fs-3 fw-bold">@Model.Count</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle bg-secondary text-white p-3 me-3">
+                            <i class="fas fa-cubes fa-lg"></i>
+                        </div>
+                        <div>
+                            <div class="text-muted small">Entità Monitorate</div>
+                            <div class="fs-3 fw-bold">@entitaConScadenza.Count</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-success">
+            <i class="fas fa-check-circle me-2"></i>
+            Nessuna scadenza nei prossimi @giorniFiltro giorni!
+        </div>
+    }
+    else
+    {
+        <!-- Scaduti -->
+        @if (scaduti.Any())
+        {
+            <div class="card mb-4 border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Scaduti (@scaduti.Count)</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Entità</th>
+                                    <th>Titolo</th>
+                                    <th>Cliente</th>
+                                    <th>Scadenza</th>
+                                    <th>Giorni</th>
+                                    <th>Stato</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var s in scaduti)
+                                {
+                                    <tr class="table-danger">
+                                        <td>
+                                            <i class="@s.EntitaIcon me-1" style="color: @s.EntitaColore;"></i>
+                                            @s.EntitaNome
+                                        </td>
+                                        <td><strong>@s.Titolo</strong></td>
+                                        <td>
+                                            @if (s.ClienteId.HasValue)
+                                            {
+                                                <a asp-controller="Clienti" asp-action="Details" asp-route-id="@s.ClienteId">@s.ClienteNome</a>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                        <td><strong class="text-danger">@s.DataScadenza.ToString("dd/MM/yyyy")</strong></td>
+                                        <td><span class="badge bg-danger">@s.GiorniRimanenti gg</span></td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(s.StatoNome))
+                                            {
+                                                <span class="badge" style="background-color: @s.StatoColore;">@s.StatoNome</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <a asp-action="EditRecord" asp-route-id="@s.RecordId" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- In Scadenza -->
+        @if (inScadenza.Any())
+        {
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-bell me-2"></i>In Scadenza (@inScadenza.Count)</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Entità</th>
+                                    <th>Titolo</th>
+                                    <th>Cliente</th>
+                                    <th>Scadenza</th>
+                                    <th>Giorni</th>
+                                    <th>Stato</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var s in inScadenza)
+                                {
+                                    var rowClass = s.GiorniRimanenti <= 7 ? "table-warning" : "";
+                                    <tr class="@rowClass">
+                                        <td>
+                                            <i class="@s.EntitaIcon me-1" style="color: @s.EntitaColore;"></i>
+                                            @s.EntitaNome
+                                        </td>
+                                        <td><strong>@s.Titolo</strong></td>
+                                        <td>
+                                            @if (s.ClienteId.HasValue)
+                                            {
+                                                <a asp-controller="Clienti" asp-action="Details" asp-route-id="@s.ClienteId">@s.ClienteNome</a>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                        <td>@s.DataScadenza.ToString("dd/MM/yyyy")</td>
+                                        <td>
+                                            @if (s.GiorniRimanenti == 0)
+                                            {
+                                                <span class="badge bg-danger">Oggi!</span>
+                                            }
+                                            else if (s.GiorniRimanenti <= 7)
+                                            {
+                                                <span class="badge bg-warning text-dark">@s.GiorniRimanenti gg</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-info">@s.GiorniRimanenti gg</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(s.StatoNome))
+                                            {
+                                                <span class="badge" style="background-color: @s.StatoColore;">@s.StatoNome</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <a asp-action="EditRecord" asp-route-id="@s.RecordId" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>

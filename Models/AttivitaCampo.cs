@@ -53,6 +53,28 @@ namespace StudioCG.Web.Models
         [Display(Name = "Ordine")]
         public int DisplayOrder { get; set; } = 0;
 
+        // ===== CAMPI CALCOLATI =====
+        
+        /// <summary>
+        /// Indica se è un campo calcolato (formula)
+        /// </summary>
+        [Display(Name = "Campo Calcolato")]
+        public bool IsCalculated { get; set; } = false;
+
+        /// <summary>
+        /// Formula del calcolo. I campi sono referenziati con [NomeCampo].
+        /// Esempi: "[LIQ4TRIM] * 0.88", "[ENTRATE] - [USCITE]", "([A] + [B]) * 0.22"
+        /// </summary>
+        [StringLength(500)]
+        [Display(Name = "Formula")]
+        public string? Formula { get; set; }
+
+        /// <summary>
+        /// Larghezza colonna in pixel (0 = auto)
+        /// </summary>
+        [Display(Name = "Larghezza (px)")]
+        public int ColumnWidth { get; set; } = 0;
+
         // Navigation property
         [ForeignKey("AttivitaTipoId")]
         public virtual AttivitaTipo? AttivitaTipo { get; set; }

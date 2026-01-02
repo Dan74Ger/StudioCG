@@ -1,5 +1,6 @@
 @model StudioCG.Web.Models.ClienteAttivita
 @using StudioCG.Web.Models
+@using StudioCG.Web.Services
 
 @{
     ViewData["Title"] = $"{Model.AttivitaAnnuale?.AttivitaTipo?.Nome} - {Model.Cliente?.RagioneSociale}";
@@ -104,48 +105,70 @@
                         <hr>
                         <h6 class="mb-3">Campi Personalizzati</h6>
                         
+                        var tuttiCampi = Model.AttivitaAnnuale.AttivitaTipo.Campi.ToList();
                         <div class="row">
-                            @foreach (var campo in Model.AttivitaAnnuale.AttivitaTipo.Campi)
+                            @foreach (var campo in tuttiCampi)
                             {
                                 var valore = Model.Valori.FirstOrDefault(v => v.AttivitaCampoId == campo.Id)?.Valore ?? "";
                                 
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label">
                                         @campo.Label
-                                        @if (campo.IsRequired)
+                                        @if (campo.IsCalculated)
+                                        {
+                                            <i class="fas fa-calculator text-warning ms-1" title="Campo calcolato"></i>
+                                        }
+                                        else if (campo.IsRequired)
                                         {
                                             <span class="text-danger">*</span>
                                         }
                                     </label>
                                     
-                                    @switch (campo.FieldType)
+                                    @if (campo.IsCalculated)
                                     {
-                                        case AttivitaFieldType.Text:
-                                            <input type="text" name="campi[@campo.Id]" value="@valore" class="form-control" @(campo.IsRequired ? "required" : "") />
-                                            break;
-                                            
-                                        case AttivitaFieldType.LongText:
-                                            <textarea name="campi[@campo.Id]" class="form-control" rows="3" @(campo.IsRequired ? "required" : "")>@valore</textarea>
-                                            break;
-                                            
-                                        case AttivitaFieldType.Number:
-                                            <input type="number" name="campi[@campo.Id]" value="@valore" class="form-control" @(campo.IsRequired ? "required" : "") />
-                                            break;
-                                            
-                                        case AttivitaFieldType.Decimal:
-                                            <input type="number" name="campi[@campo.Id]" value="@valore" class="form-control" step="0.01" @(campo.IsRequired ? "required" : "") />
-                                            break;
-                                            
-                                        case AttivitaFieldType.Date:
-                                            <input type="date" name="campi[@campo.Id]" value="@valore" class="form-control" @(campo.IsRequired ? "required" : "") />
-                                            break;
-                                            
-                                        case AttivitaFieldType.Boolean:
-                                            <div class="form-check form-switch mt-2">
-                                                <input type="hidden" name="campi[@campo.Id]" value="false" />
-                                                <input type="checkbox" name="campi[@campo.Id]" value="true" class="form-check-input" style="width: 3em; height: 1.5em;" @(valore == "true" ? "checked" : "") />
-                                            </div>
-                                            break;
+                                        // Campo calcolato: mostra valore non editabile (readonly)
+                                        var valoreCalcolato = FormulaCalculatorService.CalcolaPerClienteAttivita(campo, Model, tuttiCampi);
+                                        <input type="text" 
+                                               class="form-control calculated-field" 
+                                               style="background-color: #fff3cd !important; font-weight: bold;" 
+                                               readonly 
+                                               disabled
+                                               data-campo-id="@campo.Id"
+                                               data-formula="@campo.Formula"
+                                               value="@(valoreCalcolato ?? "-")"
+                                               title="Campo calcolato: @campo.Formula" />
+                                    }
+                                    else
+                                    {
+                                        @switch (campo.FieldType)
+                                        {
+                                            case AttivitaFieldType.Text:
+                                                <input type="text" name="campi[@campo.Id]" value="@valore" class="form-control source-field" data-campo-name="@campo.Name" @(campo.IsRequired ? "required" : "") />
+                                                break;
+                                                
+                                            case AttivitaFieldType.LongText:
+                                                <textarea name="campi[@campo.Id]" class="form-control source-field" data-campo-name="@campo.Name" rows="3" @(campo.IsRequired ? "required" : "")>@valore</textarea>
+                                                break;
+                                                
+                                            case AttivitaFieldType.Number:
+                                                <input type="number" name="campi[@campo.Id]" value="@valore" class="form-control source-field" data-campo-name="@campo.Name" @(campo.IsRequired ? "required" : "") />
+                                                break;
+                                                
+                                            case AttivitaFieldType.Decimal:
+                                                <input type="number" name="campi[@campo.Id]" value="@valore" class="form-control source-field" data-campo-name="@campo.Name" step="0.01" @(campo.IsRequired ? "required" : "") />
+                                                break;
+                                                
+                                            case AttivitaFieldType.Date:
+                                                <input type="date" name="campi[@campo.Id]" value="@valore" class="form-control source-field" data-campo-name="@campo.Name" @(campo.IsRequired ? "required" : "") />
+                                                break;
+                                                
+                                            case AttivitaFieldType.Boolean:
+                                                <div class="form-check form-switch mt-2">
+                                                    <input type="hidden" name="campi[@campo.Id]" value="false" />
+                                                    <input type="checkbox" name="campi[@campo.Id]" value="true" class="form-check-input source-field" data-campo-name="@campo.Name" style="width: 3em; height: 1.5em;" @(valore == "true" ? "checked" : "") />
+                                                </div>
+                                                break;
+                                        }
                                     }
                                 </div>
                             }
@@ -171,4 +194,95 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        // ========== RICALCOLO CAMPI CALCOLATI IN TEMPO REALE ==========
+        
+        // Formule dei campi calcolati
+        var campiCalcolati = [
+            @if (Model.AttivitaAnnuale?.AttivitaTipo?.Campi != null)
+            {
+                @foreach (var campo in Model.AttivitaAnnuale.AttivitaTipo.Campi.Where(c => c.IsCalculated && !string.IsNullOrEmpty(c.Formula)))
+                {
+                    @Html.Raw($"{{ id: {campo.Id}, name: '{campo.Name}', formula: '{campo.Formula!.Replace("'", "\\'")}' }},")
+                }
+            }
+        ];
+
+        // Funzione per calcolare formula lato client
+        function calcolaFormula(formula, valori) {
+            try {
+                // Sostituisci riferimenti ai campi con i loro valori
+                var formulaCalcolata = formula.replace(/\[([^\]]+)\]/g, function(match, nomeCampo) {
+                    var valore = valori[nomeCampo.toUpperCase()] || valori[nomeCampo] || 0;
+                    // Converti virgola in punto per parsing
+                    if (typeof valore === 'string') {
+                        valore = valore.replace(',', '.');
+                    }
+                    var numero = parseFloat(valore);
+                    return isNaN(numero) ? 0 : numero;
+                });
+
+                // Converti virgole in punti (supporto formato italiano es: 0,88 -> 0.88)
+                formulaCalcolata = formulaCalcolata.replace(/,/g, '.');
+
+                // Valida formula (solo numeri, operatori, parentesi)
+                if (!/^[\d\.\+\-\*\/\(\)\s]+$/.test(formulaCalcolata)) {
+                    return null;
+                }
+
+                // Calcola
+                var risultato = eval(formulaCalcolata);
+                
+                // Formatta con 2 decimali e formato italiano
+                return risultato.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            } catch (e) {
+                console.error('Errore calcolo formula:', e);
+                return null;
+            }
+        }
+
+        // Ricalcola tutti i campi calcolati
+        function ricalcolaCampiCalcolati() {
+            if (campiCalcolati.length === 0) return;
+            
+            // Raccogli valori di tutti i campi sorgente
+            var valori = {};
+            document.querySelectorAll('.source-field').forEach(function(input) {
+                var nomeCampo = input.getAttribute('data-campo-name');
+                if (nomeCampo) {
+                    var valore = input.type === 'checkbox' ? (input.checked ? '1' : '0') : input.value;
+                    valori[nomeCampo] = valore;
+                    valori[nomeCampo.toUpperCase()] = valore;
+                }
+            });
+            
+            // Ricalcola ogni campo calcolato
+            campiCalcolati.forEach(function(campoCalc) {
+                var input = document.querySelector('.calculated-field[data-campo-id="' + campoCalc.id + '"]');
+                if (input) {
+                    var risultato = calcolaFormula(campoCalc.formula, valori);
+                    input.value = risultato || '-';
+                    
+                    // Feedback visivo
+                    input.style.backgroundColor = '#fff3cd';
+                    setTimeout(function() { input.style.backgroundColor = '#fff3cd'; }, 300);
+                }
+            });
+        }
+
+        // Aggiungi evento a tutti i campi sorgente
+        document.querySelectorAll('.source-field').forEach(function(campo) {
+            campo.addEventListener('input', ricalcolaCampiCalcolati);
+            campo.addEventListener('change', ricalcolaCampiCalcolati);
+        });
+
+        // Calcola al caricamento della pagina
+        document.addEventListener('DOMContentLoaded', ricalcolaCampiCalcolati);
+        
+        // Calcola anche immediatamente
+        ricalcolaCampiCalcolati();
+    </script>
+}
 

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StudioCG.Web.Data;
 
@@ -11,9 +12,11 @@ using StudioCG.Web.Data;
 namespace StudioCG.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260102173651_AddCalculatedFieldsToAttivitaCampo")]
+    partial class AddCalculatedFieldsToAttivitaCampo
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -107,9 +110,6 @@ namespace StudioCG.Web.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("AttivitaTipoId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ColumnWidth")
                         .HasColumnType("int");
 
                     b.Property<int>("DisplayOrder")
@@ -1103,9 +1103,6 @@ namespace StudioCG.Web.Migrations
                     b.Property<int>("ColWidth")
                         .HasColumnType("int");
 
-                    b.Property<int>("ColumnWidth")
-                        .HasColumnType("int");
-
                     b.Property<string>("DefaultValue")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -1116,17 +1113,7 @@ namespace StudioCG.Web.Migrations
                     b.Property<int>("EntitaDinamicaId")
                         .HasColumnType("int");
 
-                    b.Property<string>("Formula")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsCalculated")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDataScadenza")
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsRequired")
@@ -1195,9 +1182,6 @@ namespace StudioCG.Web.Migrations
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("int");
 
-                    b.Property<int>("GiorniPreavvisoScadenza")
-                        .HasColumnType("int");
-
                     b.Property<string>("Icon")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -1205,15 +1189,6 @@ namespace StudioCG.Web.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
-
-                    b.Property<int>("LarghezzaColonnaCliente")
-                        .HasColumnType("int");
-
-                    b.Property<int>("LarghezzaColonnaStato")
-                        .HasColumnType("int");
-
-                    b.Property<int>("LarghezzaColonnaTitolo")
-                        .HasColumnType("int");
 
                     b.Property<string>("Nome")
                         .IsRequired()

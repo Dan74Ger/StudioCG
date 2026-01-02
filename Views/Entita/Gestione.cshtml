@@ -9,6 +9,9 @@
             <h2><i class="fas fa-cubes me-2"></i>Gestione Entità Dinamiche</h2>
             <p class="text-muted mb-0">Crea e configura entità personalizzate per gestire i tuoi dati</p>
         </div>
+        <a asp-action="Scadenze" class="btn btn-warning">
+            <i class="fas fa-bell me-1"></i>Scadenze
+        </a>
     </div>
 
     @if (TempData["Success"] != null)
@@ -52,7 +55,7 @@
                             <div class="col-8">
                                 <label class="form-label">Icona</label>
                                 <input type="text" name="Icon" class="form-control" value="fas fa-folder" placeholder="fas fa-folder">
-                                <small class="text-muted">FontAwesome</small>
+                                <small><a href="https://fontawesome.com/search?o=r&m=free" target="_blank" class="text-decoration-none"><i class="fas fa-external-link-alt me-1"></i>FontAwesome</a></small>
                             </div>
                             <div class="col-4">
                                 <label class="form-label">Colore</label>
@@ -103,10 +106,25 @@
                                                     </h5>
                                                     <p class="text-muted small mb-2">@entita.NomePluruale</p>
                                                 </div>
-                                                @if (!entita.IsActive)
-                                                {
-                                                    <span class="badge bg-secondary">Inattiva</span>
-                                                }
+                                                <div class="d-flex align-items-center gap-1">
+                                                    <!-- Pulsanti Ordine -->
+                                                    <div class="btn-group btn-group-sm">
+                                                        <form asp-action="MoveEntitaUp" asp-route-id="@entita.Id" method="post" class="d-inline">
+                                                            <button type="submit" class="btn btn-outline-secondary btn-sm" title="Sposta su">
+                                                                <i class="fas fa-arrow-up"></i>
+                                                            </button>
+                                                        </form>
+                                                        <form asp-action="MoveEntitaDown" asp-route-id="@entita.Id" method="post" class="d-inline">
+                                                            <button type="submit" class="btn btn-outline-secondary btn-sm" title="Sposta giù">
+                                                                <i class="fas fa-arrow-down"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                    @if (!entita.IsActive)
+                                                    {
+                                                        <span class="badge bg-secondary">Inattiva</span>
+                                                    }
+                                                </div>
                                             </div>
                                             
                                             @if (!string.IsNullOrEmpty(entita.Descrizione))

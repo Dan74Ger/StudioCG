@@ -68,6 +68,36 @@
                         <input type="text" name="descrizione" class="form-control" value="@Model.Descrizione" />
                     </div>
                 </div>
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label"><i class="fas fa-bell text-warning me-1"></i>Giorni Preavviso Scadenza</label>
+                        <input type="number" name="giorniPreavvisoScadenza" class="form-control" value="@Model.GiorniPreavvisoScadenza" min="1" max="365" />
+                        <small class="text-muted">Per avvisi scadenza</small>
+                    </div>
+                    <div class="col-md-9">
+                        <label class="form-label"><i class="fas fa-columns text-info me-1"></i>Larghezza Colonne Griglia (px, 0=auto)</label>
+                        <div class="row">
+                            <div class="col-4">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Cliente</span>
+                                    <input type="number" name="larghezzaColonnaCliente" class="form-control" value="@Model.LarghezzaColonnaCliente" min="0" max="500" />
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Titolo</span>
+                                    <input type="number" name="larghezzaColonnaTitolo" class="form-control" value="@Model.LarghezzaColonnaTitolo" min="0" max="500" />
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Stato</span>
+                                    <input type="number" name="larghezzaColonnaStato" class="form-control" value="@Model.LarghezzaColonnaStato" min="0" max="500" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="d-flex gap-3 align-items-center">
                     <div class="form-check">
                         <input type="checkbox" name="collegataACliente" value="true" class="form-check-input" 
@@ -133,23 +163,33 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <strong>@campo.Label</strong><br>
-                                                <small class="text-muted">@campo.Nome</small>
+                                                <strong>@campo.Label</strong>
+                                                <code class="ms-1 text-muted small">[@campo.Nome]</code>
+                                                @if (campo.IsCalculated && !string.IsNullOrEmpty(campo.Formula))
+                                                {
+                                                    <br><small class="text-warning"><i class="fas fa-calculator"></i> @campo.Formula</small>
+                                                }
                                             </td>
                                             <td>
-                                                @{
+                                                @if (campo.IsCalculated)
+                                                {
+                                                    <span class="badge bg-warning text-dark"><i class="fas fa-calculator me-1"></i>Calcolato</span>
+                                                }
+                                                else
+                                                {
                                                     var tipoIcon = campo.TipoCampo switch {
                                                         "text" => "📝", "textarea" => "📄", "number" => "🔢", "decimal" => "💰",
                                                         "date" => "📅", "datetime" => "📅⏰", "checkbox" => "☑️", "dropdown" => "📋",
                                                         "email" => "✉️", "phone" => "📞", "url" => "🌐", "cliente" => "👤", _ => "❓"
                                                     };
+                                                    @tipoIcon @campo.TipoCampo
                                                 }
-                                                @tipoIcon @campo.TipoCampo
                                             </td>
                                             <td class="text-center">
                                                 @if (campo.IsRequired) { <span class="badge bg-danger">OBB</span> }
                                                 @if (campo.ShowInList) { <span class="badge bg-info">LISTA</span> }
                                                 @if (campo.UseAsFilter) { <span class="badge bg-warning text-dark">FILTRO</span> }
+                                                @if (campo.IsDataScadenza) { <span class="badge bg-danger"><i class="fas fa-bell me-1"></i>SCADENZA</span> }
                                             </td>
                                             <td>
                                                 <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editCampoModal@(campo.Id)">
@@ -183,11 +223,47 @@
                                                             <div class="mb-3"><label class="form-label">Opzioni (per dropdown)</label><input type="text" name="options" class="form-control" value="@campo.Options" placeholder="Opz1|Opz2|Opz3" /></div>
                                                             <div class="mb-3"><label class="form-label">Valore Default</label><input type="text" name="defaultValue" class="form-control" value="@campo.DefaultValue" /></div>
                                                             <div class="mb-3"><label class="form-label">Placeholder</label><input type="text" name="placeholder" class="form-control" value="@campo.Placeholder" /></div>
-                                                            <div class="mb-3"><label class="form-label">Larghezza (1-12)</label><input type="number" name="colWidth" class="form-control" value="@campo.ColWidth" min="1" max="12" /></div>
-                                                            <div class="row">
+                                                            <div class="row mb-3">
+                                                                <div class="col-6"><label class="form-label">Largh. Form (1-12)</label><input type="number" name="colWidth" class="form-control" value="@campo.ColWidth" min="1" max="12" /></div>
+                                                                <div class="col-6"><label class="form-label">Largh. Griglia (px)</label><input type="number" name="columnWidth" class="form-control" value="@campo.ColumnWidth" min="0" max="500" title="0=Auto" /></div>
+                                                            </div>
+                                                            <div class="row mb-3">
                                                                 <div class="col-4"><div class="form-check"><input type="checkbox" name="isRequired" value="true" class="form-check-input" @(campo.IsRequired ? "checked" : "") /><label class="form-check-label">Obbligatorio</label></div></div>
                                                                 <div class="col-4"><div class="form-check"><input type="checkbox" name="showInList" value="true" class="form-check-input" @(campo.ShowInList ? "checked" : "") /><label class="form-check-label">In Lista</label></div></div>
                                                                 <div class="col-4"><div class="form-check"><input type="checkbox" name="useAsFilter" value="true" class="form-check-input" @(campo.UseAsFilter ? "checked" : "") /><label class="form-check-label">Filtro</label></div></div>
+                                                            </div>
+                                                            <!-- Data Scadenza (solo per tipo date) -->
+                                                            <div class="mb-3" id="scadenzaContainer-@campo.Id" style="display: @(campo.TipoCampo == "date" ? "block" : "none");">
+                                                                <div class="form-check">
+                                                                    <input type="checkbox" name="isDataScadenza" value="true" class="form-check-input" id="scadenza-@campo.Id" @(campo.IsDataScadenza ? "checked" : "") />
+                                                                    <label class="form-check-label" for="scadenza-@campo.Id"><i class="fas fa-bell text-warning me-1"></i><strong>Data Scadenza</strong></label>
+                                                                </div>
+                                                                <small class="text-muted">I record verranno evidenziati in scadenza</small>
+                                                            </div>
+                                                            <!-- Campo Calcolato -->
+                                                            <div class="card bg-light">
+                                                                <div class="card-body py-2">
+                                                                    <div class="form-check mb-2">
+                                                                        <input type="checkbox" name="isCalculated" value="true" class="form-check-input" id="isCalc-@campo.Id" @(campo.IsCalculated ? "checked" : "") onchange="toggleFormulaEntita(@campo.Id)" />
+                                                                        <label class="form-check-label" for="isCalc-@campo.Id"><i class="fas fa-calculator me-1"></i><strong>Campo Calcolato</strong></label>
+                                                                    </div>
+                                                                    <div id="formulaSection-@campo.Id" style="display: @(campo.IsCalculated ? "block" : "none");">
+                                                                        <input type="text" name="formula" id="formulaInput-@campo.Id" class="form-control form-control-sm" value="@campo.Formula" placeholder="Es: [IMPORTO] * 0.22" />
+                                                                        <small class="text-muted">Usa [NomeCampo]. Operatori: + - * / Clicca sui campi sotto.</small>
+                                                                        @{
+                                                                            var altriCampi = Model.Campi.Where(c => !c.IsCalculated && c.Id != campo.Id).ToList();
+                                                                        }
+                                                                        @if (altriCampi.Any())
+                                                                        {
+                                                                            <div class="mt-1">
+                                                                                @foreach (var c in altriCampi)
+                                                                                {
+                                                                                    <button type="button" class="btn btn-sm btn-outline-primary me-1 mb-1" onclick="inserisciCampoEdit(@campo.Id, '@c.Nome')">[@c.Nome]</button>
+                                                                                }
+                                                                            </div>
+                                                                        }
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                         <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button><button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Salva</button></div>
@@ -271,10 +347,41 @@
                     </div>
                     <div class="mb-3" id="optionsContainer" style="display:none;"><label class="form-label">Opzioni (separate da |)</label><input type="text" name="Options" class="form-control" placeholder="Opz1|Opz2|Opz3" /></div>
                     <div class="mb-3"><label class="form-label">Placeholder</label><input type="text" name="Placeholder" class="form-control" /></div>
-                    <div class="row">
+                    <div class="row mb-3">
                         <div class="col-4"><div class="form-check"><input type="checkbox" name="IsRequired" value="true" class="form-check-input" id="newReq" /><label class="form-check-label" for="newReq">Obbligatorio</label></div></div>
                         <div class="col-4"><div class="form-check"><input type="checkbox" name="ShowInList" value="true" class="form-check-input" id="newList" checked /><label class="form-check-label" for="newList">In Lista</label></div></div>
                         <div class="col-4"><div class="form-check"><input type="checkbox" name="UseAsFilter" value="true" class="form-check-input" id="newFilter" /><label class="form-check-label" for="newFilter">Filtro</label></div></div>
+                    </div>
+                    <!-- Data Scadenza (solo per tipo date) -->
+                    <div class="mb-3" id="newScadenzaContainer" style="display:none;">
+                        <div class="form-check">
+                            <input type="checkbox" name="IsDataScadenza" value="true" class="form-check-input" id="newScadenza" />
+                            <label class="form-check-label" for="newScadenza"><i class="fas fa-bell text-warning me-1"></i><strong>Usa come Data Scadenza</strong></label>
+                        </div>
+                        <small class="text-muted">I record con questa data verranno evidenziati in base ai giorni di preavviso</small>
+                    </div>
+                    <!-- Campo Calcolato -->
+                    <div class="card bg-light">
+                        <div class="card-body py-2">
+                            <div class="form-check mb-2">
+                                <input type="checkbox" name="IsCalculated" value="true" class="form-check-input" id="newCalc" onchange="toggleNewFormulaEntita()" />
+                                <label class="form-check-label" for="newCalc"><i class="fas fa-calculator me-1"></i><strong>Campo Calcolato</strong></label>
+                            </div>
+                            <div id="newFormulaSection" style="display: none;">
+                                <input type="text" name="Formula" id="newFormulaInput" class="form-control form-control-sm" placeholder="Es: [IMPORTO] * 0.22" />
+                                <small class="text-muted">Usa [NomeCampo]. Operatori: + - * / Clicca sui campi sotto per inserirli.</small>
+                                @if (Model.Campi.Where(c => !c.IsCalculated).Any())
+                                {
+                                    <div class="mt-2">
+                                        <small>Campi disponibili:</small><br/>
+                                        @foreach (var c in Model.Campi.Where(c => !c.IsCalculated))
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-primary me-1 mb-1" onclick="inserisciCampoNew('@c.Nome')">[@c.Nome]</button>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button><button type="submit" class="btn btn-info"><i class="fas fa-plus me-1"></i>Aggiungi</button></div>
@@ -327,6 +434,42 @@
 <script>
 document.getElementById('newCampoTipo').addEventListener('change', function() {
     document.getElementById('optionsContainer').style.display = this.value === 'dropdown' ? 'block' : 'none';
+    // Mostra/nascondi opzione data scadenza
+    document.getElementById('newScadenzaContainer').style.display = this.value === 'date' ? 'block' : 'none';
 });
+
+// Toggle formula per nuovo campo
+function toggleNewFormulaEntita() {
+    var checkbox = document.getElementById('newCalc');
+    var section = document.getElementById('newFormulaSection');
+    section.style.display = checkbox.checked ? 'block' : 'none';
+}
+
+// Toggle formula per modifica campo
+function toggleFormulaEntita(campoId) {
+    var checkbox = document.getElementById('isCalc-' + campoId);
+    var section = document.getElementById('formulaSection-' + campoId);
+    section.style.display = checkbox.checked ? 'block' : 'none';
+}
+
+// Inserisce nome campo nella formula del nuovo campo
+function inserisciCampoNew(nomeCampo) {
+    var input = document.getElementById('newFormulaInput');
+    var pos = input.selectionStart || input.value.length;
+    var testo = '[' + nomeCampo + ']';
+    input.value = input.value.substring(0, pos) + testo + input.value.substring(pos);
+    input.focus();
+    input.setSelectionRange(pos + testo.length, pos + testo.length);
+}
+
+// Inserisce nome campo nella formula di modifica
+function inserisciCampoEdit(campoId, nomeCampo) {
+    var input = document.getElementById('formulaInput-' + campoId);
+    var pos = input.selectionStart || input.value.length;
+    var testo = '[' + nomeCampo + ']';
+    input.value = input.value.substring(0, pos) + testo + input.value.substring(pos);
+    input.focus();
+    input.setSelectionRange(pos + testo.length, pos + testo.length);
+}
 </script>
 }

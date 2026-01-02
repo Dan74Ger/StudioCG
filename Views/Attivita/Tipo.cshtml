@@ -1,5 +1,6 @@
 @model StudioCG.Web.Models.AttivitaAnnuale
 @using StudioCG.Web.Models
+@using StudioCG.Web.Services
 
 @{
     ViewData["Title"] = Model.AttivitaTipo?.Nome ?? "Attività";
@@ -153,7 +154,7 @@
             </div>
             <div class="col-md-auto">
                 <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-search me-1"></i>Cerca
+                    <i class="fas fa-sync-alt me-1"></i>Filtri - Aggiorna GRID
                 </button>
             </div>
             <div class="col-md-auto">
@@ -205,7 +206,16 @@
                             <th style="width: 140px;">Stato</th>
                             @foreach (var campo in campiVisibili)
                             {
-                                <th class="text-center" style="min-width: 100px;">@campo.Label</th>
+                                var widthStyle = campo.ColumnWidth > 0 
+                                    ? $"width: {campo.ColumnWidth}px; min-width: {campo.ColumnWidth}px; max-width: {campo.ColumnWidth}px;" 
+                                    : "min-width: 100px;";
+                                <th class="text-center" style="@widthStyle white-space: normal; word-wrap: break-word;" data-campo-name="@campo.Name">
+                                    @campo.Label
+                                    @if (campo.IsCalculated)
+                                    {
+                                        <i class="fas fa-calculator text-warning ms-1" title="Calcolato"></i>
+                                    }
+                                </th>
                             }
                             <th style="width: 100px;" class="text-end">Azioni</th>
                         </tr>
@@ -254,8 +264,23 @@
                                 @foreach (var campo in campiVisibili)
                                 {
                                     var valore = ca.Valori.FirstOrDefault(v => v.AttivitaCampoId == campo.Id)?.Valore ?? "";
-                                    <td class="text-center p-1">
-                                        @if (campo.FieldType == AttivitaFieldType.Boolean)
+                                    var cellWidth = campo.ColumnWidth > 0 ? $"width: {campo.ColumnWidth}px; max-width: {campo.ColumnWidth}px;" : "";
+                                    var inputWidth = campo.ColumnWidth > 0 ? $"width: {campo.ColumnWidth - 10}px;" : "width: 100%; min-width: 80px;";
+                                    <td class="text-center p-1" style="@cellWidth">
+                                        @if (campo.IsCalculated)
+                                        {
+                                            // Campo calcolato: mostra valore non editabile
+                                            var valoreCalcolato = FormulaCalculatorService.CalcolaPerClienteAttivita(campo, ca, campiVisibili);
+                                            <span class="calculated-field badge bg-light text-dark border" 
+                                                  style="font-size: 0.85rem; display: inline-block; @inputWidth"
+                                                  data-clienteattivita="@ca.Id"
+                                                  data-campo="@campo.Id"
+                                                  data-formula="@campo.Formula"
+                                                  title="Calcolato: @campo.Formula">
+                                                @(valoreCalcolato ?? "-")
+                                            </span>
+                                        }
+                                        else if (campo.FieldType == AttivitaFieldType.Boolean)
                                         {
                                             <input type="checkbox" 
                                                    class="form-check-input inline-edit-checkbox" 
@@ -273,18 +298,31 @@
                                             }
                                             <input type="date" 
                                                    class="form-control form-control-sm inline-edit-field" 
-                                                   style="width: 130px; font-size: 0.8rem; border: 1px solid #dee2e6;"
+                                                   style="@inputWidth font-size: 0.8rem; border: 1px solid #dee2e6; text-align: center;"
                                                    data-clienteattivita="@ca.Id" 
                                                    data-campo="@campo.Id"
                                                    value="@dataFormattata" />
                                         }
+                                        else if (campo.FieldType == AttivitaFieldType.Number || campo.FieldType == AttivitaFieldType.Decimal)
+                                        {
+                                            <input type="text" 
+                                                   class="form-control form-control-sm inline-edit-field source-field" 
+                                                   style="@inputWidth font-size: 0.8rem; border: 1px solid #dee2e6; text-align: center;"
+                                                   data-clienteattivita="@ca.Id" 
+                                                   data-campo="@campo.Id"
+                                                   data-campo-name="@campo.Name"
+                                                   value="@valore"
+                                                   placeholder="-"
+                                                   inputmode="numeric" />
+                                        }
                                         else
                                         {
                                             <input type="text" 
-                                                   class="form-control form-control-sm inline-edit-field" 
-                                                   style="width: 100%; min-width: 80px; font-size: 0.8rem; border: 1px solid #dee2e6;"
+                                                   class="form-control form-control-sm inline-edit-field source-field" 
+                                                   style="@inputWidth font-size: 0.8rem; border: 1px solid #dee2e6; text-align: center;"
                                                    data-clienteattivita="@ca.Id" 
                                                    data-campo="@campo.Id"
+                                                   data-campo-name="@campo.Name"
                                                    value="@valore"
                                                    placeholder="-" />
                                         }
@@ -525,8 +563,96 @@
                 var campoId = this.getAttribute('data-campo');
                 var valore = this.value;
                 salvaValoreInline(caId, campoId, valore, this);
+                
+                // Ricalcola campi calcolati per questa riga
+                ricalcolaCampiCalcolati(caId);
             });
         });
+
+        // ========== RICALCOLO CAMPI CALCOLATI ==========
+        
+        // Mappa dei campi per il calcolo
+        var campiMappa = {
+            @if (Model.AttivitaTipo?.Campi != null)
+            {
+                @foreach (var campo in Model.AttivitaTipo.Campi.Where(c => !c.IsCalculated))
+                {
+                    @Html.Raw($"'{campo.Name}': {campo.Id},")
+                }
+            }
+        };
+
+        // Formule dei campi calcolati
+        var campiCalcolati = [
+            @if (Model.AttivitaTipo?.Campi != null)
+            {
+                @foreach (var campo in Model.AttivitaTipo.Campi.Where(c => c.IsCalculated && !string.IsNullOrEmpty(c.Formula)))
+                {
+                    @Html.Raw($"{{ id: {campo.Id}, name: '{campo.Name}', formula: '{campo.Formula!.Replace("'", "\\'")}' }},")
+                }
+            }
+        ];
+
+        // Funzione per calcolare formula lato client
+        function calcolaFormula(formula, valori) {
+            try {
+                // Sostituisci riferimenti ai campi con i loro valori
+                var formulaCalcolata = formula.replace(/\[([^\]]+)\]/g, function(match, nomeCampo) {
+                    var valore = valori[nomeCampo.toUpperCase()] || valori[nomeCampo] || 0;
+                    // Converti virgola in punto per parsing
+                    if (typeof valore === 'string') {
+                        valore = valore.replace(',', '.');
+                    }
+                    var numero = parseFloat(valore);
+                    return isNaN(numero) ? 0 : numero;
+                });
+
+                // Converti virgole in punti (supporto formato italiano es: 0,88 -> 0.88)
+                formulaCalcolata = formulaCalcolata.replace(/,/g, '.');
+
+                // Valida formula (solo numeri, operatori, parentesi)
+                if (!/^[\d\.\+\-\*\/\(\)\s]+$/.test(formulaCalcolata)) {
+                    return null;
+                }
+
+                // Calcola
+                var risultato = eval(formulaCalcolata);
+                
+                // Formatta con 2 decimali e formato italiano
+                return risultato.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            } catch (e) {
+                console.error('Errore calcolo formula:', e);
+                return null;
+            }
+        }
+
+        // Ricalcola tutti i campi calcolati per una riga
+        function ricalcolaCampiCalcolati(clienteAttivitaId) {
+            if (campiCalcolati.length === 0) return;
+            
+            // Raccogli valori di tutti i campi sorgente della riga
+            var valori = {};
+            document.querySelectorAll('.inline-edit-field[data-clienteattivita="' + clienteAttivitaId + '"]').forEach(function(input) {
+                var nomeCampo = input.getAttribute('data-campo-name');
+                if (nomeCampo) {
+                    valori[nomeCampo] = input.value;
+                    valori[nomeCampo.toUpperCase()] = input.value;
+                }
+            });
+            
+            // Ricalcola ogni campo calcolato
+            campiCalcolati.forEach(function(campoCalc) {
+                var span = document.querySelector('.calculated-field[data-clienteattivita="' + clienteAttivitaId + '"][data-campo="' + campoCalc.id + '"]');
+                if (span) {
+                    var risultato = calcolaFormula(campoCalc.formula, valori);
+                    span.textContent = risultato || '-';
+                    
+                    // Feedback visivo
+                    span.style.backgroundColor = '#fff3cd';
+                    setTimeout(function() { span.style.backgroundColor = ''; }, 500);
+                }
+            });
+        }
 
         // ========== CAMBIO STATO INLINE ==========
         

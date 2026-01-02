@@ -49,23 +49,33 @@
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 <div>
                                     <strong>@campo.Label</strong>
-                                    <span class="badge bg-primary ms-2">
-                                        @switch (campo.FieldType)
-                                        {
-                                            case AttivitaFieldType.Text: @:Testo
-                                                break;
-                                            case AttivitaFieldType.LongText: @:Testo Lungo
-                                                break;
-                                            case AttivitaFieldType.Number: @:Numero
-                                                break;
-                                            case AttivitaFieldType.Decimal: @:Decimale
-                                                break;
-                                            case AttivitaFieldType.Date: @:Data
-                                                break;
-                                            case AttivitaFieldType.Boolean: @:Sì/No
-                                                break;
-                                        }
-                                    </span>
+                                    <code class="ms-2 text-muted small">[@campo.Name]</code>
+                                    @if (campo.IsCalculated)
+                                    {
+                                        <span class="badge bg-warning text-dark ms-2" title="Formula: @campo.Formula">
+                                            <i class="fas fa-calculator me-1"></i>Calcolato
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-primary ms-2">
+                                            @switch (campo.FieldType)
+                                            {
+                                                case AttivitaFieldType.Text: @:Testo
+                                                    break;
+                                                case AttivitaFieldType.LongText: @:Testo Lungo
+                                                    break;
+                                                case AttivitaFieldType.Number: @:Numero
+                                                    break;
+                                                case AttivitaFieldType.Decimal: @:Decimale
+                                                    break;
+                                                case AttivitaFieldType.Date: @:Data
+                                                    break;
+                                                case AttivitaFieldType.Boolean: @:Sì/No
+                                                    break;
+                                            }
+                                        </span>
+                                    }
                                     @if (campo.IsRequired)
                                     {
                                         <span class="badge bg-danger ms-1">Obbligatorio</span>
@@ -73,6 +83,10 @@
                                     @if (campo.ShowInList)
                                     {
                                         <span class="badge bg-info ms-1">In Lista</span>
+                                    }
+                                    @if (campo.IsCalculated && !string.IsNullOrEmpty(campo.Formula))
+                                    {
+                                        <br><small class="text-muted"><code>@campo.Formula</code></small>
                                     }
                                 </div>
                                 <div class="btn-group btn-group-sm">
@@ -118,16 +132,22 @@
                         <input type="text" name="Label" class="form-control" required placeholder="Es. Data Scadenza" />
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Tipo Campo</label>
-                        <select name="FieldType" class="form-select">
-                            <option value="@((int)AttivitaFieldType.Text)">Testo</option>
-                            <option value="@((int)AttivitaFieldType.LongText)">Testo Lungo</option>
-                            <option value="@((int)AttivitaFieldType.Number)">Numero</option>
-                            <option value="@((int)AttivitaFieldType.Decimal)">Decimale</option>
-                            <option value="@((int)AttivitaFieldType.Date)">Data</option>
-                            <option value="@((int)AttivitaFieldType.Boolean)">Sì/No</option>
-                        </select>
+                    <div class="row mb-3">
+                        <div class="col-8">
+                            <label class="form-label">Tipo Campo</label>
+                            <select name="FieldType" class="form-select">
+                                <option value="@((int)AttivitaFieldType.Text)">Testo</option>
+                                <option value="@((int)AttivitaFieldType.LongText)">Testo Lungo</option>
+                                <option value="@((int)AttivitaFieldType.Number)">Numero</option>
+                                <option value="@((int)AttivitaFieldType.Decimal)">Decimale</option>
+                                <option value="@((int)AttivitaFieldType.Date)">Data</option>
+                                <option value="@((int)AttivitaFieldType.Boolean)">Sì/No</option>
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label">Larghezza</label>
+                            <input type="number" name="ColumnWidth" class="form-control" value="0" min="0" max="500" placeholder="Auto" title="0 = Auto, altrimenti px" />
+                        </div>
                     </div>
 
                     <div class="row mb-3">
@@ -141,6 +161,40 @@
                             <div class="form-check">
                                 <input type="checkbox" class="form-check-input" name="ShowInList" value="true" id="showInList" checked />
                                 <label class="form-check-label" for="showInList">Mostra in lista</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sezione Campo Calcolato -->
+                    <div class="card bg-light mb-3">
+                        <div class="card-body py-2">
+                            <div class="form-check mb-2">
+                                <input type="checkbox" class="form-check-input" name="IsCalculated" value="true" id="isCalculated" onchange="toggleFormulaSection()" />
+                                <label class="form-check-label" for="isCalculated">
+                                    <i class="fas fa-calculator me-1"></i><strong>Campo Calcolato</strong>
+                                </label>
+                            </div>
+                            <div id="formulaSection" style="display: none;">
+                                <div class="mb-2">
+                                    <label class="form-label small">Formula</label>
+                                    <input type="text" name="Formula" id="formulaInput" class="form-control form-control-sm" placeholder="Es: [LIQ4TRIM] * 0.88" />
+                                    <small class="text-muted">Usa [NomeCampo] per riferimenti. Operatori: + - * /</small>
+                                </div>
+                                @if (Model.Campi.Any(c => !c.IsCalculated))
+                                {
+                                    <div class="mb-0">
+                                        <label class="form-label small">Campi disponibili:</label>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @foreach (var campoDisp in Model.Campi.Where(c => !c.IsCalculated))
+                                            {
+                                                <button type="button" class="btn btn-outline-secondary btn-sm py-0" 
+                                                        onclick="inserisciCampo('@campoDisp.Name')" title="@campoDisp.Label">
+                                                    [@campoDisp.Name]
+                                                </button>
+                                            }
+                                        </div>
+                                    </div>
+                                }
                             </div>
                         </div>
                     </div>
@@ -200,16 +254,60 @@
                         </div>
 
                         <div class="row mb-3">
-                            <div class="col-6">
-                                <div class="form-check">
+                            <div class="col-4">
+                                <label class="form-label small">Larghezza (px)</label>
+                                <input type="number" name="columnWidth" class="form-control form-control-sm" value="@campo.ColumnWidth" min="0" max="500" title="0 = Auto" />
+                            </div>
+                            <div class="col-4">
+                                <div class="form-check mt-4">
                                     <input type="checkbox" class="form-check-input" name="isRequired" value="true" id="isRequired-@campo.Id" @(campo.IsRequired ? "checked" : "") />
                                     <label class="form-check-label" for="isRequired-@campo.Id">Obbligatorio</label>
                                 </div>
                             </div>
-                            <div class="col-6">
-                                <div class="form-check">
+                            <div class="col-4">
+                                <div class="form-check mt-4">
                                     <input type="checkbox" class="form-check-input" name="showInList" value="true" id="showInList-@campo.Id" @(campo.ShowInList ? "checked" : "") />
-                                    <label class="form-check-label" for="showInList-@campo.Id">Mostra in lista</label>
+                                    <label class="form-check-label" for="showInList-@campo.Id">In lista</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Campo Calcolato -->
+                        <div class="card bg-light mb-3">
+                            <div class="card-body py-2">
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" class="form-check-input" name="isCalculated" value="true" 
+                                           id="isCalculated-@campo.Id" @(campo.IsCalculated ? "checked" : "")
+                                           onchange="toggleFormulaSectionEdit(@campo.Id)" />
+                                    <label class="form-check-label" for="isCalculated-@campo.Id">
+                                        <i class="fas fa-calculator me-1"></i><strong>Campo Calcolato</strong>
+                                    </label>
+                                </div>
+                                <div id="formulaSection-@campo.Id" style="display: @(campo.IsCalculated ? "block" : "none");">
+                                    <div class="mb-2">
+                                        <label class="form-label small">Formula</label>
+                                        <input type="text" name="formula" id="formulaInput-@campo.Id" class="form-control form-control-sm" 
+                                               value="@campo.Formula" placeholder="Es: [LIQ4TRIM] * 0.88" />
+                                        <small class="text-muted">Usa [NomeCampo] per riferimenti. Operatori: + - * /</small>
+                                    </div>
+                                    @{
+                                        var campiDisponibiliEdit = Model.Campi.Where(c => !c.IsCalculated && c.Id != campo.Id).ToList();
+                                    }
+                                    @if (campiDisponibiliEdit.Any())
+                                    {
+                                        <div class="mb-0">
+                                            <label class="form-label small">Campi disponibili:</label>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                @foreach (var campoDisp in campiDisponibiliEdit)
+                                                {
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm py-0" 
+                                                            onclick="inserisciCampoEdit('@campo.Id', '@campoDisp.Name')" title="@campoDisp.Label">
+                                                        [@campoDisp.Name]
+                                                    </button>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
                                 </div>
                             </div>
                         </div>
@@ -270,5 +368,64 @@
             </div>
         </div>
     </div>
+}
+
+@section Scripts {
+<script>
+    // Toggle sezione formula nel form nuovo campo
+    function toggleFormulaSection() {
+        var checkbox = document.getElementById('isCalculated');
+        var section = document.getElementById('formulaSection');
+        var fieldTypeSelect = document.querySelector('select[name="FieldType"]');
+        var isRequiredCheck = document.getElementById('isRequired');
+        
+        if (checkbox.checked) {
+            section.style.display = 'block';
+            // Imposta automaticamente tipo Decimale e disabilita
+            fieldTypeSelect.value = '@((int)AttivitaFieldType.Decimal)';
+            fieldTypeSelect.disabled = true;
+            isRequiredCheck.checked = false;
+            isRequiredCheck.disabled = true;
+        } else {
+            section.style.display = 'none';
+            fieldTypeSelect.disabled = false;
+            isRequiredCheck.disabled = false;
+        }
+    }
+
+    // Toggle sezione formula nel modal modifica
+    function toggleFormulaSectionEdit(campoId) {
+        var checkbox = document.getElementById('isCalculated-' + campoId);
+        var section = document.getElementById('formulaSection-' + campoId);
+        
+        if (checkbox.checked) {
+            section.style.display = 'block';
+        } else {
+            section.style.display = 'none';
+        }
+    }
+
+    // Inserisci riferimento campo nella formula (form nuovo campo)
+    function inserisciCampo(nomeCampo) {
+        var input = document.getElementById('formulaInput');
+        var cursorPos = input.selectionStart;
+        var textBefore = input.value.substring(0, cursorPos);
+        var textAfter = input.value.substring(cursorPos);
+        input.value = textBefore + '[' + nomeCampo + ']' + textAfter;
+        input.focus();
+        input.selectionStart = input.selectionEnd = cursorPos + nomeCampo.length + 2;
+    }
+
+    // Inserisci riferimento campo nella formula (modal modifica)
+    function inserisciCampoEdit(campoId, nomeCampo) {
+        var input = document.getElementById('formulaInput-' + campoId);
+        var cursorPos = input.selectionStart;
+        var textBefore = input.value.substring(0, cursorPos);
+        var textAfter = input.value.substring(cursorPos);
+        input.value = textBefore + '[' + nomeCampo + ']' + textAfter;
+        input.focus();
+        input.selectionStart = input.selectionEnd = cursorPos + nomeCampo.length + 2;
+    }
+</script>
 }
 

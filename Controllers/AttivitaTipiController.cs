@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using StudioCG.Web.Data;
 using StudioCG.Web.Filters;
 using StudioCG.Web.Models;
+using StudioCG.Web.Services;
 using System.Text.RegularExpressions;
 
 namespace StudioCG.Web.Controllers
@@ -327,6 +328,25 @@ namespace StudioCG.Web.Controllers
                 return RedirectToAction(nameof(Campi), new { id = model.AttivitaTipoId });
             }
 
+            // Validazione formula per campi calcolati
+            if (model.IsCalculated)
+            {
+                var campiEsistenti = await _context.AttivitaCampi
+                    .Where(c => c.AttivitaTipoId == model.AttivitaTipoId)
+                    .ToListAsync();
+                
+                var erroreFormula = FormulaCalculatorService.ValidaFormula(model.Formula, campiEsistenti);
+                if (erroreFormula != null)
+                {
+                    TempData["Error"] = erroreFormula;
+                    return RedirectToAction(nameof(Campi), new { id = model.AttivitaTipoId });
+                }
+                
+                // I campi calcolati sono sempre decimali e non obbligatori
+                model.FieldType = AttivitaFieldType.Decimal;
+                model.IsRequired = false;
+            }
+
             // Imposta ordine
             var maxOrder = await _context.AttivitaCampi
                 .Where(c => c.AttivitaTipoId == model.AttivitaTipoId)
@@ -343,7 +363,7 @@ namespace StudioCG.Web.Controllers
         // POST: AttivitaTipi/UpdateCampo
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateCampo(int id, string label, int fieldType, bool isRequired, bool showInList)
+        public async Task<IActionResult> UpdateCampo(int id, string label, int fieldType, bool isRequired, bool showInList, bool isCalculated, string? formula, int columnWidth = 0)
         {
             var campo = await _context.AttivitaCampi.FindAsync(id);
             if (campo == null) return NotFound();
@@ -360,11 +380,33 @@ namespace StudioCG.Web.Controllers
                 return RedirectToAction(nameof(Campi), new { id = tipoId });
             }
 
+            // Validazione formula per campi calcolati
+            if (isCalculated)
+            {
+                var campiEsistenti = await _context.AttivitaCampi
+                    .Where(c => c.AttivitaTipoId == tipoId && c.Id != id)
+                    .ToListAsync();
+                
+                var erroreFormula = FormulaCalculatorService.ValidaFormula(formula, campiEsistenti);
+                if (erroreFormula != null)
+                {
+                    TempData["Error"] = erroreFormula;
+                    return RedirectToAction(nameof(Campi), new { id = tipoId });
+                }
+                
+                // I campi calcolati sono sempre decimali e non obbligatori
+                fieldType = (int)AttivitaFieldType.Decimal;
+                isRequired = false;
+            }
+
             campo.Label = label;
             campo.Name = newName;
             campo.FieldType = (AttivitaFieldType)fieldType;
             campo.IsRequired = isRequired;
             campo.ShowInList = showInList;
+            campo.IsCalculated = isCalculated;
+            campo.Formula = isCalculated ? formula : null;
+            campo.ColumnWidth = columnWidth;
 
             await _context.SaveChangesAsync();
             TempData["Success"] = $"Campo '{label}' aggiornato.";

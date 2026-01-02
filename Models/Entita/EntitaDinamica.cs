@@ -43,6 +43,32 @@ namespace StudioCG.Web.Models.Entita
         [Display(Name = "Data Creazione")]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
+        /// <summary>
+        /// Giorni di preavviso per gli avvisi di scadenza
+        /// </summary>
+        [Display(Name = "Giorni Preavviso Scadenza")]
+        public int GiorniPreavvisoScadenza { get; set; } = 15;
+
+        // ===== LARGHEZZE COLONNE GRIGLIA =====
+        
+        /// <summary>
+        /// Larghezza colonna Cliente in pixel (0 = auto)
+        /// </summary>
+        [Display(Name = "Largh. Cliente (px)")]
+        public int LarghezzaColonnaCliente { get; set; } = 150;
+
+        /// <summary>
+        /// Larghezza colonna Titolo in pixel (0 = auto)
+        /// </summary>
+        [Display(Name = "Largh. Titolo (px)")]
+        public int LarghezzaColonnaTitolo { get; set; } = 200;
+
+        /// <summary>
+        /// Larghezza colonna Stato in pixel (0 = auto)
+        /// </summary>
+        [Display(Name = "Largh. Stato (px)")]
+        public int LarghezzaColonnaStato { get; set; } = 120;
+
         // Navigation
         public virtual ICollection<CampoEntita> Campi { get; set; } = new List<CampoEntita>();
         public virtual ICollection<StatoEntita> Stati { get; set; } = new List<StatoEntita>();
@@ -104,6 +130,34 @@ namespace StudioCG.Web.Models.Entita
 
         [Display(Name = "Larghezza Colonna (1-12)")]
         public int ColWidth { get; set; } = 4;
+
+        // ===== CAMPI CALCOLATI =====
+        
+        /// <summary>
+        /// Indica se è un campo calcolato (formula)
+        /// </summary>
+        [Display(Name = "Campo Calcolato")]
+        public bool IsCalculated { get; set; } = false;
+
+        /// <summary>
+        /// Formula del calcolo. I campi sono referenziati con [NomeCampo].
+        /// Esempi: "[IMPORTO] * 0.22", "[ENTRATE] - [USCITE]"
+        /// </summary>
+        [StringLength(500)]
+        [Display(Name = "Formula")]
+        public string? Formula { get; set; }
+
+        /// <summary>
+        /// Larghezza colonna in pixel nella griglia (0 = auto)
+        /// </summary>
+        [Display(Name = "Larghezza Griglia (px)")]
+        public int ColumnWidth { get; set; } = 0;
+
+        /// <summary>
+        /// Indica se questo campo è la data di scadenza per l'entità
+        /// </summary>
+        [Display(Name = "Data Scadenza")]
+        public bool IsDataScadenza { get; set; } = false;
 
         // Navigation
         [ForeignKey("EntitaDinamicaId")]
