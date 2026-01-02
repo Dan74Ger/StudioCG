@@ -277,9 +277,15 @@
                     <div class="mb-3">
                         <label class="form-label">Scadenza Destinazione</label>
                         <select name="scadenzaFatturazioneId" id="selectScadenzaNuovo" class="form-select">
-                            <option value="">-- Seleziona scadenza --</option>
+                            <option value="">-- Nessuna scadenza --</option>
+                            <option value="NUOVA">➕ Crea nuova scadenza...</option>
                         </select>
-                        <small class="form-text text-muted">Seleziona la scadenza a cui addebitare la spesa (opzionale)</small>
+                        <small class="form-text text-muted">Seleziona una scadenza esistente o creane una nuova</small>
+                    </div>
+                    <div class="mb-3" id="nuovaScadenzaContainer" style="display: none;">
+                        <label class="form-label">Data Nuova Scadenza <span class="text-danger">*</span></label>
+                        <input type="date" name="dataNuovaScadenza" id="dataNuovaScadenza" class="form-control">
+                        <small class="form-text text-muted">Verrà creata una scadenza per questa data</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Descrizione <span class="text-danger">*</span></label>
@@ -335,8 +341,14 @@
                         <label class="form-label">Scadenza Destinazione</label>
                         <select name="scadenzaFatturazioneId" id="editScadenzaId" class="form-select">
                             <option value="">-- Nessuna scadenza --</option>
+                            <option value="NUOVA">➕ Crea nuova scadenza...</option>
                         </select>
-                        <small class="form-text text-muted">Opzionale - lascia vuoto se usi solo la data</small>
+                        <small class="form-text text-muted">Seleziona una scadenza esistente o creane una nuova</small>
+                    </div>
+                    <div class="mb-3" id="editNuovaScadenzaContainer" style="display: none;">
+                        <label class="form-label">Data Nuova Scadenza <span class="text-danger">*</span></label>
+                        <input type="date" name="dataNuovaScadenza" id="editDataNuovaScadenza" class="form-control">
+                        <small class="form-text text-muted">Verrà creata una scadenza per questa data</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Descrizione <span class="text-danger">*</span></label>
@@ -371,27 +383,66 @@
 <script>
     var annoCorrente = @annoSelezionato;
     
-    // Carica scadenze per cliente (nuovo)
-    document.getElementById('selectClienteNuovo').addEventListener('change', function() {
-        var clienteId = this.value;
-        var selectScadenza = document.getElementById('selectScadenzaNuovo');
-        
+    // Funzione per caricare scadenze e aggiungere opzione "Crea nuova"
+    function caricaScadenzeCliente(clienteId, selectElement, scadenzaIdSelezionata) {
         if (!clienteId) {
-            selectScadenza.innerHTML = '<option value="">-- Prima seleziona un cliente --</option>';
+            selectElement.innerHTML = '<option value="">-- Prima seleziona un cliente --</option>';
             return;
         }
         
         fetch('/Amministrazione/GetScadenzeCliente?clienteId=' + clienteId + '&anno=' + annoCorrente)
             .then(response => response.json())
             .then(data => {
-                selectScadenza.innerHTML = '<option value="">-- Seleziona scadenza --</option>';
+                selectElement.innerHTML = '<option value="">-- Nessuna scadenza --</option>';
+                selectElement.innerHTML += '<option value="NUOVA">➕ Crea nuova scadenza...</option>';
                 data.forEach(function(scad) {
                     var opt = document.createElement('option');
                     opt.value = scad.id;
                     opt.textContent = scad.dataScadenza + ' - ' + scad.stato;
-                    selectScadenza.appendChild(opt);
+                    if (scad.id == scadenzaIdSelezionata) opt.selected = true;
+                    selectElement.appendChild(opt);
                 });
             });
+    }
+    
+    // Gestione visibilità campo data nuova scadenza (nuovo)
+    document.getElementById('selectScadenzaNuovo').addEventListener('change', function() {
+        var container = document.getElementById('nuovaScadenzaContainer');
+        var dataInput = document.getElementById('dataNuovaScadenza');
+        if (this.value === 'NUOVA') {
+            container.style.display = 'block';
+            dataInput.required = true;
+            dataInput.value = new Date().toISOString().split('T')[0];
+        } else {
+            container.style.display = 'none';
+            dataInput.required = false;
+            dataInput.value = '';
+        }
+    });
+    
+    // Gestione visibilità campo data nuova scadenza (modifica)
+    document.getElementById('editScadenzaId').addEventListener('change', function() {
+        var container = document.getElementById('editNuovaScadenzaContainer');
+        var dataInput = document.getElementById('editDataNuovaScadenza');
+        if (this.value === 'NUOVA') {
+            container.style.display = 'block';
+            dataInput.required = true;
+            dataInput.value = new Date().toISOString().split('T')[0];
+        } else {
+            container.style.display = 'none';
+            dataInput.required = false;
+            dataInput.value = '';
+        }
+    });
+    
+    // Carica scadenze per cliente (nuovo)
+    document.getElementById('selectClienteNuovo').addEventListener('change', function() {
+        var clienteId = this.value;
+        var selectScadenza = document.getElementById('selectScadenzaNuovo');
+        caricaScadenzeCliente(clienteId, selectScadenza, null);
+        // Nascondi container nuova scadenza
+        document.getElementById('nuovaScadenzaContainer').style.display = 'none';
+        document.getElementById('dataNuovaScadenza').required = false;
     });
     
     // Modal Modifica
@@ -407,20 +458,13 @@
         document.getElementById('editImporto').value = btn.getAttribute('data-importo').replace('.', ',');
         document.getElementById('editData').value = btn.getAttribute('data-data');
         
+        // Nascondi container nuova scadenza
+        document.getElementById('editNuovaScadenzaContainer').style.display = 'none';
+        document.getElementById('editDataNuovaScadenza').required = false;
+        
         // Carica scadenze per il cliente
         var selectScadenza = document.getElementById('editScadenzaId');
-        fetch('/Amministrazione/GetScadenzeCliente?clienteId=' + clienteId + '&anno=' + annoCorrente)
-            .then(response => response.json())
-            .then(data => {
-                selectScadenza.innerHTML = '';
-                data.forEach(function(scad) {
-                    var opt = document.createElement('option');
-                    opt.value = scad.id;
-                    opt.textContent = scad.dataScadenza + ' - ' + scad.stato;
-                    if (scad.id == scadenzaId) opt.selected = true;
-                    selectScadenza.appendChild(opt);
-                });
-            });
+        caricaScadenzeCliente(clienteId, selectScadenza, scadenzaId);
     });
 </script>
 }

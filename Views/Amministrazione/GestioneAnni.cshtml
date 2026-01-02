@@ -100,6 +100,16 @@
                                 <a asp-action="Scadenze" asp-route-anno="@anno.Anno" class="btn btn-outline-warning" title="Vai alle Scadenze">
                                     <i class="fas fa-file-invoice-dollar"></i>
                                 </a>
+                                @if (!anno.IsCurrent && stats.Item1 == 0)
+                                {
+                                    <form asp-action="EliminaAnno" method="post" class="d-inline" 
+                                          onsubmit="return confirm('Sei sicuro di voler eliminare l\'anno @anno.Anno?');">
+                                        <input type="hidden" name="id" value="@anno.Id" />
+                                        <button type="submit" class="btn btn-outline-danger" title="Elimina anno">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                }
                             </div>
                         </div>
                     </div>

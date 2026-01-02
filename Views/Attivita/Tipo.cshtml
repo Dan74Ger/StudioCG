@@ -222,80 +222,78 @@
                                 </td>
                                 <td><code class="small">@ca.Cliente?.CodiceAteco</code></td>
                                 <td>
-                                    @if (statoCorrente != null)
-                                    {
-                                        <span class="badge px-2 py-1" style="background-color: @statoCorrente.ColoreSfondo; color: @statoCorrente.ColoreTesto;">
-                                            <i class="@statoCorrente.Icon me-1"></i>@statoCorrente.Nome
-                                        </span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-secondary">Nessuno</span>
-                                    }
+                                    <!-- Dropdown stato inline -->
+                                    <div class="dropdown stato-dropdown-container">
+                                        <button class="btn btn-sm dropdown-toggle stato-badge-btn" 
+                                                type="button" 
+                                                data-bs-toggle="dropdown" 
+                                                data-clienteattivita="@ca.Id"
+                                                style="background-color: @(statoCorrente?.ColoreSfondo ?? "#6c757d"); color: @(statoCorrente?.ColoreTesto ?? "#fff"); border: none; padding: 4px 10px;">
+                                            <i class="@(statoCorrente?.Icon ?? "fas fa-question") me-1 stato-icon"></i>
+                                            <span class="stato-nome">@(statoCorrente?.Nome ?? "Nessuno")</span>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow" style="z-index: 1050;">
+                                            @foreach (var stato in statiDisponibili)
+                                            {
+                                                <li>
+                                                    <a href="javascript:void(0)" 
+                                                       class="dropdown-item cambio-stato-link @(stato.Id == ca.StatoAttivitaTipoId ? "active" : "")"
+                                                       data-clienteattivita="@ca.Id"
+                                                       data-statoid="@stato.Id"
+                                                       data-statonome="@stato.Nome"
+                                                       data-statoicon="@stato.Icon"
+                                                       data-coloresfondo="@stato.ColoreSfondo"
+                                                       data-coloretesto="@stato.ColoreTesto">
+                                                        <i class="@stato.Icon me-2" style="color: @stato.ColoreSfondo;"></i>@stato.Nome
+                                                    </a>
+                                                </li>
+                                            }
+                                        </ul>
+                                    </div>
                                 </td>
                                 @foreach (var campo in campiVisibili)
                                 {
                                     var valore = ca.Valori.FirstOrDefault(v => v.AttivitaCampoId == campo.Id)?.Valore ?? "";
-                                    <td class="text-center">
+                                    <td class="text-center p-1">
                                         @if (campo.FieldType == AttivitaFieldType.Boolean)
                                         {
-                                            if (valore == "true")
-                                            {
-                                                <i class="fas fa-check-circle text-success"></i>
-                                            }
-                                            else
-                                            {
-                                                <i class="fas fa-circle text-muted opacity-25"></i>
-                                            }
+                                            <input type="checkbox" 
+                                                   class="form-check-input inline-edit-checkbox" 
+                                                   style="width: 20px; height: 20px; cursor: pointer; border: 1px solid #ced4da;"
+                                                   data-clienteattivita="@ca.Id" 
+                                                   data-campo="@campo.Id"
+                                                   @(valore == "true" ? "checked" : "") />
                                         }
-                                        else if (campo.FieldType == AttivitaFieldType.Date && !string.IsNullOrEmpty(valore))
+                                        else if (campo.FieldType == AttivitaFieldType.Date)
                                         {
-                                            if (DateTime.TryParse(valore, out var dataVal))
+                                            var dataFormattata = "";
+                                            if (!string.IsNullOrEmpty(valore) && DateTime.TryParse(valore, out var dataVal))
                                             {
-                                                <span class="small">@dataVal.ToString("dd/MM/yy")</span>
+                                                dataFormattata = dataVal.ToString("yyyy-MM-dd");
                                             }
-                                            else
-                                            {
-                                                <span class="small">@valore</span>
-                                            }
-                                        }
-                                        else if (!string.IsNullOrEmpty(valore))
-                                        {
-                                            <span class="small" title="@valore">@(valore.Length > 20 ? valore.Substring(0, 17) + "..." : valore)</span>
+                                            <input type="date" 
+                                                   class="form-control form-control-sm inline-edit-field" 
+                                                   style="width: 130px; font-size: 0.8rem; border: 1px solid #dee2e6;"
+                                                   data-clienteattivita="@ca.Id" 
+                                                   data-campo="@campo.Id"
+                                                   value="@dataFormattata" />
                                         }
                                         else
                                         {
-                                            <span class="text-muted">-</span>
+                                            <input type="text" 
+                                                   class="form-control form-control-sm inline-edit-field" 
+                                                   style="width: 100%; min-width: 80px; font-size: 0.8rem; border: 1px solid #dee2e6;"
+                                                   data-clienteattivita="@ca.Id" 
+                                                   data-campo="@campo.Id"
+                                                   value="@valore"
+                                                   placeholder="-" />
                                         }
                                     </td>
                                 }
                                 <td class="text-end">
-                                    <div class="btn-group btn-group-sm">
-                                        <a asp-action="ClienteAttivita" asp-route-id="@ca.Id" class="btn btn-outline-primary" title="Modifica dettagli">
-                                            <i class="fas fa-edit"></i>
-                                        </a>
-                                        <div class="btn-group btn-group-sm" role="group">
-                                            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" title="Cambia stato">
-                                                <i class="fas fa-exchange-alt"></i>
-                                            </button>
-                                            <ul class="dropdown-menu dropdown-menu-end shadow" style="z-index: 1050;">
-                                                @foreach (var stato in statiDisponibili.Where(s => s.Id != ca.StatoAttivitaTipoId))
-                                                {
-                                                    <li>
-                                                        <form asp-action="CambiaStatoDinamico" method="post">
-                                                            <input type="hidden" name="id" value="@ca.Id" />
-                                                            <input type="hidden" name="nuovoStatoId" value="@stato.Id" />
-                                                            <input type="hidden" name="returnToTipoId" value="@Model.AttivitaTipoId" />
-                                                            <input type="hidden" name="annoId" value="@Model.AnnualitaFiscaleId" />
-                                                            <button type="submit" class="dropdown-item">
-                                                                <i class="@stato.Icon me-2" style="color: @stato.ColoreSfondo;"></i>@stato.Nome
-                                                            </button>
-                                                        </form>
-                                                    </li>
-                                                }
-                                            </ul>
-                                        </div>
-                                    </div>
+                                    <a asp-action="ClienteAttivita" asp-route-id="@ca.Id" class="btn btn-sm btn-outline-primary" title="Modifica dettagli">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
                                 </td>
                             </tr>
                         }
@@ -306,38 +304,93 @@
     </div>
 </div>
 
-<!-- Modal Nuovo Cliente -->
+<!-- Modal Nuovo Cliente (Selezione Multipla) -->
 <div class="modal fade" id="nuovoClienteModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <form asp-action="NuovoClienteAttivita" method="post">
+            <form asp-action="AggiungiClientiMultipli" method="post">
                 <input type="hidden" name="attivitaAnnualeId" value="@Model.Id" />
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i>Aggiungi Cliente all'Attività</h5>
+                    <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i>Aggiungi Clienti all'Attività</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Cliente *</label>
-                        <select name="clienteId" id="clienteSelect" class="form-select" required>
-                            <option value="">-- Seleziona Cliente --</option>
-                            @foreach (var cliente in clientiDisponibili)
-                            {
-                                <option value="@cliente.Id" data-ateco="@cliente.CodiceAteco">
-                                    @cliente.RagioneSociale
-                                </option>
-                            }
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Codice Ateco</label>
-                        <input type="text" id="codiceAtecoDisplay" class="form-control" readonly />
-                        <small class="form-text text-muted">Copiato automaticamente dal cliente</small>
-                    </div>
+                    @if (!clientiDisponibili.Any())
+                    {
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>Tutti i clienti sono già assegnati a questa attività.
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- Barra di ricerca e selezione rapida -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                    <input type="text" id="searchClienti" class="form-control" placeholder="Cerca cliente..." />
+                                </div>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="selezionaTutti">
+                                    <i class="fas fa-check-double me-1"></i>Seleziona Tutti
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="deselezionaTutti">
+                                    <i class="fas fa-times me-1"></i>Deseleziona Tutti
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Contatore selezione -->
+                        <div class="mb-2">
+                            <span class="badge bg-primary" id="contatoreSelezionati">0 clienti selezionati</span>
+                        </div>
+
+                        <!-- Lista clienti con checkbox -->
+                        <div class="border rounded" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-hover table-sm mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th style="width: 40px;"></th>
+                                        <th>Ragione Sociale</th>
+                                        <th style="width: 120px;">Cod. Ateco</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="listaClientiBody">
+                                    @foreach (var cliente in clientiDisponibili)
+                                    {
+                                        <tr class="cliente-row">
+                                            <td class="text-center">
+                                                <input type="checkbox" class="form-check-input cliente-checkbox" 
+                                                       name="clienteIds" value="@cliente.Id" 
+                                                       style="width: 18px; height: 18px; cursor: pointer;"
+                                                       data-nome="@cliente.RagioneSociale.ToLower()" />
+                                            </td>
+                                            <td>
+                                                <label class="mb-0 w-100" style="cursor: pointer;">
+                                                    @cliente.RagioneSociale
+                                                </label>
+                                            </td>
+                                            <td><code class="small">@cliente.CodiceAteco</code></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <small class="text-muted mt-2 d-block">
+                            <i class="fas fa-info-circle me-1"></i>Totale clienti disponibili: @clientiDisponibili.Count
+                        </small>
+                    }
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Aggiungi</button>
+                    @if (clientiDisponibili.Any())
+                    {
+                        <button type="submit" class="btn btn-primary" id="btnAggiungiClienti">
+                            <i class="fas fa-plus me-1"></i>Aggiungi Selezionati
+                        </button>
+                    }
                 </div>
             </form>
         </div>
@@ -346,10 +399,200 @@
 
 @section Scripts {
     <script>
-        document.getElementById('clienteSelect').addEventListener('change', function() {
-            var selectedOption = this.options[this.selectedIndex];
-            var ateco = selectedOption.getAttribute('data-ateco') || '';
-            document.getElementById('codiceAtecoDisplay').value = ateco;
+        // ========== SELEZIONE MULTIPLA CLIENTI ==========
+        
+        // Aggiorna contatore selezionati
+        function aggiornaContatore() {
+            var selezionati = document.querySelectorAll('.cliente-checkbox:checked').length;
+            var contatore = document.getElementById('contatoreSelezionati');
+            if (contatore) {
+                contatore.textContent = selezionati + ' client' + (selezionati === 1 ? 'e selezionato' : 'i selezionati');
+            }
+            
+            // Abilita/disabilita pulsante
+            var btnAggiungi = document.getElementById('btnAggiungiClienti');
+            if (btnAggiungi) {
+                btnAggiungi.disabled = selezionati === 0;
+            }
+        }
+
+        // Checkbox change event
+        document.querySelectorAll('.cliente-checkbox').forEach(function(checkbox) {
+            checkbox.addEventListener('change', aggiornaContatore);
+        });
+
+        // Seleziona tutti (solo visibili)
+        var btnSelezionaTutti = document.getElementById('selezionaTutti');
+        if (btnSelezionaTutti) {
+            btnSelezionaTutti.addEventListener('click', function() {
+                document.querySelectorAll('.cliente-row:not([style*="display: none"]) .cliente-checkbox').forEach(function(cb) {
+                    cb.checked = true;
+                });
+                aggiornaContatore();
+            });
+        }
+
+        // Deseleziona tutti
+        var btnDeselezionaTutti = document.getElementById('deselezionaTutti');
+        if (btnDeselezionaTutti) {
+            btnDeselezionaTutti.addEventListener('click', function() {
+                document.querySelectorAll('.cliente-checkbox').forEach(function(cb) {
+                    cb.checked = false;
+                });
+                aggiornaContatore();
+            });
+        }
+
+        // Ricerca clienti
+        var searchInput = document.getElementById('searchClienti');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                var filtro = this.value.toLowerCase();
+                document.querySelectorAll('.cliente-row').forEach(function(row) {
+                    var nome = row.querySelector('.cliente-checkbox').getAttribute('data-nome');
+                    if (nome.includes(filtro)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+        }
+
+        // Click sulla riga per selezionare
+        document.querySelectorAll('.cliente-row td:not(:first-child)').forEach(function(td) {
+            td.addEventListener('click', function() {
+                var checkbox = this.parentElement.querySelector('.cliente-checkbox');
+                checkbox.checked = !checkbox.checked;
+                aggiornaContatore();
+            });
+        });
+
+        // Inizializza contatore
+        aggiornaContatore();
+
+        // ========== INLINE EDITING ==========
+        
+        // Funzione per salvare valore inline
+        function salvaValoreInline(clienteAttivitaId, campoId, valore, elemento) {
+            // Mostra indicatore di salvataggio
+            elemento.style.opacity = '0.5';
+            
+            fetch('/Attivita/SalvaValoreInline', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
+                body: `clienteAttivitaId=${clienteAttivitaId}&campoId=${campoId}&valore=${encodeURIComponent(valore)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                elemento.style.opacity = '1';
+                if (data.success) {
+                    // Flash verde per conferma
+                    elemento.style.backgroundColor = '#d4edda';
+                    setTimeout(() => { elemento.style.backgroundColor = ''; }, 500);
+                } else {
+                    // Flash rosso per errore
+                    elemento.style.backgroundColor = '#f8d7da';
+                    setTimeout(() => { elemento.style.backgroundColor = ''; }, 1000);
+                    console.error('Errore salvataggio:', data.error);
+                }
+            })
+            .catch(error => {
+                elemento.style.opacity = '1';
+                elemento.style.backgroundColor = '#f8d7da';
+                setTimeout(() => { elemento.style.backgroundColor = ''; }, 1000);
+                console.error('Errore:', error);
+            });
+        }
+
+        // Checkbox - salva al click
+        document.querySelectorAll('.inline-edit-checkbox').forEach(function(checkbox) {
+            checkbox.addEventListener('change', function() {
+                var caId = this.getAttribute('data-clienteattivita');
+                var campoId = this.getAttribute('data-campo');
+                var valore = this.checked ? 'true' : 'false';
+                salvaValoreInline(caId, campoId, valore, this);
+            });
+        });
+
+        // Input text, date, select - salva al blur (uscita dal campo)
+        document.querySelectorAll('.inline-edit-field').forEach(function(campo) {
+            campo.addEventListener('change', function() {
+                var caId = this.getAttribute('data-clienteattivita');
+                var campoId = this.getAttribute('data-campo');
+                var valore = this.value;
+                salvaValoreInline(caId, campoId, valore, this);
+            });
+        });
+
+        // ========== CAMBIO STATO INLINE ==========
+        
+        document.querySelectorAll('.cambio-stato-link').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                var clienteAttivitaId = this.getAttribute('data-clienteattivita');
+                var nuovoStatoId = this.getAttribute('data-statoid');
+                var statoNome = this.getAttribute('data-statonome');
+                var statoIcon = this.getAttribute('data-statoicon');
+                var coloreSfondo = this.getAttribute('data-coloresfondo');
+                var coloreTesto = this.getAttribute('data-coloretesto');
+                
+                // Trova il pulsante badge dello stato
+                var container = document.querySelector('.stato-badge-btn[data-clienteattivita="' + clienteAttivitaId + '"]');
+                if (!container) return;
+                
+                // Mostra indicatore di caricamento
+                container.style.opacity = '0.5';
+                
+                fetch('/Attivita/CambiaStatoInline', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: 'clienteAttivitaId=' + clienteAttivitaId + '&nuovoStatoId=' + nuovoStatoId
+                })
+                .then(response => response.json())
+                .then(data => {
+                    container.style.opacity = '1';
+                    if (data.success) {
+                        // Aggiorna il badge visivamente
+                        container.style.backgroundColor = data.coloreSfondo;
+                        container.style.color = data.coloreTesto;
+                        container.querySelector('.stato-icon').className = data.statoIcon + ' me-1 stato-icon';
+                        container.querySelector('.stato-nome').textContent = data.statoNome;
+                        
+                        // Flash verde per conferma
+                        container.style.boxShadow = '0 0 10px #28a745';
+                        setTimeout(() => { container.style.boxShadow = ''; }, 500);
+                        
+                        // Aggiorna classe active nel dropdown
+                        var dropdown = container.parentElement.querySelector('.dropdown-menu');
+                        dropdown.querySelectorAll('.cambio-stato-link').forEach(function(item) {
+                            item.classList.remove('active');
+                            if (item.getAttribute('data-statoid') === nuovoStatoId) {
+                                item.classList.add('active');
+                            }
+                        });
+                    } else {
+                        // Flash rosso per errore
+                        container.style.boxShadow = '0 0 10px #dc3545';
+                        setTimeout(() => { container.style.boxShadow = ''; }, 1000);
+                        console.error('Errore cambio stato:', data.error);
+                        alert('Errore nel cambio stato: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    container.style.opacity = '1';
+                    container.style.boxShadow = '0 0 10px #dc3545';
+                    setTimeout(() => { container.style.boxShadow = ''; }, 1000);
+                    console.error('Errore:', error);
+                    alert('Errore di connessione');
+                });
+            });
         });
     </script>
 }

@@ -364,7 +364,58 @@ namespace StudioCG.Web.Controllers
             return RedirectToAction(nameof(Index), new { annoId = annoId });
         }
 
-        // POST: Attivita/NuovoClienteAttivita - Aggiunge un cliente all'attività
+        // POST: Attivita/AggiungiClientiMultipli - Aggiunge più clienti all'attività
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AggiungiClientiMultipli(int attivitaAnnualeId, List<int> clienteIds)
+        {
+            var attivitaAnnuale = await _context.AttivitaAnnuali
+                .Include(aa => aa.AttivitaTipo)
+                .FirstOrDefaultAsync(aa => aa.Id == attivitaAnnualeId);
+            if (attivitaAnnuale == null) return NotFound();
+
+            if (clienteIds == null || !clienteIds.Any())
+            {
+                TempData["Error"] = "Nessun cliente selezionato.";
+                return RedirectToAction(nameof(Tipo), new { id = attivitaAnnuale.AttivitaTipoId, annoId = attivitaAnnuale.AnnualitaFiscaleId });
+            }
+
+            // Trova lo stato default per questo tipo di attività
+            var statoDefault = await _context.StatiAttivitaTipo
+                .Where(s => s.AttivitaTipoId == attivitaAnnuale.AttivitaTipoId && s.IsActive)
+                .OrderByDescending(s => s.IsDefault)
+                .ThenBy(s => s.DisplayOrder)
+                .FirstOrDefaultAsync();
+
+            // Clienti già assegnati
+            var clientiGiaAssegnati = await _context.ClientiAttivita
+                .Where(ca => ca.AttivitaAnnualeId == attivitaAnnualeId)
+                .Select(ca => ca.ClienteId)
+                .ToListAsync();
+
+            int aggiunti = 0;
+            foreach (var clienteId in clienteIds)
+            {
+                if (!clientiGiaAssegnati.Contains(clienteId))
+                {
+                    _context.ClientiAttivita.Add(new ClienteAttivita
+                    {
+                        ClienteId = clienteId,
+                        AttivitaAnnualeId = attivitaAnnualeId,
+                        Stato = StatoAttivita.DaFare,
+                        StatoAttivitaTipoId = statoDefault?.Id,
+                        CreatedAt = DateTime.Now
+                    });
+                    aggiunti++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            TempData["Success"] = $"{aggiunti} client{(aggiunti == 1 ? "e aggiunto" : "i aggiunti")} all'attività.";
+            return RedirectToAction(nameof(Tipo), new { id = attivitaAnnuale.AttivitaTipoId, annoId = attivitaAnnuale.AnnualitaFiscaleId });
+        }
+
+        // POST: Attivita/NuovoClienteAttivita - Aggiunge un cliente all'attività (legacy)
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> NuovoClienteAttivita(int attivitaAnnualeId, int clienteId)
@@ -755,6 +806,103 @@ namespace StudioCG.Web.Controllers
             await _context.SaveChangesAsync();
             TempData["Success"] = $"Corretti {corretti} record con stato nullo. Assegnato stato di default.";
             return RedirectToAction(nameof(Index));
+        }
+
+        // POST: /Attivita/CambiaStatoInline - Cambio stato inline dalla griglia (AJAX)
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> CambiaStatoInline(int clienteAttivitaId, int nuovoStatoId)
+        {
+            try
+            {
+                var clienteAttivita = await _context.ClientiAttivita
+                    .Include(ca => ca.AttivitaAnnuale)
+                    .FirstOrDefaultAsync(ca => ca.Id == clienteAttivitaId);
+
+                if (clienteAttivita == null)
+                {
+                    return Json(new { success = false, error = "Record non trovato" });
+                }
+
+                // Verifica che lo stato esista
+                var nuovoStato = await _context.StatiAttivitaTipo.FindAsync(nuovoStatoId);
+                if (nuovoStato == null)
+                {
+                    return Json(new { success = false, error = "Stato non trovato" });
+                }
+
+                clienteAttivita.StatoAttivitaTipoId = nuovoStatoId;
+                clienteAttivita.UpdatedAt = DateTime.Now;
+
+                // Se lo stato è finale, imposta la data di completamento
+                if (nuovoStato.IsFinale && !clienteAttivita.DataCompletamento.HasValue)
+                {
+                    clienteAttivita.DataCompletamento = DateTime.Now;
+                }
+                // Se lo stato è default (iniziale), rimuove la data di completamento
+                else if (nuovoStato.IsDefault)
+                {
+                    clienteAttivita.DataCompletamento = null;
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Json(new { 
+                    success = true, 
+                    statoNome = nuovoStato.Nome,
+                    statoIcon = nuovoStato.Icon,
+                    coloreSfondo = nuovoStato.ColoreSfondo,
+                    coloreTesto = nuovoStato.ColoreTesto
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, error = ex.Message });
+            }
+        }
+
+        // POST: /Attivita/SalvaValoreInline - Salvataggio inline dei campi dalla griglia
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> SalvaValoreInline(int clienteAttivitaId, int campoId, string? valore)
+        {
+            try
+            {
+                var clienteAttivita = await _context.ClientiAttivita
+                    .Include(ca => ca.Valori)
+                    .FirstOrDefaultAsync(ca => ca.Id == clienteAttivitaId);
+
+                if (clienteAttivita == null)
+                {
+                    return Json(new { success = false, error = "Record non trovato" });
+                }
+
+                // Cerca il valore esistente
+                var valoreEsistente = clienteAttivita.Valori.FirstOrDefault(v => v.AttivitaCampoId == campoId);
+
+                if (valoreEsistente != null)
+                {
+                    valoreEsistente.Valore = valore ?? "";
+                }
+                else
+                {
+                    // Crea nuovo valore
+                    var nuovoValore = new ClienteAttivitaValore
+                    {
+                        ClienteAttivitaId = clienteAttivitaId,
+                        AttivitaCampoId = campoId,
+                        Valore = valore ?? ""
+                    };
+                    _context.ClientiAttivitaValori.Add(nuovoValore);
+                }
+
+                await _context.SaveChangesAsync();
+                return Json(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, error = ex.Message });
+            }
         }
     }
 }

@@ -24,6 +24,7 @@
                 <table class="table table-hover align-middle">
                     <thead>
                         <tr>
+                            <th style="width: 80px;" class="text-center">Ordine</th>
                             <th style="width: 50px;">Icona</th>
                             <th>Nome</th>
                             <th>Campi</th>
@@ -38,10 +39,26 @@
                         {
                             <tr>
                                 <td class="text-center">
+                                    <div class="btn-group btn-group-sm">
+                                        <form asp-action="MoveTipoUp" asp-route-id="@tipo.Id" method="post" class="d-inline">
+                                            <button type="submit" class="btn btn-outline-secondary btn-sm" title="Sposta su">
+                                                <i class="fas fa-arrow-up"></i>
+                                            </button>
+                                        </form>
+                                        <form asp-action="MoveTipoDown" asp-route-id="@tipo.Id" method="post" class="d-inline">
+                                            <button type="submit" class="btn btn-outline-secondary btn-sm" title="Sposta giù">
+                                                <i class="fas fa-arrow-down"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                                <td class="text-center">
                                     <i class="@tipo.Icon fa-lg text-primary"></i>
                                 </td>
                                 <td>
-                                    <strong>@tipo.Nome</strong>
+                                    <a asp-controller="Attivita" asp-action="Tipo" asp-route-id="@tipo.Id" class="text-decoration-none">
+                                        <strong>@tipo.Nome</strong>
+                                    </a>
                                     @if (!string.IsNullOrEmpty(tipo.Descrizione))
                                     {
                                         <br><small class="text-muted">@tipo.Descrizione</small>

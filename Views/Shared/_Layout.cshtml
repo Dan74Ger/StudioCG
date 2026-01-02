@@ -201,8 +201,11 @@
     <script>
         (function () {
             const KEY = 'studiocg_sidebar_collapsed';
+            const MENU_STATE_KEY = 'studiocg_menu_state';
+            const MENU_SCROLL_KEY = 'studiocg_menu_scroll';
             const body = document.body;
             const logoToggle = document.getElementById('sidebarLogoToggle');
+            const sidebarNav = document.querySelector('.sidebar-nav');
             let tooltipInstances = [];
 
             function updateTooltips() {
@@ -226,6 +229,58 @@
                 }
             }
 
+            // Salva stato menu aperti
+            function saveMenuState() {
+                try {
+                    var openMenus = [];
+                    document.querySelectorAll('.sidebar-nav .collapse.show').forEach(function(el) {
+                        if (el.id) openMenus.push(el.id);
+                    });
+                    localStorage.setItem(MENU_STATE_KEY, JSON.stringify(openMenus));
+                } catch(e) {}
+            }
+
+            // Salva posizione scroll menu
+            function saveScrollPosition() {
+                try {
+                    if (sidebarNav) {
+                        localStorage.setItem(MENU_SCROLL_KEY, sidebarNav.scrollTop.toString());
+                    }
+                } catch(e) {}
+            }
+
+            // Ripristina stato menu
+            function restoreMenuState() {
+                try {
+                    var saved = localStorage.getItem(MENU_STATE_KEY);
+                    if (saved) {
+                        var openMenus = JSON.parse(saved);
+                        openMenus.forEach(function(menuId) {
+                            var el = document.getElementById(menuId);
+                            if (el) {
+                                el.classList.add('show');
+                                // Aggiorna anche il toggle
+                                var toggle = document.querySelector('[href="#' + menuId + '"]');
+                                if (toggle) {
+                                    toggle.classList.remove('collapsed');
+                                    toggle.setAttribute('aria-expanded', 'true');
+                                }
+                            }
+                        });
+                    }
+                } catch(e) {}
+            }
+
+            // Ripristina posizione scroll menu
+            function restoreScrollPosition() {
+                try {
+                    var savedScroll = localStorage.getItem(MENU_SCROLL_KEY);
+                    if (savedScroll && sidebarNav) {
+                        sidebarNav.scrollTop = parseInt(savedScroll);
+                    }
+                } catch(e) {}
+            }
+
             try {
                 const saved = localStorage.getItem(KEY);
                 if (saved === '1') body.classList.add('sidebar-collapsed');
@@ -242,6 +297,28 @@
             document.querySelectorAll('.sidebar-nav .nav-link:not([data-tooltip])').forEach(function(link) {
                 var textEl = link.querySelector('span, .section-title, .subsection-title');
                 if (textEl) link.setAttribute('data-tooltip', textEl.textContent.trim());
+            });
+
+            // Ripristina stato menu all'avvio
+            restoreMenuState();
+            
+            // Ripristina scroll dopo un breve delay (per permettere ai collapse di aprirsi)
+            setTimeout(restoreScrollPosition, 50);
+
+            // Salva stato quando un menu viene aperto/chiuso
+            document.querySelectorAll('.sidebar-nav .collapse').forEach(function(collapseEl) {
+                collapseEl.addEventListener('shown.bs.collapse', saveMenuState);
+                collapseEl.addEventListener('hidden.bs.collapse', saveMenuState);
+            });
+
+            // Salva scroll quando l'utente scrolla il menu
+            if (sidebarNav) {
+                sidebarNav.addEventListener('scroll', saveScrollPosition);
+            }
+
+            // Salva scroll prima di navigare (per catturare il click sui link)
+            document.querySelectorAll('.sidebar-nav a[href]:not([data-bs-toggle])').forEach(function(link) {
+                link.addEventListener('click', saveScrollPosition);
             });
             
             setTimeout(updateTooltips, 200);

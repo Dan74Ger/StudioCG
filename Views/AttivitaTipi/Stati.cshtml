@@ -3,6 +3,7 @@
 
 @{
     ViewData["Title"] = $"Stati - {Model.Nome}";
+    var altriTipi = ViewBag.AltriTipi as List<AttivitaTipo> ?? new List<AttivitaTipo>();
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -13,6 +14,12 @@
         <p class="text-muted mb-0">Gestione stati/azioni del tipo attività</p>
     </div>
     <div>
+        @if (altriTipi.Any())
+        {
+            <button type="button" class="btn btn-info me-2" data-bs-toggle="modal" data-bs-target="#duplicaStatiModal">
+                <i class="fas fa-copy me-1"></i>Duplica da...
+            </button>
+        }
         <a asp-action="Campi" asp-route-id="@Model.Id" class="btn btn-outline-primary me-2">
             <i class="fas fa-columns me-1"></i>Gestisci Campi
         </a>
@@ -267,6 +274,49 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Duplica Stati -->
+@if (altriTipi.Any())
+{
+    <div class="modal fade" id="duplicaStatiModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form asp-action="DuplicaStatiDa" method="post">
+                    <input type="hidden" name="destinazioneId" value="@Model.Id" />
+                    <div class="modal-header bg-info text-white">
+                        <h5 class="modal-title"><i class="fas fa-copy me-2"></i>Duplica Stati da altra Attività</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Seleziona l'attività da cui copiare gli stati:</p>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Attività Sorgente *</label>
+                            <select name="sorgenteId" class="form-select" required>
+                                <option value="">-- Seleziona Attività --</option>
+                                @foreach (var tipo in altriTipi)
+                                {
+                                    <option value="@tipo.Id">
+                                        @tipo.Nome (@tipo.Stati.Count stati)
+                                    </option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Nota:</strong> Gli stati con lo stesso nome non verranno duplicati. Il flag "Default" non viene copiato.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                        <button type="submit" class="btn btn-info"><i class="fas fa-copy me-1"></i>Duplica Stati</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
 
 @section Scripts {
 <script>

@@ -262,15 +262,22 @@ namespace StudioCG.Web.Controllers
                 .OrderBy(c => c.RagioneSociale)
                 .ToListAsync();
             
-            var anniDisponibili = await _context.ScadenzeFatturazione
+            // Includi anni da scadenze + anni da AnniFatturazione
+            var anniScadenze = await _context.ScadenzeFatturazione
                 .Select(s => s.Anno)
                 .Distinct()
-                .OrderByDescending(a => a)
                 .ToListAsync();
+            
+            var anniFatturazione = await _context.AnniFatturazione
+                .Select(a => a.Anno)
+                .ToListAsync();
+            
+            var anniDisponibili = anniScadenze.Union(anniFatturazione).ToList();
             
             if (!anniDisponibili.Contains(annoCorrente))
                 anniDisponibili.Add(annoCorrente);
-                anniDisponibili = anniDisponibili.OrderByDescending(a => a).ToList();
+            
+            anniDisponibili = anniDisponibili.OrderByDescending(a => a).ToList();
 
             ViewBag.AnnoSelezionato = annoCorrente;
             ViewBag.AnniDisponibili = anniDisponibili;
@@ -311,11 +318,20 @@ namespace StudioCG.Web.Controllers
                 .OrderBy(c => c.RagioneSociale)
                 .ToListAsync();
             
-            var anniDisponibili = await _context.ScadenzeFatturazione
+            // Includi anni da scadenze
+            var anniScadenze = await _context.ScadenzeFatturazione
                 .Select(s => s.Anno)
                 .Distinct()
-                .OrderByDescending(a => a)
                 .ToListAsync();
+            
+            // Includi anche anni dalle spese pratiche stesse (anche senza scadenza)
+            var anniSpese = await _context.SpesePratiche
+                .Select(s => s.ScadenzaFatturazione != null ? s.ScadenzaFatturazione.Anno : s.Data.Year)
+                .Distinct()
+                .ToListAsync();
+            
+            // Unisci tutti gli anni
+            var anniDisponibili = anniScadenze.Union(anniSpese).ToList();
             
             if (!anniDisponibili.Contains(annoCorrente))
                 anniDisponibili.Add(annoCorrente);
@@ -398,8 +414,8 @@ namespace StudioCG.Web.Controllers
         // POST: /Amministrazione/CreateSpesaPratica
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateSpesaPratica(int clienteId, int? scadenzaFatturazioneId, 
-            string descrizione, string importo, DateTime data, int anno)
+        public async Task<IActionResult> CreateSpesaPratica(int clienteId, string? scadenzaFatturazioneId, 
+            string descrizione, string importo, DateTime data, int anno, DateTime? dataNuovaScadenza)
         {
             try
             {
@@ -410,68 +426,45 @@ namespace StudioCG.Web.Controllers
                 var username = User.Identity?.Name;
                 var utente = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
 
-                // LOGICA AUTOMATICA DI COLLEGAMENTO SCADENZA:
-                // Se non è stata selezionata manualmente una scadenza, cerca o crea automaticamente
-                int? scadenzaFinalId = scadenzaFatturazioneId;
+                // LOGICA DI COLLEGAMENTO SCADENZA
+                int? scadenzaFinalId = null;
                 bool scadenzaCreataAutomaticamente = false;
 
-                if (!scadenzaFinalId.HasValue || scadenzaFinalId.Value == 0)
+                // Se l'utente ha selezionato "NUOVA" → crea nuova scadenza (anche senza mandato)
+                if (scadenzaFatturazioneId == "NUOVA" && dataNuovaScadenza.HasValue)
                 {
-                    // 1. Cerca una scadenza esistente APERTA con la stessa data per questo cliente
-                    var scadenzaEsistente = await _context.ScadenzeFatturazione
-                        .Where(s => s.ClienteId == clienteId 
-                                 && s.DataScadenza.Date == data.Date 
-                                 && s.Stato == StatoScadenza.Aperta
-                                 && s.Anno == anno)
-                        .OrderByDescending(s => s.Id)
-                        .FirstOrDefaultAsync();
-
-                    if (scadenzaEsistente != null)
+                    var nuovaScadenza = new ScadenzaFatturazione
                     {
-                        // Trovata scadenza compatibile → usa quella
-                        scadenzaFinalId = scadenzaEsistente.Id;
-                    }
-                    else
-                    {
-                        // 2. Non esiste una scadenza compatibile → creane una nuova automaticamente
-                        var mandato = await _context.MandatiClienti
-                            .Where(m => m.ClienteId == clienteId && m.Anno == anno && m.IsActive)
-                            .FirstOrDefaultAsync();
+                        ClienteId = clienteId,
+                        MandatoClienteId = null, // Scadenza libera, senza mandato
+                        DataScadenza = dataNuovaScadenza.Value,
+                        Anno = anno,
+                        Stato = StatoScadenza.Aperta,
+                        ImportoMandato = 0, // L'importo viene dalle spese/ft cloud/bilanci
+                        RimborsoSpese = 0,
+                        Note = $"Scadenza creata per: {descrizione}",
+                        CreatedAt = DateTime.Now,
+                        UpdatedAt = DateTime.Now
+                    };
 
-                        if (mandato != null)
-                        {
-                            var nuovaScadenza = new ScadenzaFatturazione
-                            {
-                                ClienteId = clienteId,
-                                MandatoClienteId = mandato.Id,
-                                DataScadenza = data,
-                                Anno = anno,
-                                Stato = StatoScadenza.Aperta,
-                                ImportoMandato = 0, // Solo spese
-                                RimborsoSpese = 0,
-                                Note = $"Scadenza creata automaticamente per spesa: {descrizione}",
-                                CreatedAt = DateTime.Now,
-                                UpdatedAt = DateTime.Now
-                            };
+                    _context.ScadenzeFatturazione.Add(nuovaScadenza);
+                    await _context.SaveChangesAsync();
 
-                            _context.ScadenzeFatturazione.Add(nuovaScadenza);
-                            await _context.SaveChangesAsync();
-
-                            scadenzaFinalId = nuovaScadenza.Id;
-                            scadenzaCreataAutomaticamente = true;
-                        }
-                    }
+                    scadenzaFinalId = nuovaScadenza.Id;
+                    scadenzaCreataAutomaticamente = true;
                 }
-                else
+                else if (!string.IsNullOrEmpty(scadenzaFatturazioneId) && int.TryParse(scadenzaFatturazioneId, out int scadenzaId) && scadenzaId > 0)
                 {
                     // Scadenza selezionata manualmente → verifica che sia aperta
-                    var scadenza = await _context.ScadenzeFatturazione.FindAsync(scadenzaFinalId.Value);
+                    var scadenza = await _context.ScadenzeFatturazione.FindAsync(scadenzaId);
                     if (scadenza == null || scadenza.Stato != StatoScadenza.Aperta)
                     {
                         TempData["Error"] = "La scadenza selezionata non è disponibile o non è aperta.";
                         return RedirectToAction(nameof(SpesePratiche), new { anno });
                     }
+                    scadenzaFinalId = scadenzaId;
                 }
+                // Se nessuna scadenza selezionata → la spesa resta senza scadenza (verrà mostrata comunque)
 
                 var spesa = new SpesaPratica
                 {
@@ -512,8 +505,8 @@ namespace StudioCG.Web.Controllers
         // POST: /Amministrazione/UpdateSpesaPratica
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateSpesaPratica(int id, int? scadenzaFatturazioneId, 
-            string descrizione, string importo, DateTime data, int anno)
+        public async Task<IActionResult> UpdateSpesaPratica(int id, string? scadenzaFatturazioneId, 
+            string descrizione, string importo, DateTime data, int anno, DateTime? dataNuovaScadenza)
         {
             try
             {
@@ -527,22 +520,45 @@ namespace StudioCG.Web.Controllers
                     return RedirectToAction(nameof(SpesePratiche), new { anno });
                 }
 
-                // Le spese pratiche sono SEMPRE modificabili (nessun controllo sullo stato della scadenza)
+                // Le spese pratiche sono SEMPRE modificabili
+                int? scadenzaFinalId = null;
 
-                // Se è stata selezionata una nuova scadenza, verifica che sia aperta
-                if (scadenzaFatturazioneId.HasValue && scadenzaFatturazioneId.Value > 0)
+                // Se l'utente ha selezionato "NUOVA" → crea nuova scadenza (anche senza mandato)
+                if (scadenzaFatturazioneId == "NUOVA" && dataNuovaScadenza.HasValue)
                 {
-                    var nuovaScadenza = await _context.ScadenzeFatturazione.FindAsync(scadenzaFatturazioneId.Value);
+                    var nuovaScadenza = new ScadenzaFatturazione
+                    {
+                        ClienteId = spesa.ClienteId,
+                        MandatoClienteId = null, // Scadenza libera
+                        DataScadenza = dataNuovaScadenza.Value,
+                        Anno = anno,
+                        Stato = StatoScadenza.Aperta,
+                        ImportoMandato = 0,
+                        RimborsoSpese = 0,
+                        Note = $"Scadenza creata per: {descrizione}",
+                        CreatedAt = DateTime.Now,
+                        UpdatedAt = DateTime.Now
+                    };
+
+                    _context.ScadenzeFatturazione.Add(nuovaScadenza);
+                    await _context.SaveChangesAsync();
+
+                    scadenzaFinalId = nuovaScadenza.Id;
+                }
+                else if (!string.IsNullOrEmpty(scadenzaFatturazioneId) && int.TryParse(scadenzaFatturazioneId, out int scadenzaId) && scadenzaId > 0)
+                {
+                    var nuovaScadenza = await _context.ScadenzeFatturazione.FindAsync(scadenzaId);
                     if (nuovaScadenza == null || nuovaScadenza.Stato != StatoScadenza.Aperta)
                     {
                         TempData["Error"] = "La scadenza selezionata non è disponibile.";
                         return RedirectToAction(nameof(SpesePratiche), new { anno });
                     }
+                    scadenzaFinalId = scadenzaId;
                 }
 
                 var importoDecimal = decimal.Parse(importo.Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture);
 
-                spesa.ScadenzaFatturazioneId = (scadenzaFatturazioneId.HasValue && scadenzaFatturazioneId.Value > 0) ? scadenzaFatturazioneId : null;
+                spesa.ScadenzaFatturazioneId = scadenzaFinalId;
                 spesa.Descrizione = descrizione;
                 spesa.Importo = importoDecimal;
                 spesa.Data = data;
@@ -789,11 +805,17 @@ namespace StudioCG.Web.Controllers
                 .OrderBy(c => c.RagioneSociale)
                 .ToListAsync();
             
-            var anniDisponibili = await _context.FattureCloud
+            // Includi anni da FattureCloud + anni da AnniFatturazione
+            var anniFattureCloud = await _context.FattureCloud
                 .Select(f => f.Anno)
                 .Distinct()
-                .OrderByDescending(a => a)
                 .ToListAsync();
+            
+            var anniFatturazione = await _context.AnniFatturazione
+                .Select(a => a.Anno)
+                .ToListAsync();
+            
+            var anniDisponibili = anniFattureCloud.Union(anniFatturazione).ToList();
             
             if (!anniDisponibili.Contains(annoCorrente))
                 anniDisponibili.Add(annoCorrente);
@@ -830,11 +852,17 @@ namespace StudioCG.Web.Controllers
                 .OrderBy(c => c.RagioneSociale)
                 .ToListAsync();
             
-            var anniDisponibili = await _context.BilanciCEE
+            // Includi anni da BilanciCEE + anni da AnniFatturazione
+            var anniBilanci = await _context.BilanciCEE
                 .Select(b => b.Anno)
                 .Distinct()
-                .OrderByDescending(a => a)
                 .ToListAsync();
+            
+            var anniFatturazione = await _context.AnniFatturazione
+                .Select(a => a.Anno)
+                .ToListAsync();
+            
+            var anniDisponibili = anniBilanci.Union(anniFatturazione).ToList();
             
             if (!anniDisponibili.Contains(annoCorrente))
                 anniDisponibili.Add(annoCorrente);
@@ -880,33 +908,31 @@ namespace StudioCG.Web.Controllers
                     }
                     else
                     {
-                        // 2. Crea nuova scadenza automaticamente
+                        // 2. Crea nuova scadenza automaticamente (anche senza mandato)
+                        // Cerca mandato se esiste, altrimenti crea scadenza libera
                         var mandato = await _context.MandatiClienti
                             .Where(m => m.ClienteId == clienteId && m.Anno == anno && m.IsActive)
                             .FirstOrDefaultAsync();
 
-                        if (mandato != null)
+                        var nuovaScadenza = new ScadenzaFatturazione
                         {
-                            var nuovaScadenza = new ScadenzaFatturazione
-                            {
-                                ClienteId = clienteId,
-                                MandatoClienteId = mandato.Id,
-                                DataScadenza = dataScadenza,
-                                Anno = anno,
-                                Stato = StatoScadenza.Aperta,
-                                ImportoMandato = 0,
-                                RimborsoSpese = 0,
-                                Note = "Scadenza creata automaticamente per Fattura in Cloud",
-                                CreatedAt = DateTime.Now,
-                                UpdatedAt = DateTime.Now
-                            };
+                            ClienteId = clienteId,
+                            MandatoClienteId = mandato?.Id, // null se non c'è mandato
+                            DataScadenza = dataScadenza,
+                            Anno = anno,
+                            Stato = StatoScadenza.Aperta,
+                            ImportoMandato = 0,
+                            RimborsoSpese = 0,
+                            Note = "Scadenza creata automaticamente per Fattura in Cloud",
+                            CreatedAt = DateTime.Now,
+                            UpdatedAt = DateTime.Now
+                        };
 
-                            _context.ScadenzeFatturazione.Add(nuovaScadenza);
-                            await _context.SaveChangesAsync();
+                        _context.ScadenzeFatturazione.Add(nuovaScadenza);
+                        await _context.SaveChangesAsync();
 
-                            scadenzaFinalId = nuovaScadenza.Id;
-                            scadenzaCreataAutomaticamente = true;
-                        }
+                        scadenzaFinalId = nuovaScadenza.Id;
+                        scadenzaCreataAutomaticamente = true;
                     }
                 }
 
@@ -1040,33 +1066,30 @@ namespace StudioCG.Web.Controllers
                     }
                     else
                     {
-                        // 2. Crea nuova scadenza automaticamente
+                        // 2. Crea nuova scadenza automaticamente (anche senza mandato)
                         var mandato = await _context.MandatiClienti
                             .Where(m => m.ClienteId == clienteId && m.Anno == anno && m.IsActive)
                             .FirstOrDefaultAsync();
 
-                        if (mandato != null)
+                        var nuovaScadenza = new ScadenzaFatturazione
                         {
-                            var nuovaScadenza = new ScadenzaFatturazione
-                            {
-                                ClienteId = clienteId,
-                                MandatoClienteId = mandato.Id,
-                                DataScadenza = dataScadenza,
-                                Anno = anno,
-                                Stato = StatoScadenza.Aperta,
-                                ImportoMandato = 0,
-                                RimborsoSpese = 0,
-                                Note = "Scadenza creata automaticamente per Bilancio CEE",
-                                CreatedAt = DateTime.Now,
-                                UpdatedAt = DateTime.Now
-                            };
+                            ClienteId = clienteId,
+                            MandatoClienteId = mandato?.Id, // null se non c'è mandato
+                            DataScadenza = dataScadenza,
+                            Anno = anno,
+                            Stato = StatoScadenza.Aperta,
+                            ImportoMandato = 0,
+                            RimborsoSpese = 0,
+                            Note = "Scadenza creata automaticamente per Bilancio CEE",
+                            CreatedAt = DateTime.Now,
+                            UpdatedAt = DateTime.Now
+                        };
 
-                            _context.ScadenzeFatturazione.Add(nuovaScadenza);
-                            await _context.SaveChangesAsync();
+                        _context.ScadenzeFatturazione.Add(nuovaScadenza);
+                        await _context.SaveChangesAsync();
 
-                            scadenzaFinalId = nuovaScadenza.Id;
-                            scadenzaCreataAutomaticamente = true;
-                        }
+                        scadenzaFinalId = nuovaScadenza.Id;
+                        scadenzaCreataAutomaticamente = true;
                     }
                 }
 
@@ -1178,6 +1201,10 @@ namespace StudioCG.Web.Controllers
                 .Include(s => s.Incassi)
                     .ThenInclude(i => i.SuddivisioneProfessionisti)
                         .ThenInclude(p => p.Utente)
+                .Include(s => s.SpesePratiche)
+                .Include(s => s.FattureCloud)
+                .Include(s => s.BilanciCEE)
+                .Include(s => s.AccessiClienti)
                 .Where(s => s.Anno == annoCorrente && s.NumeroFattura.HasValue);
             
             if (stato.HasValue)
@@ -1243,6 +1270,10 @@ namespace StudioCG.Web.Controllers
 
                 var scadenza = await _context.ScadenzeFatturazione
                     .Include(s => s.Incassi)
+                    .Include(s => s.SpesePratiche)
+                    .Include(s => s.FattureCloud)
+                    .Include(s => s.BilanciCEE)
+                    .Include(s => s.AccessiClienti)
                     .FirstOrDefaultAsync(s => s.Id == scadenzaId);
 
                 if (scadenza == null)
@@ -2349,6 +2380,56 @@ namespace StudioCG.Web.Controllers
             catch (Exception ex)
             {
                 TempData["Error"] = $"Errore: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(GestioneAnni));
+        }
+
+        // POST: /Amministrazione/EliminaAnno
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EliminaAnno(int id)
+        {
+            try
+            {
+                var anno = await _context.AnniFatturazione.FindAsync(id);
+                if (anno == null)
+                {
+                    TempData["Error"] = "Anno non trovato.";
+                    return RedirectToAction(nameof(GestioneAnni));
+                }
+
+                // Non si può eliminare l'anno corrente
+                if (anno.IsCurrent)
+                {
+                    TempData["Error"] = "Non puoi eliminare l'anno corrente. Imposta prima un altro anno come corrente.";
+                    return RedirectToAction(nameof(GestioneAnni));
+                }
+
+                // Verifica se ci sono mandati associati
+                var mandatiCount = await _context.MandatiClienti.CountAsync(m => m.Anno == anno.Anno);
+                if (mandatiCount > 0)
+                {
+                    TempData["Error"] = $"Non puoi eliminare l'anno {anno.Anno}: ci sono {mandatiCount} mandati associati.";
+                    return RedirectToAction(nameof(GestioneAnni));
+                }
+
+                // Verifica se ci sono scadenze associate
+                var scadenzeCount = await _context.ScadenzeFatturazione.CountAsync(s => s.Anno == anno.Anno);
+                if (scadenzeCount > 0)
+                {
+                    TempData["Error"] = $"Non puoi eliminare l'anno {anno.Anno}: ci sono {scadenzeCount} scadenze associate.";
+                    return RedirectToAction(nameof(GestioneAnni));
+                }
+
+                _context.AnniFatturazione.Remove(anno);
+                await _context.SaveChangesAsync();
+
+                TempData["Success"] = $"Anno {anno.Anno} eliminato con successo.";
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = $"Errore durante l'eliminazione: {ex.Message}";
             }
 
             return RedirectToAction(nameof(GestioneAnni));

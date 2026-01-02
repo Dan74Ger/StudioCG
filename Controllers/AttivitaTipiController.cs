@@ -212,6 +212,84 @@ namespace StudioCG.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        // ==================== RIORDINAMENTO TIPI ====================
+
+        // POST: AttivitaTipi/MoveTipoUp/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MoveTipoUp(int id)
+        {
+            // Prima normalizza gli ordini se necessario
+            await NormalizzaOrdiniTipi();
+
+            var tipo = await _context.AttivitaTipi.FindAsync(id);
+            if (tipo == null) return NotFound();
+
+            var prevTipo = await _context.AttivitaTipi
+                .Where(t => t.DisplayOrder < tipo.DisplayOrder)
+                .OrderByDescending(t => t.DisplayOrder)
+                .FirstOrDefaultAsync();
+
+            if (prevTipo != null)
+            {
+                var tempOrder = tipo.DisplayOrder;
+                tipo.DisplayOrder = prevTipo.DisplayOrder;
+                prevTipo.DisplayOrder = tempOrder;
+                await _context.SaveChangesAsync();
+            }
+            return RedirectToAction(nameof(Index));
+        }
+
+        // POST: AttivitaTipi/MoveTipoDown/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MoveTipoDown(int id)
+        {
+            // Prima normalizza gli ordini se necessario
+            await NormalizzaOrdiniTipi();
+
+            var tipo = await _context.AttivitaTipi.FindAsync(id);
+            if (tipo == null) return NotFound();
+
+            var nextTipo = await _context.AttivitaTipi
+                .Where(t => t.DisplayOrder > tipo.DisplayOrder)
+                .OrderBy(t => t.DisplayOrder)
+                .FirstOrDefaultAsync();
+
+            if (nextTipo != null)
+            {
+                var tempOrder = tipo.DisplayOrder;
+                tipo.DisplayOrder = nextTipo.DisplayOrder;
+                nextTipo.DisplayOrder = tempOrder;
+                await _context.SaveChangesAsync();
+            }
+            return RedirectToAction(nameof(Index));
+        }
+
+        /// <summary>
+        /// Normalizza gli ordini dei tipi se ci sono duplicati o tutti uguali
+        /// </summary>
+        private async Task NormalizzaOrdiniTipi()
+        {
+            var tipi = await _context.AttivitaTipi
+                .OrderBy(t => t.DisplayOrder)
+                .ThenBy(t => t.Nome)
+                .ToListAsync();
+
+            // Verifica se ci sono duplicati
+            var ordini = tipi.Select(t => t.DisplayOrder).ToList();
+            if (ordini.Distinct().Count() < ordini.Count)
+            {
+                // Ci sono duplicati, normalizza
+                int order = 0;
+                foreach (var tipo in tipi)
+                {
+                    tipo.DisplayOrder = order++;
+                }
+                await _context.SaveChangesAsync();
+            }
+        }
+
         // ==================== GESTIONE CAMPI ====================
 
         // GET: AttivitaTipi/Campi/5
@@ -224,6 +302,13 @@ namespace StudioCG.Web.Controllers
                 .FirstOrDefaultAsync(t => t.Id == id);
 
             if (tipo == null) return NotFound();
+
+            // Lista altri tipi per funzione "Duplica da"
+            ViewBag.AltriTipi = await _context.AttivitaTipi
+                .Include(t => t.Campi)
+                .Where(t => t.Id != id && t.Campi.Any())
+                .OrderBy(t => t.Nome)
+                .ToListAsync();
 
             return View(tipo);
         }
@@ -253,6 +338,93 @@ namespace StudioCG.Web.Controllers
 
             TempData["Success"] = $"Campo '{model.Label}' aggiunto.";
             return RedirectToAction(nameof(Campi), new { id = model.AttivitaTipoId });
+        }
+
+        // POST: AttivitaTipi/UpdateCampo
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateCampo(int id, string label, int fieldType, bool isRequired, bool showInList)
+        {
+            var campo = await _context.AttivitaCampi.FindAsync(id);
+            if (campo == null) return NotFound();
+
+            var tipoId = campo.AttivitaTipoId;
+
+            // Genera nuovo Name da Label
+            var newName = GenerateFieldName(label);
+
+            // Verifica duplicati (escludendo se stesso)
+            if (await _context.AttivitaCampi.AnyAsync(c => c.AttivitaTipoId == tipoId && c.Name == newName && c.Id != id))
+            {
+                TempData["Error"] = "Esiste già un campo con un nome simile.";
+                return RedirectToAction(nameof(Campi), new { id = tipoId });
+            }
+
+            campo.Label = label;
+            campo.Name = newName;
+            campo.FieldType = (AttivitaFieldType)fieldType;
+            campo.IsRequired = isRequired;
+            campo.ShowInList = showInList;
+
+            await _context.SaveChangesAsync();
+            TempData["Success"] = $"Campo '{label}' aggiornato.";
+            return RedirectToAction(nameof(Campi), new { id = tipoId });
+        }
+
+        // POST: AttivitaTipi/DuplicaCampiDa - Copia campi da un altro tipo attività
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DuplicaCampiDa(int destinazioneId, int sorgenteId)
+        {
+            var tipoDestinazione = await _context.AttivitaTipi
+                .Include(t => t.Campi)
+                .FirstOrDefaultAsync(t => t.Id == destinazioneId);
+                
+            var tipoSorgente = await _context.AttivitaTipi
+                .Include(t => t.Campi)
+                .FirstOrDefaultAsync(t => t.Id == sorgenteId);
+
+            if (tipoDestinazione == null || tipoSorgente == null)
+            {
+                TempData["Error"] = "Tipo attività non trovato.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (!tipoSorgente.Campi.Any())
+            {
+                TempData["Error"] = $"L'attività '{tipoSorgente.Nome}' non ha campi da copiare.";
+                return RedirectToAction(nameof(Campi), new { id = destinazioneId });
+            }
+
+            // Trova l'ordine massimo esistente
+            var maxOrder = tipoDestinazione.Campi.Any() 
+                ? tipoDestinazione.Campi.Max(c => c.DisplayOrder) 
+                : 0;
+
+            int copiati = 0;
+            foreach (var campoSorgente in tipoSorgente.Campi.OrderBy(c => c.DisplayOrder))
+            {
+                // Verifica se esiste già un campo con lo stesso nome
+                if (tipoDestinazione.Campi.Any(c => c.Name == campoSorgente.Name))
+                    continue;
+
+                var nuovoCampo = new AttivitaCampo
+                {
+                    AttivitaTipoId = destinazioneId,
+                    Name = campoSorgente.Name,
+                    Label = campoSorgente.Label,
+                    FieldType = campoSorgente.FieldType,
+                    IsRequired = campoSorgente.IsRequired,
+                    ShowInList = campoSorgente.ShowInList,
+                    DisplayOrder = ++maxOrder
+                };
+                _context.AttivitaCampi.Add(nuovoCampo);
+                copiati++;
+            }
+
+            await _context.SaveChangesAsync();
+            TempData["Success"] = $"Copiati {copiati} campi da '{tipoSorgente.Nome}'.";
+            return RedirectToAction(nameof(Campi), new { id = destinazioneId });
         }
 
         // POST: AttivitaTipi/DeleteCampo/5
@@ -452,6 +624,13 @@ namespace StudioCG.Web.Controllers
 
             if (tipo == null) return NotFound();
 
+            // Lista altri tipi per funzione "Duplica da"
+            ViewBag.AltriTipi = await _context.AttivitaTipi
+                .Include(t => t.Stati)
+                .Where(t => t.Id != id && t.Stati.Any())
+                .OrderBy(t => t.Nome)
+                .ToListAsync();
+
             return View(tipo);
         }
 
@@ -504,6 +683,65 @@ namespace StudioCG.Web.Controllers
             await _context.SaveChangesAsync();
             TempData["Success"] = "Stato aggiornato.";
             return RedirectToAction(nameof(Stati), new { id = stato.AttivitaTipoId });
+        }
+
+        // POST: AttivitaTipi/DuplicaStatiDa - Copia stati da un altro tipo attività
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DuplicaStatiDa(int destinazioneId, int sorgenteId)
+        {
+            var tipoDestinazione = await _context.AttivitaTipi
+                .Include(t => t.Stati)
+                .FirstOrDefaultAsync(t => t.Id == destinazioneId);
+                
+            var tipoSorgente = await _context.AttivitaTipi
+                .Include(t => t.Stati)
+                .FirstOrDefaultAsync(t => t.Id == sorgenteId);
+
+            if (tipoDestinazione == null || tipoSorgente == null)
+            {
+                TempData["Error"] = "Tipo attività non trovato.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (!tipoSorgente.Stati.Any())
+            {
+                TempData["Error"] = $"L'attività '{tipoSorgente.Nome}' non ha stati da copiare.";
+                return RedirectToAction(nameof(Stati), new { id = destinazioneId });
+            }
+
+            // Trova l'ordine massimo esistente
+            var maxOrder = tipoDestinazione.Stati.Any() 
+                ? tipoDestinazione.Stati.Max(s => s.DisplayOrder) 
+                : 0;
+
+            int copiati = 0;
+            foreach (var statoSorgente in tipoSorgente.Stati.OrderBy(s => s.DisplayOrder))
+            {
+                // Verifica se esiste già uno stato con lo stesso nome
+                if (tipoDestinazione.Stati.Any(s => s.Nome == statoSorgente.Nome))
+                    continue;
+
+                var nuovoStato = new StatoAttivitaTipo
+                {
+                    AttivitaTipoId = destinazioneId,
+                    Nome = statoSorgente.Nome,
+                    Icon = statoSorgente.Icon,
+                    ColoreTesto = statoSorgente.ColoreTesto,
+                    ColoreSfondo = statoSorgente.ColoreSfondo,
+                    DisplayOrder = ++maxOrder,
+                    IsDefault = false, // Non copiamo il flag default
+                    IsFinale = statoSorgente.IsFinale,
+                    IsActive = true,
+                    CreatedAt = DateTime.Now
+                };
+                _context.StatiAttivitaTipo.Add(nuovoStato);
+                copiati++;
+            }
+
+            await _context.SaveChangesAsync();
+            TempData["Success"] = $"Copiati {copiati} stati da '{tipoSorgente.Nome}'.";
+            return RedirectToAction(nameof(Stati), new { id = destinazioneId });
         }
 
         // POST: AttivitaTipi/DeleteStato/5
