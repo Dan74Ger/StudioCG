@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StudioCG.Web.Models;
+using StudioCG.Web.Models.AttivitaPeriodiche;
 using StudioCG.Web.Models.BudgetStudio;
 using StudioCG.Web.Models.Documenti;
 using StudioCG.Web.Models.Entita;
@@ -76,6 +77,14 @@ namespace StudioCG.Web.Data
         public DbSet<StatoEntita> StatiEntita { get; set; }
         public DbSet<RecordEntita> RecordsEntita { get; set; }
         public DbSet<ValoreCampoEntita> ValoriCampiEntita { get; set; }
+
+        // Tabelle Attività Periodiche Dinamiche
+        public DbSet<AttivitaPeriodica> AttivitaPeriodiche { get; set; }
+        public DbSet<TipoPeriodo> TipiPeriodo { get; set; }
+        public DbSet<CampoPeriodico> CampiPeriodici { get; set; }
+        public DbSet<RegolaCampo> RegoleCampi { get; set; }
+        public DbSet<ClienteAttivitaPeriodica> ClientiAttivitaPeriodiche { get; set; }
+        public DbSet<ValorePeriodo> ValoriPeriodi { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -1023,6 +1032,119 @@ namespace StudioCG.Web.Data
                     .WithMany(c => c.Valori)
                     .HasForeignKey(e => e.CampoEntitaId)
                     .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            // ============ ATTIVITÀ PERIODICHE DINAMICHE ============
+            modelBuilder.Entity<AttivitaPeriodica>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.NomePlurale).HasMaxLength(100);
+                entity.Property(e => e.Descrizione).HasMaxLength(500);
+                entity.Property(e => e.Icona).HasMaxLength(50);
+                entity.Property(e => e.Colore).HasMaxLength(20);
+                entity.HasIndex(e => e.Nome).IsUnique();
+            });
+
+            modelBuilder.Entity<TipoPeriodo>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Icona).HasMaxLength(50);
+                entity.Property(e => e.Colore).HasMaxLength(20);
+                entity.Property(e => e.PercentualeInteressiDefault).HasColumnType("decimal(5,2)");
+
+                entity.HasOne(e => e.AttivitaPeriodica)
+                    .WithMany(a => a.TipiPeriodo)
+                    .HasForeignKey(e => e.AttivitaPeriodicaId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => new { e.AttivitaPeriodicaId, e.Nome }).IsUnique();
+            });
+
+            modelBuilder.Entity<CampoPeriodico>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Label).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.LabelPrimoPeriodo).HasMaxLength(100);
+                entity.Property(e => e.TipoCampo).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Options).HasMaxLength(1000);
+                entity.Property(e => e.DefaultValue).HasMaxLength(200);
+                entity.Property(e => e.Placeholder).HasMaxLength(200);
+                entity.Property(e => e.Formula).HasMaxLength(500);
+
+                entity.HasOne(e => e.TipoPeriodo)
+                    .WithMany(t => t.Campi)
+                    .HasForeignKey(e => e.TipoPeriodoId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => new { e.TipoPeriodoId, e.Nome }).IsUnique();
+            });
+
+            modelBuilder.Entity<RegolaCampo>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.TipoRegola).IsRequired().HasMaxLength(20);
+                entity.Property(e => e.NomeRegola).HasMaxLength(100);
+                entity.Property(e => e.CondizioneRiporto).HasMaxLength(50);
+                entity.Property(e => e.Operatore).HasMaxLength(10);
+                entity.Property(e => e.ValoreConfronto).HasMaxLength(100);
+                entity.Property(e => e.ColoreTesto).HasMaxLength(20);
+                entity.Property(e => e.ColoreSfondo).HasMaxLength(20);
+                entity.Property(e => e.Icona).HasMaxLength(50);
+                entity.Property(e => e.ApplicaA).HasMaxLength(20);
+
+                entity.HasOne(e => e.CampoPeriodico)
+                    .WithMany(c => c.Regole)
+                    .HasForeignKey(e => e.CampoPeriodicoId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.CampoOrigine)
+                    .WithMany()
+                    .HasForeignKey(e => e.CampoOrigineId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.CampoDestinazione)
+                    .WithMany()
+                    .HasForeignKey(e => e.CampoDestinazioneId)
+                    .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            modelBuilder.Entity<ClienteAttivitaPeriodica>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.CodCoge).HasMaxLength(50);
+                entity.Property(e => e.PercentualeInteressi).HasColumnType("decimal(5,2)");
+
+                entity.HasOne(e => e.AttivitaPeriodica)
+                    .WithMany(a => a.ClientiAssociati)
+                    .HasForeignKey(e => e.AttivitaPeriodicaId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.TipoPeriodo)
+                    .WithMany(t => t.ClientiAssociati)
+                    .HasForeignKey(e => e.TipoPeriodoId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Cliente)
+                    .WithMany()
+                    .HasForeignKey(e => e.ClienteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => new { e.TipoPeriodoId, e.ClienteId, e.AnnoFiscale }).IsUnique();
+            });
+
+            modelBuilder.Entity<ValorePeriodo>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(e => e.ClienteAttivitaPeriodica)
+                    .WithMany(c => c.ValoriPeriodi)
+                    .HasForeignKey(e => e.ClienteAttivitaPeriodicaId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => new { e.ClienteAttivitaPeriodicaId, e.NumeroPeriodo }).IsUnique();
             });
 
             // Seed anno fiscale corrente

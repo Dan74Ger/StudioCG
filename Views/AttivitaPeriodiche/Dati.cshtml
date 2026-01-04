@@ -1,0 +1,1273 @@
+@model IEnumerable<StudioCG.Web.Models.AttivitaPeriodiche.ClienteAttivitaPeriodica>
+@using System.Text.Json
+@{
+    var attivita = ViewBag.Attivita as StudioCG.Web.Models.AttivitaPeriodiche.AttivitaPeriodica;
+    var tipoSelezionato = ViewBag.TipoSelezionato as StudioCG.Web.Models.AttivitaPeriodiche.TipoPeriodo;
+    var anno = (int)ViewBag.Anno;
+    var search = ViewBag.Search as string;
+    var etichette = ViewBag.Etichette as List<string> ?? new List<string>();
+    var campi = ViewBag.Campi as List<StudioCG.Web.Models.AttivitaPeriodiche.CampoPeriodico> ?? new List<StudioCG.Web.Models.AttivitaPeriodiche.CampoPeriodico>();
+    var clientiDisponibili = ViewBag.ClientiDisponibili as IEnumerable<dynamic> ?? Enumerable.Empty<dynamic>();
+    var annualita = ViewBag.Annualita as List<StudioCG.Web.Models.AnnualitaFiscale> ?? new List<StudioCG.Web.Models.AnnualitaFiscale>();
+    var campiConRiporto = ViewBag.CampiConRiporto as List<string> ?? new List<string>();
+    
+    ViewData["Title"] = $"{attivita?.Nome} - {anno}";
+}
+
+<style>
+    /* Stili Accordion Clienti */
+    #accordionClienti .accordion-item {
+        border: 1px solid #dee2e6;
+        margin-bottom: 0.5rem;
+        border-radius: 0.375rem;
+        overflow: hidden;
+    }
+    #accordionClienti .accordion-header {
+        background-color: #f8f9fa;
+    }
+    #accordionClienti .accordion-button {
+        font-size: 0.95rem;
+        padding: 0.75rem 1rem;
+        background-color: #f8f9fa;
+    }
+    #accordionClienti .accordion-button:not(.collapsed) {
+        background-color: #e7f1ff;
+        color: #0c63e4;
+    }
+    #accordionClienti .accordion-button::after {
+        margin-left: 0.5rem;
+    }
+    /* Pulsanti azione nell'header - posizione fissa */
+    #accordionClienti .accordion-header {
+        display: flex;
+        align-items: center;
+    }
+    #accordionClienti .accordion-header .accordion-button {
+        flex: 1;
+    }
+    #accordionClienti .accordion-header .btn-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0 0.75rem;
+        flex-shrink: 0;
+    }
+    #accordionClienti .accordion-body {
+        padding: 0.75rem;
+        background-color: #fff;
+    }
+    
+    .griglia-periodi {
+        font-size: 0.85rem;
+    }
+    .griglia-periodi th, .griglia-periodi td {
+        padding: 0.3rem 0.5rem;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+    .griglia-periodi input[type="text"],
+    .griglia-periodi input[type="number"] {
+        width: 100%;
+        padding: 0.2rem 0.4rem;
+        font-size: 0.85rem;
+        border: 1px solid #ced4da;
+        border-radius: 3px;
+        text-align: right;
+    }
+    .griglia-periodi input:focus {
+        border-color: #007bff;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+    }
+    .griglia-periodi input.campo-calcolato {
+        background-color: #e9ecef;
+        font-weight: bold;
+        color: #495057;
+    }
+    .griglia-periodi input.salvato {
+        background-color: #d4edda;
+        transition: background-color 0.3s;
+    }
+    .griglia-periodi input.errore {
+        background-color: #f8d7da;
+        border-color: #dc3545;
+    }
+    .col-cliente {
+        position: sticky;
+        left: 0;
+        background: white;
+        z-index: 10;
+        border-right: 2px solid #dee2e6;
+    }
+    .col-header-cliente {
+        position: sticky;
+        left: 0;
+        background: #f8f9fa;
+        z-index: 20;
+        border-right: 2px solid #dee2e6;
+    }
+    .periodo-header {
+        text-align: center;
+        font-weight: bold;
+        border-bottom: 2px solid #dee2e6;
+    }
+    .campo-header {
+        text-align: center;
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+    .btn-azione-riga {
+        padding: 0.1rem 0.3rem;
+        font-size: 0.7rem;
+    }
+    .periodo-group {
+        border-left: 2px solid;
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2>
+                <i class="@attivita?.Icona me-2" style="color: @attivita?.Colore;"></i>
+                @attivita?.Nome - @anno
+            </h2>
+            <p class="text-muted mb-0">
+                <i class="@tipoSelezionato?.Icona me-1" style="color: @tipoSelezionato?.Colore;"></i>
+                @tipoSelezionato?.Nome (@tipoSelezionato?.NumeroPeriodi periodi) • @Model.Count() clienti
+            </p>
+        </div>
+        <div class="btn-group">
+            <a asp-action="Configura" asp-route-id="@attivita?.Id" class="btn btn-outline-secondary">
+                <i class="fas fa-cog me-1"></i>Configura
+            </a>
+            <a asp-action="Gestione" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Gestione
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show py-2">
+            <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show py-2">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Filtri -->
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <form method="get" class="row g-2 align-items-end">
+                <input type="hidden" name="id" value="@attivita?.Id" />
+                
+                <div class="col-auto">
+                    <label class="form-label small mb-1">Tipo Periodo</label>
+                    <select name="tipoPeriodoId" class="form-select form-select-sm" onchange="this.form.submit()">
+                        @foreach (var tipo in attivita?.TipiPeriodo ?? new List<StudioCG.Web.Models.AttivitaPeriodiche.TipoPeriodo>())
+                        {
+                            var isSelected = tipo.Id == tipoSelezionato?.Id;
+                            <option value="@tipo.Id" selected="@isSelected">
+                                @tipo.Nome (@tipo.NumeroPeriodi)
+                            </option>
+                        }
+                    </select>
+                </div>
+                
+                <div class="col-auto">
+                    <label class="form-label small mb-1">Anno</label>
+                    <select name="anno" class="form-select form-select-sm" onchange="this.form.submit()">
+                        @foreach (var af in annualita)
+                        {
+                            if (af.Anno == anno)
+                            {
+                                <option value="@af.Anno" selected>@af.Anno @(af.IsCurrent ? "(corrente)" : "")</option>
+                            }
+                            else
+                            {
+                                <option value="@af.Anno">@af.Anno @(af.IsCurrent ? "(corrente)" : "")</option>
+                            }
+                        }
+                    </select>
+                </div>
+                
+                <div class="col-auto">
+                    <label class="form-label small mb-1">Cerca Cliente</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" name="search" class="form-control" value="@search" placeholder="Ragione sociale..." />
+                        <button type="submit" class="btn btn-outline-secondary"><i class="fas fa-search"></i></button>
+                    </div>
+                </div>
+
+                @{
+                    var campiFiltro = campi.Where(c => c.UseAsFilter && c.ShowInList).ToList();
+                }
+                @if (campiFiltro.Any())
+                {
+                    foreach (var filtro in campiFiltro)
+                    {
+                        <div class="col-auto">
+                            <label class="form-label small mb-1">@filtro.Label</label>
+                            @if (filtro.TipoCampo == "checkbox")
+                            {
+                                <div class="d-flex align-items-center gap-2">
+                                    <select class="form-select form-select-sm filtro-campo" data-campo="@filtro.Nome" onchange="applicaFiltriCampi()">
+                                        <option value="">Tutti</option>
+                                        <option value="1">✓ Sì</option>
+                                        <option value="0">✗ No</option>
+                                    </select>
+                                </div>
+                            }
+                            else if (filtro.TipoCampo == "dropdown" && !string.IsNullOrEmpty(filtro.Options))
+                            {
+                                <select class="form-select form-select-sm filtro-campo" data-campo="@filtro.Nome" onchange="applicaFiltriCampi()">
+                                    <option value="">Tutti</option>
+                                    @foreach (var opt in filtro.Options.Split('|'))
+                                    {
+                                        <option value="@opt">@opt</option>
+                                    }
+                                </select>
+                            }
+                            else
+                            {
+                                <input type="text" class="form-control form-control-sm filtro-campo" 
+                                       data-campo="@filtro.Nome" 
+                                       placeholder="Filtra..."
+                                       oninput="applicaFiltriCampi()" />
+                            }
+                        </div>
+                    }
+                }
+
+                <div class="col-auto ms-auto">
+                    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addClienteModal">
+                        <i class="fas fa-plus me-1"></i>Aggiungi Cliente
+                    </button>
+                    <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#copiaAnnoModal">
+                        <i class="fas fa-copy me-1"></i>Copia Anno
+                    </button>
+                    <button type="button" class="btn btn-sm btn-warning" onclick="ricalcolaTuttiRiporti()" title="Ricalcola riporti per tutti i clienti">
+                        <i class="fas fa-sync me-1"></i>Ricalcola Riporti
+                    </button>
+                    <a asp-action="ConfiguraRegole" asp-route-id="@tipoSelezionato?.Id" class="btn btn-sm btn-outline-warning" title="Configura regole colore e riporti">
+                        <i class="fas fa-palette"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            Nessun cliente associato a <strong>@tipoSelezionato?.Nome</strong> per l'anno <strong>@anno</strong>.
+            <br><small>Clicca "Aggiungi Cliente" per iniziare.</small>
+        </div>
+    }
+    else if (!campi.Any())
+    {
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Nessun campo configurato per <strong>@tipoSelezionato?.Nome</strong>.
+            <a asp-action="ConfiguraTipo" asp-route-id="@tipoSelezionato?.Id">Configura i campi</a>.
+        </div>
+    }
+    else
+    {
+        <!-- Accordion Clienti -->
+        <div class="accordion" id="accordionClienti">
+            @{ int clienteIdx = 0; }
+            @foreach (var cliente in Model)
+            {
+                clienteIdx++;
+                
+                // Trova il campo che indica il completamento (es: "Ultima FT")
+                var campoCompletamento = campi.FirstOrDefault(c => c.IsCompletionIndicator);
+                // Trova il campo che indica il risultato (credito/debito)
+                var campoRisultato = campi.FirstOrDefault(c => c.IsResultIndicator);
+                
+                // Trova l'ultimo periodo compilato basandosi sul campo completamento
+                int ultimoPeriodoCompilato = 0;
+                decimal ultimoRisultato = 0;
+                for (int p = tipoSelezionato?.NumeroPeriodi ?? 0; p >= 1; p--)
+                {
+                    var vp = cliente.ValoriPeriodi.FirstOrDefault(v => v.NumeroPeriodo == p);
+                    if (vp != null)
+                    {
+                        var vals = JsonSerializer.Deserialize<Dictionary<string, string>>(vp.Valori) ?? new Dictionary<string, string>();
+                        var calcolati = JsonSerializer.Deserialize<Dictionary<string, string>>(vp.ValoriCalcolati) ?? new Dictionary<string, string>();
+                        
+                        // Se c'è un campo completamento, verifica solo quello
+                        if (campoCompletamento != null)
+                        {
+                            vals.TryGetValue(campoCompletamento.Nome, out string? valComp);
+                            if (!string.IsNullOrWhiteSpace(valComp) && valComp != "0")
+                            {
+                                ultimoPeriodoCompilato = p;
+                                // Prendi il risultato (credito/debito) dell'ultimo periodo
+                                if (campoRisultato != null)
+                                {
+                                    string? valRis = null;
+                                    if (campoRisultato.IsCalculated)
+                                        calcolati.TryGetValue(campoRisultato.Nome, out valRis);
+                                    else
+                                        vals.TryGetValue(campoRisultato.Nome, out valRis);
+                                    
+                                    if (!string.IsNullOrWhiteSpace(valRis))
+                                    {
+                                        decimal.TryParse(valRis.Replace(",", "."), 
+                                            System.Globalization.NumberStyles.Any,
+                                            System.Globalization.CultureInfo.InvariantCulture, out ultimoRisultato);
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            // Fallback: qualsiasi valore non vuoto/zero
+                            if (vals.Any(kv => !string.IsNullOrWhiteSpace(kv.Value) && kv.Value != "0"))
+                            {
+                                ultimoPeriodoCompilato = p;
+                                break;
+                            }
+                        }
+                    }
+                }
+                var etichettaUltimo = ultimoPeriodoCompilato > 0 && ultimoPeriodoCompilato <= etichette.Count 
+                    ? etichette[ultimoPeriodoCompilato - 1] 
+                    : (ultimoPeriodoCompilato > 0 ? $"P{ultimoPeriodoCompilato}" : "Nessun dato");
+                var isCredito = ultimoRisultato >= 0;
+                var coloreRisultato = isCredito ? "bg-primary" : "bg-danger";
+
+                // Campi cliente (mostrati una sola volta nell'header)
+                var campiCliente = campi.Where(c => c.IsCampoCliente && c.ShowInList).ToList();
+                // Campi periodo (ripetuti per ogni periodo)
+                var campiPeriodo = campi.Where(c => !c.IsCampoCliente && c.ShowInList).ToList();
+                // Valori del primo periodo per i campi cliente
+                var primoPeriodo = cliente.ValoriPeriodi.FirstOrDefault(v => v.NumeroPeriodo == 1);
+                var valoriCliente = primoPeriodo != null 
+                    ? JsonSerializer.Deserialize<Dictionary<string, string>>(primoPeriodo.Valori) ?? new Dictionary<string, string>()
+                    : new Dictionary<string, string>();
+
+                <div class="accordion-item" data-cliente-id="@cliente.Id">
+                    <h2 class="accordion-header d-flex align-items-center">
+                        <button class="accordion-button collapsed py-2 flex-grow-1" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#collapse@(cliente.Id)" aria-expanded="false">
+                            <div class="d-flex justify-content-between align-items-center w-100">
+                                <div class="d-flex align-items-center flex-wrap gap-2">
+                                    <strong>@cliente.Cliente?.RagioneSociale</strong>
+                                    @foreach (var campoCliente in campiCliente)
+                                    {
+                                        valoriCliente.TryGetValue(campoCliente.Nome, out string? valCl);
+                                        if (!string.IsNullOrWhiteSpace(valCl) && valCl != "0")
+                                        {
+                                            <span class="badge bg-light text-dark border" title="@campoCliente.Label">
+                                                @campoCliente.Label: <strong>@valCl</strong>
+                                            </span>
+                                        }
+                                    }
+                                </div>
+                                <div class="me-2 d-flex gap-1">
+                                    @if (ultimoPeriodoCompilato > 0)
+                                    {
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check me-1"></i>@etichettaUltimo
+                                        </span>
+                                        @if (campoRisultato != null && ultimoRisultato != 0)
+                                        {
+                                            <span class="badge @coloreRisultato">
+                                                @if (isCredito)
+                                                {
+                                                    <i class="fas fa-arrow-up me-1"></i>
+                                                }
+                                                else
+                                                {
+                                                    <i class="fas fa-arrow-down me-1"></i>
+                                                }
+                                                @ultimoRisultato.ToString("N0")
+                                            </span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-minus me-1"></i>Da compilare
+                                        </span>
+                                    }
+                                </div>
+                            </div>
+                        </button>
+                        <!-- Pulsanti Azione -->
+                        <div class="btn-actions">
+                            <!-- Dropdown Cancella Dati -->
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-warning dropdown-toggle" type="button" 
+                                        data-bs-toggle="dropdown" title="Cancella dati">
+                                    <i class="fas fa-eraser"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><h6 class="dropdown-header">Cancella Dati</h6></li>
+                                    <li>
+                                        <button type="button" class="dropdown-item text-danger" 
+                                                onclick="cancellaTuttiDati(@cliente.Id, '@cliente.Cliente?.RagioneSociale?.Replace("'", "\\'")')">
+                                            <i class="fas fa-trash-alt me-2"></i>Tutti i periodi
+                                        </button>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><h6 class="dropdown-header">Singolo Periodo</h6></li>
+                                    @for (int pi = 1; pi <= tipoSelezionato?.NumeroPeriodi; pi++)
+                                    {
+                                        var etPeriodo = pi <= etichette.Count ? etichette[pi - 1] : $"P{pi}";
+                                        <li>
+                                            <button type="button" class="dropdown-item" 
+                                                    onclick="cancellaPeriodo(@cliente.Id, @pi, '@etPeriodo')">
+                                                <i class="fas fa-times me-2"></i>@etPeriodo
+                                            </button>
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                            <!-- Rimuovi Cliente -->
+                            <form asp-action="RimuoviCliente" method="post" class="d-inline" 
+                                  onsubmit="return confirm('Rimuovere questo cliente? (Il cliente stesso resta, ma viene rimosso da questa attività)');">
+                                <input type="hidden" name="id" value="@cliente.Id" />
+                                <input type="hidden" name="attivitaPeriodicaId" value="@attivita?.Id" />
+                                <input type="hidden" name="tipoPeriodoId" value="@tipoSelezionato?.Id" />
+                                <input type="hidden" name="anno" value="@anno" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Rimuovi cliente dall'attività">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </h2>
+                    <div id="collapse@(cliente.Id)" class="accordion-collapse collapse" data-bs-parent="#accordionClienti">
+                        <div class="accordion-body p-2">
+                            @* Campi Cliente (mostrati una sola volta, editabili) *@
+                            @if (campiCliente.Any())
+                            {
+                                <div class="row mb-3 p-2 bg-light rounded">
+                                    @foreach (var campoCliente in campiCliente)
+                                    {
+                                        valoriCliente.TryGetValue(campoCliente.Nome, out string? valCl);
+                                        valCl ??= campoCliente.DefaultValue ?? "";
+                                        var colW = campoCliente.ColWidth > 0 ? campoCliente.ColWidth : 3;
+                                        <div class="col-md-@colW mb-2">
+                                            <label class="form-label small fw-bold mb-1">@campoCliente.Label</label>
+                                            <input type="text" 
+                                                   class="form-control form-control-sm"
+                                                   value="@valCl"
+                                                   data-cliente-attivita="@cliente.Id"
+                                                   data-campo="@campoCliente.Nome"
+                                                   data-periodo="1"
+                                                   placeholder="@campoCliente.Placeholder"
+                                                   onchange="salvaValore(this)" />
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            @* Tabella Periodi *@
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered table-hover griglia-periodi mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 120px;">Periodo</th>
+                                            @foreach (var campo in campiPeriodo)
+                                            {
+                                                var width = campo.ColumnWidth > 0 ? campo.ColumnWidth : 100;
+                                                <th style="width: @(width)px; min-width: @(width)px; max-width: @(width)px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@campo.Label">
+                                                    @campo.Label
+                                                    @if (campo.IsCalculated)
+                                                    {
+                                                        <i class="fas fa-calculator text-warning ms-1" title="Calcolato"></i>
+                                                    }
+                                                </th>
+                                            }
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @for (int p = 1; p <= tipoSelezionato?.NumeroPeriodi; p++)
+                                        {
+                                            var valorePeriodo = cliente.ValoriPeriodi.FirstOrDefault(v => v.NumeroPeriodo == p);
+                                            var valori = valorePeriodo != null 
+                                                ? JsonSerializer.Deserialize<Dictionary<string, string>>(valorePeriodo.Valori) ?? new Dictionary<string, string>()
+                                                : new Dictionary<string, string>();
+                                            var valoriCalcolati = valorePeriodo != null 
+                                                ? JsonSerializer.Deserialize<Dictionary<string, string>>(valorePeriodo.ValoriCalcolati) ?? new Dictionary<string, string>()
+                                                : new Dictionary<string, string>();
+                                            var etichettaPeriodo = p <= etichette.Count ? etichette[p - 1] : $"P{p}";
+                                            var isUltimo = p == ultimoPeriodoCompilato;
+                                            var rowClass = isUltimo ? "table-success" : "";
+
+                                            <tr class="@rowClass">
+                                                <td class="fw-bold" style="background-color: @(tipoSelezionato?.Colore)20;">
+                                                    <i class="@tipoSelezionato?.Icona me-1" style="color: @tipoSelezionato?.Colore;"></i>
+                                                    @etichettaPeriodo
+                                                    @if (isUltimo)
+                                                    {
+                                                        <i class="fas fa-star text-warning ms-1" title="Ultimo compilato"></i>
+                                                    }
+                                                </td>
+                                                @foreach (var campo in campiPeriodo)
+                                                {
+                                                    // Verifica se il campo è visibile in questo periodo
+                                                    var periodiVisibiliList = (campo.PeriodiVisibili ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim()).ToList();
+                                                    var campoVisibileInPeriodo = periodiVisibiliList.Count == 0 || periodiVisibiliList.Contains(p.ToString());
+                                                    
+                                                    string valore = "";
+                                                    if (campo.IsCalculated)
+                                                    {
+                                                        valoriCalcolati.TryGetValue(campo.Nome, out valore!);
+                                                    }
+                                                    else
+                                                    {
+                                                        valori.TryGetValue(campo.Nome, out valore!);
+                                                    }
+                                                    valore ??= campo.DefaultValue ?? "";
+                                                    var cellWidth = campo.ColumnWidth > 0 ? campo.ColumnWidth : 100;
+
+                                                    <td style="width: @(cellWidth)px; min-width: @(cellWidth)px; max-width: @(cellWidth)px;">
+                                                        @if (!campoVisibileInPeriodo)
+                                                        {
+                                                            <span class="text-muted">—</span>
+                                                        }
+                                                        else if (campo.IsCalculated)
+                                                        {
+                                                            <input type="text" 
+                                                                   class="campo-calcolato form-control form-control-sm" 
+                                                                   value="@valore" 
+                                                                   readonly 
+                                                                   tabindex="-1"
+                                                                   data-campo="@campo.Nome"
+                                                                   data-periodo="@p" />
+                                                        }
+                                                        else
+                                                        {
+                                                            // Se il campo ha una regola di riporto e non è il primo periodo, è readonly
+                                                            var haRiporto = campiConRiporto.Contains(campo.Nome);
+                                                            var isReadonlyRiporto = haRiporto && p > 1;
+                                                            
+                                                            @if (campo.TipoCampo == "checkbox")
+                                                            {
+                                                                // Campo Checkbox
+                                                                var isChecked = valore == "1" || valore?.ToLower() == "true" || valore?.ToLower() == "si" || valore?.ToLower() == "sì";
+                                                                <div class="form-check d-flex justify-content-center">
+                                                                    <input type="checkbox" 
+                                                                           class="form-check-input"
+                                                                           style="width: 1.5em; height: 1.5em;"
+                                                                           @(isChecked ? "checked" : "")
+                                                                           data-cliente-attivita="@cliente.Id"
+                                                                           data-campo="@campo.Nome"
+                                                                           data-periodo="@p"
+                                                                           onchange="salvaCheckbox(this)" />
+                                                                </div>
+                                                            }
+                                                            else if (campo.TipoCampo == "dropdown" && !string.IsNullOrEmpty(campo.Options))
+                                                            {
+                                                                // Campo Dropdown
+                                                                var opzioni = campo.Options.Split('|');
+                                                                <select class="form-select form-select-sm"
+                                                                        data-cliente-attivita="@cliente.Id"
+                                                                        data-campo="@campo.Nome"
+                                                                        data-periodo="@p"
+                                                                        onchange="salvaValore(this)">
+                                                                    <option value="">--</option>
+                                                                    @foreach (var opt in opzioni)
+                                                                    {
+                                                                        if (valore == opt)
+                                                                        {
+                                                                            <option value="@opt" selected>@opt</option>
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            <option value="@opt">@opt</option>
+                                                                        }
+                                                                    }
+                                                                </select>
+                                                            }
+                                                            else if (campo.TipoCampo == "date")
+                                                            {
+                                                                // Campo Data
+                                                                <input type="date" 
+                                                                       class="form-control form-control-sm"
+                                                                       value="@valore"
+                                                                       data-cliente-attivita="@cliente.Id"
+                                                                       data-campo="@campo.Nome"
+                                                                       data-periodo="@p"
+                                                                       onchange="salvaValore(this)" />
+                                                            }
+                                                            else if (campo.TipoCampo == "number")
+                                                            {
+                                                                // Campo Numero intero
+                                                                <input type="number" 
+                                                                       class="form-control form-control-sm"
+                                                                       value="@valore"
+                                                                       step="1"
+                                                                       data-cliente-attivita="@cliente.Id"
+                                                                       data-campo="@campo.Nome"
+                                                                       data-periodo="@p"
+                                                                       placeholder="@campo.Placeholder"
+                                                                       onchange="salvaValore(this)"
+                                                                       onkeydown="navigaConTasti(event, this)" />
+                                                            }
+                                                            else if (campo.TipoCampo == "textarea")
+                                                            {
+                                                                // Campo Testo lungo
+                                                                <textarea class="form-control form-control-sm"
+                                                                          rows="1"
+                                                                          style="resize: vertical; min-height: 28px;"
+                                                                          data-cliente-attivita="@cliente.Id"
+                                                                          data-campo="@campo.Nome"
+                                                                          data-periodo="@p"
+                                                                          placeholder="@campo.Placeholder"
+                                                                          onchange="salvaValore(this)">@valore</textarea>
+                                                            }
+                                                            else if (isReadonlyRiporto)
+                                                            {
+                                                                // Campo con riporto automatico (readonly)
+                                                                <input type="text" 
+                                                                       class="form-control form-control-sm campo-riporto" 
+                                                                       value="@valore" 
+                                                                       readonly 
+                                                                       tabindex="-1"
+                                                                       data-campo="@campo.Nome"
+                                                                       data-periodo="@p"
+                                                                       title="Riportato automaticamente dal periodo precedente"
+                                                                       style="background-color: #e8f4e8; cursor: not-allowed;" />
+                                                            }
+                                                            else
+                                                            {
+                                                                // Campo testo/numero standard
+                                                                <input type="text" 
+                                                                       class="form-control form-control-sm"
+                                                                       value="@valore"
+                                                                       data-cliente-attivita="@cliente.Id"
+                                                                       data-campo="@campo.Nome"
+                                                                       data-periodo="@p"
+                                                                       placeholder="@campo.Placeholder"
+                                                                       onchange="salvaValore(this)"
+                                                                       onkeydown="navigaConTasti(event, this)" />
+                                                            }
+                                                        }
+                                                    </td>
+                                                }
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Modal Aggiungi Cliente -->
+<div class="modal fade" id="addClienteModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form asp-action="AggiungiClienti" method="post">
+                <input type="hidden" name="attivitaPeriodicaId" value="@attivita?.Id" />
+                <input type="hidden" name="tipoPeriodoId" value="@tipoSelezionato?.Id" />
+                <input type="hidden" name="anno" value="@anno" />
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Aggiungi Clienti</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-2 d-flex justify-content-between align-items-center">
+                        <label class="form-label mb-0">Seleziona Clienti</label>
+                        <div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="selezionaTuttiClienti(true)">
+                                <i class="fas fa-check-double me-1"></i>Seleziona Tutti
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selezionaTuttiClienti(false)">
+                                <i class="fas fa-times me-1"></i>Deseleziona
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <input type="text" id="searchClientiModal" class="form-control form-control-sm" placeholder="Filtra clienti..." oninput="filtraClientiModal(this.value)" />
+                    </div>
+                    <div style="max-height: 350px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.25rem;">
+                        @if (!clientiDisponibili.Any())
+                        {
+                            <div class="p-3 text-muted text-center">
+                                <i class="fas fa-users-slash fa-2x mb-2"></i>
+                                <p class="mb-0">Tutti i clienti sono già associati.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="list-group list-group-flush" id="listaClientiModal">
+                                @foreach (var c in clientiDisponibili)
+                                {
+                                    <label class="list-group-item list-group-item-action d-flex align-items-center cliente-item" style="cursor: pointer;">
+                                        <input type="checkbox" name="clienteIds" value="@c.Id" class="form-check-input me-3 cliente-checkbox" style="margin-top: 0;" />
+                                        <span class="cliente-nome">@c.RagioneSociale</span>
+                                    </label>
+                                }
+                            </div>
+                        }
+                    </div>
+                    <p class="text-muted small mt-2 mb-0">
+                        <i class="fas fa-info-circle me-1"></i>
+                        I clienti selezionati verranno aggiunti a <strong>@tipoSelezionato?.Nome</strong> per l'anno <strong>@anno</strong>.
+                        <span id="countSelezionati" class="badge bg-success ms-2">0 selezionati</span>
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-success"><i class="fas fa-plus me-1"></i>Aggiungi Selezionati</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Copia Anno -->
+<div class="modal fade" id="copiaAnnoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CopiaAnno" method="post">
+                <input type="hidden" name="attivitaPeriodicaId" value="@attivita?.Id" />
+                <input type="hidden" name="tipoPeriodoId" value="@tipoSelezionato?.Id" />
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="fas fa-copy me-2"></i>Copia Clienti da Altro Anno</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <label class="form-label">Anno Origine</label>
+                            <select name="annoOrigine" class="form-select">
+                                @foreach (var af in annualita)
+                                {
+                                    var isOrigineSelected = af.Anno == anno - 1 || (annualita.Count == 1 && af.Anno == anno);
+                                    if (isOrigineSelected)
+                                    {
+                                        <option value="@af.Anno" selected>@af.Anno</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@af.Anno">@af.Anno</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Anno Destinazione</label>
+                            <select name="annoDestinazione" class="form-select">
+                                @foreach (var af in annualita)
+                                {
+                                    if (af.Anno == anno)
+                                    {
+                                        <option value="@af.Anno" selected>@af.Anno</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@af.Anno">@af.Anno</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <p class="text-muted small mt-3 mb-0">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Verranno copiati solo i clienti (senza i valori). I clienti già presenti nell'anno destinazione saranno ignorati.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-info"><i class="fas fa-copy me-1"></i>Copia</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+// Salva valore checkbox via AJAX
+function salvaCheckbox(checkbox) {
+    const clienteAttivitaId = checkbox.dataset.clienteAttivita;
+    const campo = checkbox.dataset.campo;
+    const periodo = checkbox.dataset.periodo;
+    const valore = checkbox.checked ? "1" : "0";
+
+    fetch('@Url.Action("SalvaValore", "AttivitaPeriodiche")', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+        },
+        body: JSON.stringify({
+            clienteAttivitaId: parseInt(clienteAttivitaId),
+            numeroPeriodo: parseInt(periodo),
+            nomeCampo: campo,
+            valore: valore
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) {
+            console.error('Errore salvataggio checkbox:', data.error);
+            // Ripristina stato precedente
+            checkbox.checked = !checkbox.checked;
+        }
+    })
+    .catch(err => {
+        console.error('Errore rete:', err);
+        checkbox.checked = !checkbox.checked;
+    });
+}
+
+// Salva valore cella via AJAX
+function salvaValore(input) {
+    const clienteAttivitaId = input.dataset.clienteAttivita;
+    const campo = input.dataset.campo;
+    const periodo = input.dataset.periodo;
+    const valore = input.value;
+
+    input.classList.remove('salvato', 'errore');
+
+    fetch('@Url.Action("SalvaValore", "AttivitaPeriodiche")', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+        },
+        body: JSON.stringify({
+            clienteAttivitaId: parseInt(clienteAttivitaId),
+            numeroPeriodo: parseInt(periodo),
+            nomeCampo: campo,
+            valore: valore
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            input.classList.add('salvato');
+            setTimeout(() => input.classList.remove('salvato'), 1000);
+            
+            // Aggiorna campi calcolati
+            if (data.valoriCalcolati) {
+                const riga = input.closest('tr');
+                for (const [nomeCampo, val] of Object.entries(data.valoriCalcolati)) {
+                    const campoCalc = riga.querySelector(`input[data-campo="${nomeCampo}"][data-periodo="${periodo}"]`);
+                    if (campoCalc) {
+                        campoCalc.value = val;
+                        campoCalc.classList.add('salvato');
+                        setTimeout(() => campoCalc.classList.remove('salvato'), 1000);
+                    }
+                }
+            }
+        } else {
+            input.classList.add('errore');
+            console.error('Errore:', data.error);
+        }
+    })
+    .catch(err => {
+        input.classList.add('errore');
+        console.error('Errore rete:', err);
+    });
+}
+
+// Navigazione con frecce e Tab
+function navigaConTasti(event, input) {
+    const key = event.key;
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Tab'].includes(key)) return;
+    if (key === 'Tab') return; // Lascia il comportamento default
+
+    const td = input.closest('td');
+    const tr = td.closest('tr');
+    const table = tr.closest('table');
+    const allInputs = Array.from(table.querySelectorAll('tbody input:not([readonly])'));
+    const currentIndex = allInputs.indexOf(input);
+    
+    let nextInput = null;
+    const campiPerRiga = allInputs.filter(i => i.closest('tr') === tr).length;
+
+    switch(key) {
+        case 'ArrowRight':
+        case 'Enter':
+            nextInput = allInputs[currentIndex + 1];
+            break;
+        case 'ArrowLeft':
+            nextInput = allInputs[currentIndex - 1];
+            break;
+        case 'ArrowDown':
+            nextInput = allInputs[currentIndex + campiPerRiga];
+            break;
+        case 'ArrowUp':
+            nextInput = allInputs[currentIndex - campiPerRiga];
+            break;
+    }
+
+    if (nextInput) {
+        event.preventDefault();
+        nextInput.focus();
+        nextInput.select();
+    }
+}
+
+// Seleziona tutto al focus
+document.querySelectorAll('.griglia-periodi input:not([readonly])').forEach(input => {
+    input.addEventListener('focus', function() {
+        this.select();
+    });
+});
+
+// ============ REGOLE COLORE ============
+let regoleColore = [];
+
+// Carica regole colore all'avvio
+function caricaRegoleColore() {
+    fetch('@Url.Action("GetRegoleColore", "AttivitaPeriodiche")?tipoPeriodoId=@tipoSelezionato?.Id')
+        .then(r => r.json())
+        .then(data => {
+            regoleColore = data;
+            applicaRegoleColore();
+        })
+        .catch(err => console.error('Errore caricamento regole:', err));
+}
+
+// Applica regole colore a tutte le celle
+function applicaRegoleColore() {
+    console.log('[COLORI] Regole caricate:', regoleColore);
+    if (!regoleColore.length) {
+        console.log('[COLORI] Nessuna regola da applicare');
+        return;
+    }
+
+    document.querySelectorAll('.griglia-periodi tbody tr').forEach(riga => {
+        // Reset stili riga
+        riga.style.backgroundColor = '';
+        riga.style.color = '';
+        riga.style.fontWeight = '';
+
+        riga.querySelectorAll('input').forEach(input => {
+            const campo = input.dataset.campo;
+            const valore = parseFloat(input.value.replace(',', '.')) || 0;
+
+            // Reset stile cella
+            const td = input.closest('td');
+            td.style.backgroundColor = '';
+            input.style.color = '';
+            input.style.fontWeight = '';
+
+            // Trova regole per questo campo
+            const regoleCampo = regoleColore.filter(r => r.campoNome === campo);
+            
+            for (const regola of regoleCampo) {
+                const valConfronto = parseFloat(regola.valoreConfronto) || 0;
+                const valoreOriginale = input.value?.trim() || '';
+                let soddisfatta = false;
+
+                switch (regola.operatore) {
+                    case 'sempre': soddisfatta = true; break;
+                    case 'vuoto': soddisfatta = valoreOriginale === ''; break;
+                    case 'non_vuoto': soddisfatta = valoreOriginale !== ''; break;
+                    case '<': soddisfatta = valore < valConfronto; break;
+                    case '<=': soddisfatta = valore <= valConfronto; break;
+                    case '=': soddisfatta = valore === valConfronto; break;
+                    case '!=': soddisfatta = valore !== valConfronto; break;
+                    case '>': soddisfatta = valore > valConfronto; break;
+                    case '>=': soddisfatta = valore >= valConfronto; break;
+                }
+
+                if (soddisfatta) {
+                    console.log('[COLORI] Regola applicata:', campo, regola.operatore, regola.valoreConfronto, '→', valore);
+                    if (regola.applicaA === 'riga') {
+                        if (regola.coloreSfondo) riga.style.setProperty('background-color', regola.coloreSfondo, 'important');
+                        if (regola.coloreTesto) {
+                            riga.style.setProperty('color', regola.coloreTesto, 'important');
+                            riga.querySelectorAll('input').forEach(inp => inp.style.setProperty('color', regola.coloreTesto, 'important'));
+                        }
+                        if (regola.grassetto) riga.style.setProperty('font-weight', 'bold', 'important');
+                    } else {
+                        if (regola.coloreSfondo) td.style.setProperty('background-color', regola.coloreSfondo, 'important');
+                        if (regola.coloreTesto) input.style.setProperty('color', regola.coloreTesto, 'important');
+                        if (regola.grassetto) input.style.setProperty('font-weight', 'bold', 'important');
+                    }
+                    break; // Prima regola che matcha vince (per priorità)
+                }
+            }
+        });
+    });
+}
+
+// ============ RICALCOLA RIPORTI ============
+function ricalcolaTuttiRiporti() {
+    const clientiIds = [];
+    // Cerca gli ID cliente dagli accordion-item
+    document.querySelectorAll('.accordion-item[data-cliente-id]').forEach(item => {
+        clientiIds.push(item.dataset.clienteId);
+    });
+
+    if (!clientiIds.length) {
+        alert('Nessun cliente da calcolare.');
+        return;
+    }
+
+    if (!confirm(`Ricalcolare i riporti per ${clientiIds.length} clienti? I valori verranno aggiornati in base alle regole configurate.`)) {
+        return;
+    }
+
+    let completati = 0;
+    const totale = clientiIds.length;
+
+    clientiIds.forEach(id => {
+        fetch('@Url.Action("RicalcolaRiporti", "AttivitaPeriodiche")', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+            },
+            body: JSON.stringify({ clienteAttivitaId: parseInt(id) })
+        })
+        .then(r => r.json())
+        .then(data => {
+            completati++;
+            if (completati === totale) {
+                alert('Riporti ricalcolati! La pagina verrà ricaricata.');
+                location.reload();
+            }
+        })
+        .catch(err => {
+            console.error('Errore:', err);
+            completati++;
+        });
+    });
+}
+
+// Applica regole dopo il salvataggio
+const originalSalvaValore = salvaValore;
+salvaValore = function(input) {
+    const clienteAttivitaId = input.dataset.clienteAttivita;
+    const campo = input.dataset.campo;
+    const periodo = input.dataset.periodo;
+    const valore = input.value;
+
+    input.classList.remove('salvato', 'errore');
+
+    fetch('@Url.Action("SalvaValore", "AttivitaPeriodiche")', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+        },
+        body: JSON.stringify({
+            clienteAttivitaId: parseInt(clienteAttivitaId),
+            numeroPeriodo: parseInt(periodo),
+            nomeCampo: campo,
+            valore: valore
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            input.classList.add('salvato');
+            setTimeout(() => input.classList.remove('salvato'), 1000);
+            
+            // Aggiorna campi calcolati
+            if (data.valoriCalcolati) {
+                const riga = input.closest('tr');
+                for (const [nomeCampo, val] of Object.entries(data.valoriCalcolati)) {
+                    const campoCalc = riga.querySelector(`input[data-campo="${nomeCampo}"][data-periodo="${periodo}"]`);
+                    if (campoCalc) {
+                        campoCalc.value = val;
+                        campoCalc.classList.add('salvato');
+                        setTimeout(() => campoCalc.classList.remove('salvato'), 1000);
+                    }
+                }
+            }
+            
+            // Riapplica regole colore
+            setTimeout(applicaRegoleColore, 100);
+        } else {
+            input.classList.add('errore');
+            console.error('Errore:', data.error);
+        }
+    })
+    .catch(err => {
+        input.classList.add('errore');
+        console.error('Errore rete:', err);
+    });
+};
+
+// Funzioni per modal Aggiungi Clienti
+function selezionaTuttiClienti(seleziona) {
+    const checkboxes = document.querySelectorAll('.cliente-checkbox');
+    checkboxes.forEach(cb => {
+        const item = cb.closest('.cliente-item');
+        if (item.style.display !== 'none') {
+            cb.checked = seleziona;
+        }
+    });
+    aggiornaCountSelezionati();
+}
+
+function filtraClientiModal(testo) {
+    const items = document.querySelectorAll('.cliente-item');
+    const testoLower = testo.toLowerCase();
+    items.forEach(item => {
+        const nome = item.querySelector('.cliente-nome').textContent.toLowerCase();
+        item.style.display = nome.includes(testoLower) ? '' : 'none';
+    });
+}
+
+function aggiornaCountSelezionati() {
+    const count = document.querySelectorAll('.cliente-checkbox:checked').length;
+    const badge = document.getElementById('countSelezionati');
+    if (badge) {
+        badge.textContent = count + ' selezionat' + (count === 1 ? 'o' : 'i');
+    }
+}
+
+// Aggiorna contatore quando si seleziona/deseleziona
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('cliente-checkbox')) {
+        aggiornaCountSelezionati();
+    }
+});
+
+// ============ CANCELLA DATI ============
+function cancellaTuttiDati(clienteAttivitaId, nomeCliente) {
+    if (!confirm(`Cancellare TUTTI i dati di "${nomeCliente}" per tutti i periodi?\n\nQuesta azione non può essere annullata.`)) {
+        return;
+    }
+    
+    fetch('@Url.Action("CancellaDati", "AttivitaPeriodiche")', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+        },
+        body: JSON.stringify({ clienteAttivitaId: clienteAttivitaId, numeroPeriodo: 0 }) // 0 = tutti
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('Dati cancellati! La pagina verrà ricaricata.');
+            location.reload();
+        } else {
+            alert('Errore: ' + (data.error || 'Errore sconosciuto'));
+        }
+    })
+    .catch(err => {
+        console.error('Errore:', err);
+        alert('Errore di rete');
+    });
+}
+
+function cancellaPeriodo(clienteAttivitaId, numeroPeriodo, etichettaPeriodo) {
+    if (!confirm(`Cancellare i dati di "${etichettaPeriodo}"?`)) {
+        return;
+    }
+    
+    fetch('@Url.Action("CancellaDati", "AttivitaPeriodiche")', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+        },
+        body: JSON.stringify({ clienteAttivitaId: clienteAttivitaId, numeroPeriodo: numeroPeriodo })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Dati di ${etichettaPeriodo} cancellati! La pagina verrà ricaricata.`);
+            location.reload();
+        } else {
+            alert('Errore: ' + (data.error || 'Errore sconosciuto'));
+        }
+    })
+    .catch(err => {
+        console.error('Errore:', err);
+        alert('Errore di rete');
+    });
+}
+
+// ============ FILTRI CAMPI ============
+function applicaFiltriCampi() {
+    const filtri = {};
+    document.querySelectorAll('.filtro-campo').forEach(filtro => {
+        const campo = filtro.dataset.campo;
+        const valore = filtro.value.trim();
+        if (valore) {
+            filtri[campo] = valore;
+        }
+    });
+
+    // Se nessun filtro attivo, mostra tutti
+    if (Object.keys(filtri).length === 0) {
+        document.querySelectorAll('.accordion-item').forEach(item => {
+            item.style.display = '';
+        });
+        return;
+    }
+
+    // Applica filtri a ogni cliente (accordion-item)
+    document.querySelectorAll('.accordion-item').forEach(item => {
+        let mostra = true;
+
+        for (const [campo, valoreFiltro] of Object.entries(filtri)) {
+            // Cerca il valore del campo in qualsiasi periodo del cliente
+            const inputs = item.querySelectorAll(`[data-campo="${campo}"]`);
+            let trovato = false;
+
+            inputs.forEach(input => {
+                let valoreInput = '';
+                if (input.type === 'checkbox') {
+                    valoreInput = input.checked ? '1' : '0';
+                } else {
+                    valoreInput = input.value || '';
+                }
+
+                // Per filtri di testo, cerca contenuto parziale
+                if (valoreFiltro === '1' || valoreFiltro === '0') {
+                    // Filtro checkbox: match esatto
+                    if (valoreInput === valoreFiltro) trovato = true;
+                } else {
+                    // Filtro testo: match parziale (case-insensitive)
+                    if (valoreInput.toLowerCase().includes(valoreFiltro.toLowerCase())) trovato = true;
+                }
+            });
+
+            if (!trovato) {
+                mostra = false;
+                break;
+            }
+        }
+
+        item.style.display = mostra ? '' : 'none';
+    });
+}
+
+// Inizializza
+document.addEventListener('DOMContentLoaded', function() {
+    // Carica regole colore dopo un breve delay per assicurarsi che il DOM sia pronto
+    setTimeout(caricaRegoleColore, 200);
+    
+    // Riapplica colori quando un accordion viene espanso
+    document.querySelectorAll('.accordion-collapse').forEach(function(collapse) {
+        collapse.addEventListener('shown.bs.collapse', function() {
+            setTimeout(applicaRegoleColore, 100);
+        });
+    });
+});
+</script>
+}

@@ -120,6 +120,7 @@ namespace StudioCG.Web.Services
         private static bool IsFormulaSafe(string formula)
         {
             // Permetti solo: numeri, punto decimale, operatori matematici, parentesi, spazi
+            // Le funzioni SE/IF vengono elaborate prima, quindi qui la formula è già numerica
             return Regex.IsMatch(formula, @"^[\d\.\+\-\*\/\(\)\s]+$");
         }
 
@@ -207,6 +208,8 @@ namespace StudioCG.Web.Services
 
         /// <summary>
         /// Calcola formula generica usando dizionario di valori
+        /// Supporta funzioni condizionali: SE(condizione; valore_se_vero; valore_se_falso)
+        /// Esempio: SE([LIQUIDAZIONE]<0; [LIQUIDAZIONE]*0.10; 0)
         /// </summary>
         public static string? CalcolaFormulaGenerica(string? formula, Dictionary<string, string> valori)
         {
@@ -215,26 +218,11 @@ namespace StudioCG.Web.Services
 
             try
             {
-                // Sostituisci i riferimenti ai campi [NomeCampo] con i loro valori
-                var formulaCalcolata = Regex.Replace(formula, @"\[([^\]]+)\]", match =>
-                {
-                    var nomeCampo = match.Groups[1].Value;
-                    
-                    // Cerca nel dizionario (case-insensitive)
-                    foreach (var kvp in valori)
-                    {
-                        if (kvp.Key.Equals(nomeCampo, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var val = kvp.Value?.Replace(",", ".") ?? "0";
-                            if (decimal.TryParse(val, System.Globalization.NumberStyles.Any, 
-                                System.Globalization.CultureInfo.InvariantCulture, out _))
-                            {
-                                return val;
-                            }
-                        }
-                    }
-                    return "0";
-                });
+                // Prima sostituisci i riferimenti ai campi [NomeCampo] con i loro valori
+                var formulaConValori = SostituisciCampiConValori(formula, valori);
+                
+                // Poi elabora le funzioni SE/IF
+                var formulaCalcolata = ElaboraFunzioniCondizionali(formulaConValori);
 
                 // Normalizza le virgole in punti per il calcolo
                 formulaCalcolata = formulaCalcolata.Replace(",", ".");
@@ -253,6 +241,143 @@ namespace StudioCG.Web.Services
             {
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Sostituisce i riferimenti ai campi [NomeCampo] con i loro valori numerici
+        /// </summary>
+        private static string SostituisciCampiConValori(string formula, Dictionary<string, string> valori)
+        {
+            return Regex.Replace(formula, @"\[([^\]]+)\]", match =>
+            {
+                var nomeCampo = match.Groups[1].Value;
+                
+                // Cerca nel dizionario (case-insensitive)
+                foreach (var kvp in valori)
+                {
+                    if (kvp.Key.Equals(nomeCampo, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var val = kvp.Value?.Replace(",", ".") ?? "0";
+                        if (decimal.TryParse(val, System.Globalization.NumberStyles.Any, 
+                            System.Globalization.CultureInfo.InvariantCulture, out _))
+                        {
+                            return val;
+                        }
+                    }
+                }
+                return "0";
+            });
+        }
+
+        /// <summary>
+        /// Elabora funzioni condizionali SE/IF nella formula
+        /// Sintassi: SE(condizione; valore_se_vero; valore_se_falso)
+        /// Condizioni supportate: <, <=, >, >=, =, !=
+        /// Supporta formato italiano con virgola decimale: 1,5 viene convertito in 1.5
+        /// Esempio: SE(100<0; 100*0,10; 0) → 0
+        /// Esempio: SE(-50<0; -50*1,5/100; 0) → -0.75
+        /// </summary>
+        private static string ElaboraFunzioniCondizionali(string formula)
+        {
+            // Converte le virgole decimali italiane in punti (es: 1,5 → 1.5)
+            // Ma preserva il ; come separatore di argomenti
+            formula = ConvertVirgoleDecimaliInPunti(formula);
+            
+            // Pattern per SE(...) o IF(...)
+            // Nota: usa ; come separatore per evitare conflitti con la virgola decimale
+            var pattern = @"(?:SE|IF)\s*\(\s*(.+?)\s*;\s*(.+?)\s*;\s*(.+?)\s*\)";
+            
+            while (Regex.IsMatch(formula, pattern, RegexOptions.IgnoreCase))
+            {
+                formula = Regex.Replace(formula, pattern, match =>
+                {
+                    var condizione = match.Groups[1].Value.Trim();
+                    var seVero = match.Groups[2].Value.Trim();
+                    var seFalso = match.Groups[3].Value.Trim();
+
+                    // Valuta la condizione
+                    var risultatoCondizione = ValutaCondizione(condizione);
+
+                    // Ritorna il valore appropriato
+                    return risultatoCondizione ? seVero : seFalso;
+                }, RegexOptions.IgnoreCase);
+            }
+
+            return formula;
+        }
+
+        /// <summary>
+        /// Valuta una condizione di confronto (es: "100<0", "-50>=0")
+        /// </summary>
+        private static bool ValutaCondizione(string condizione)
+        {
+            // Pattern per estrarre: valore1 operatore valore2
+            var operatori = new[] { "<=", ">=", "!=", "<>", "<", ">", "=" };
+            
+            foreach (var op in operatori)
+            {
+                var parti = condizione.Split(new[] { op }, 2, StringSplitOptions.None);
+                if (parti.Length == 2)
+                {
+                    var sinistra = parti[0].Trim().Replace(",", ".");
+                    var destra = parti[1].Trim().Replace(",", ".");
+
+                    // Prova a calcolare le espressioni se contengono operatori matematici
+                    var valSinistra = CalcolaEspressioneSemplice(sinistra);
+                    var valDestra = CalcolaEspressioneSemplice(destra);
+
+                    return op switch
+                    {
+                        "<" => valSinistra < valDestra,
+                        "<=" => valSinistra <= valDestra,
+                        ">" => valSinistra > valDestra,
+                        ">=" => valSinistra >= valDestra,
+                        "=" => valSinistra == valDestra,
+                        "!=" or "<>" => valSinistra != valDestra,
+                        _ => false
+                    };
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Calcola un'espressione semplice, restituendo 0 in caso di errore
+        /// </summary>
+        private static decimal CalcolaEspressioneSemplice(string espressione)
+        {
+            try
+            {
+                // Converti virgole italiane in punti
+                espressione = espressione.Replace(",", ".");
+                
+                if (decimal.TryParse(espressione, System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var numero))
+                {
+                    return numero;
+                }
+
+                // Prova a calcolare come espressione
+                var dt = new DataTable();
+                var result = dt.Compute(espressione, "");
+                return Convert.ToDecimal(result);
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Converte le virgole decimali italiane in punti
+        /// Riconosce pattern come: numero,decimale (es: 1,5 → 1.5, 10,25 → 10.25)
+        /// Non converte il ; che è il separatore di argomenti SE()
+        /// </summary>
+        private static string ConvertVirgoleDecimaliInPunti(string formula)
+        {
+            // Pattern: cifra + virgola + cifra (es: 1,5 o 100,25)
+            return Regex.Replace(formula, @"(\d),(\d)", "$1.$2");
         }
 
         /// <summary>

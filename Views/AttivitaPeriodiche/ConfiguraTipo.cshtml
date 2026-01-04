@@ -1,0 +1,491 @@
+@model StudioCG.Web.Models.AttivitaPeriodiche.TipoPeriodo
+@using System.Text.Json
+@{
+    ViewData["Title"] = $"Configura: {Model.Nome}";
+    var etichette = JsonSerializer.Deserialize<List<string>>(Model.EtichettePeriodi) ?? new List<string>();
+    var dateInizio = JsonSerializer.Deserialize<List<string>>(Model.DateInizioPeriodi) ?? new List<string>();
+    var dateFine = JsonSerializer.Deserialize<List<string>>(Model.DateFinePeriodi) ?? new List<string>();
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>
+                <i class="@Model.Icona me-2" style="color: @Model.Colore;"></i>
+                Configura: @Model.Nome
+            </h2>
+            <p class="text-muted mb-0">
+                <a asp-action="Configura" asp-route-id="@Model.AttivitaPeriodicaId">@Model.AttivitaPeriodica?.Nome</a>
+                → @Model.Nome (@Model.NumeroPeriodi periodi)
+            </p>
+        </div>
+        <div class="btn-group">
+            <a asp-action="ConfiguraRegole" asp-route-id="@Model.Id" class="btn btn-warning">
+                <i class="fas fa-palette me-1"></i>Regole Colori/Riporti
+            </a>
+            <a asp-action="Configura" asp-route-id="@Model.AttivitaPeriodicaId" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Torna a Sezione
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Impostazioni Tipo -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-cog me-2"></i>Impostazioni Tipo Periodo</h5>
+        </div>
+        <div class="card-body">
+            <form asp-action="AggiornaTipoPeriodo" method="post">
+                <input type="hidden" name="id" value="@Model.Id" />
+                <div class="row">
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label">Nome</label>
+                        <input type="text" name="nome" class="form-control" value="@Model.Nome" required />
+                    </div>
+                    <div class="col-md-1 mb-3">
+                        <label class="form-label">N. Periodi</label>
+                        <input type="number" name="numeroPeriodi" class="form-control" value="@Model.NumeroPeriodi" min="1" max="52" />
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label">Icona</label>
+                        <input type="text" name="icona" class="form-control" value="@Model.Icona" />
+                    </div>
+                    <div class="col-md-1 mb-3">
+                        <label class="form-label">Colore</label>
+                        <input type="color" name="colore" class="form-control form-control-color" value="@Model.Colore" />
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label">Opzioni</label>
+                        <div class="form-check">
+                            <input type="checkbox" name="mostraAccordion" value="true" class="form-check-input" id="mostraAcc" @(Model.MostraAccordion ? "checked" : "")>
+                            <label class="form-check-label" for="mostraAcc">Accordion</label>
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" name="etichettePeriodi" value="@Model.EtichettePeriodi" />
+                <input type="hidden" name="dateInizioPeriodi" value="@Model.DateInizioPeriodi" />
+                <input type="hidden" name="dateFinePeriodi" value="@Model.DateFinePeriodi" />
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-save me-1"></i>Salva Impostazioni
+                    </button>
+                    <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteTipoModal">
+                        <i class="fas fa-trash me-1"></i>Elimina Tipo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Periodi -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-calendar me-2"></i>Etichette Periodi</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Etichetta</th>
+                                    <th>Inizio</th>
+                                    <th>Fine</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (int i = 0; i < Model.NumeroPeriodi; i++)
+                                {
+                                    <tr>
+                                        <td><strong>@(i + 1)</strong></td>
+                                        <td>@(i < etichette.Count ? etichette[i] : $"Periodo {i+1}")</td>
+                                        <td class="text-muted small">@(i < dateInizio.Count ? dateInizio[i] : "-")</td>
+                                        <td class="text-muted small">@(i < dateFine.Count ? dateFine[i] : "-")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Campi -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-th-list me-2"></i>Campi (@Model.Campi.Count())</h5>
+                    <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addCampoModal">
+                        <i class="fas fa-plus me-1"></i>Aggiungi Campo
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    @if (!Model.Campi.Any())
+                    {
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-th-list fa-2x mb-2"></i>
+                            <p class="mb-0">Nessun campo definito. Aggiungi campi come Credito, Debito, ecc.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 50px;"></th>
+                                        <th>Campo</th>
+                                        <th>Tipo</th>
+                                        <th class="text-center">Opzioni</th>
+                                        <th style="width: 100px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var campo in Model.Campi)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <div class="btn-group-vertical btn-group-sm">
+                                                    <form asp-action="MoveCampoUp" method="post" class="d-inline">
+                                                        <input type="hidden" name="id" value="@campo.Id" />
+                                                        <button type="submit" class="btn btn-outline-secondary btn-sm py-0"><i class="fas fa-chevron-up"></i></button>
+                                                    </form>
+                                                    <form asp-action="MoveCampoDown" method="post" class="d-inline">
+                                                        <input type="hidden" name="id" value="@campo.Id" />
+                                                        <button type="submit" class="btn btn-outline-secondary btn-sm py-0"><i class="fas fa-chevron-down"></i></button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <strong>@campo.Label</strong>
+                                                <code class="ms-1 text-muted small">[@campo.Nome]</code>
+                                                @if (!string.IsNullOrEmpty(campo.LabelPrimoPeriodo))
+                                                {
+                                                    <br><small class="text-info"><i class="fas fa-calendar"></i> 1°: @campo.LabelPrimoPeriodo</small>
+                                                }
+                                                @if (campo.IsCalculated && !string.IsNullOrEmpty(campo.Formula))
+                                                {
+                                                    <br><small class="text-warning"><i class="fas fa-calculator"></i> @campo.Formula</small>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (campo.IsCalculated)
+                                                {
+                                                    <span class="badge bg-warning text-dark"><i class="fas fa-calculator me-1"></i>Calcolato</span>
+                                                }
+                                                else
+                                                {
+                                                    var tipoIcon = campo.TipoCampo switch {
+                                                        "text" => "📝", "number" => "🔢", "decimal" => "💰",
+                                                        "date" => "📅", "checkbox" => "☑️", "dropdown" => "📋", _ => "❓"
+                                                    };
+                                                    @tipoIcon @campo.TipoCampo
+                                                }
+                                            </td>
+                                            <td class="text-center">
+                                                @if (campo.IsRequired) { <span class="badge bg-danger">OBB</span> }
+                                                @if (campo.ShowInList) { <span class="badge bg-info">LISTA</span> }
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editCampoModal@(campo.Id)">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <form asp-action="EliminaCampo" method="post" class="d-inline" onsubmit="return confirm('Eliminare questo campo?')">
+                                                    <input type="hidden" name="id" value="@campo.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                                </form>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Modal Edit Campo -->
+                                        <div class="modal fade" id="editCampoModal@(campo.Id)" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <form asp-action="AggiornaCampo" method="post">
+                                                        <input type="hidden" name="id" value="@campo.Id" />
+                                                        <div class="modal-header"><h5 class="modal-title">Modifica Campo</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                                                        <div class="modal-body">
+                                                            <div class="mb-3"><label class="form-label">Etichetta</label><input type="text" name="label" class="form-control" value="@campo.Label" required /></div>
+                                                            <div class="mb-3"><label class="form-label">Etichetta Primo Periodo</label><input type="text" name="labelPrimoPeriodo" class="form-control" value="@campo.LabelPrimoPeriodo" placeholder="es: Cred. Iva Anno Prec." /><small class="text-muted">Se diversa dal normale (per riporti)</small></div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Tipo</label>
+                                                                <select name="tipoCampo" class="form-select">
+                                                                    @foreach (var t in new[] { ("text","Testo"), ("number","Numero"), ("decimal","Decimale"), ("date","Data"), ("checkbox","Checkbox"), ("dropdown","Dropdown") })
+                                                                    {
+                                                                        if (campo.TipoCampo == t.Item1) { <option value="@t.Item1" selected>@t.Item2</option> } else { <option value="@t.Item1">@t.Item2</option> }
+                                                                    }
+                                                                </select>
+                                                            </div>
+                                                            <div class="mb-3"><label class="form-label">Opzioni (per dropdown)</label><input type="text" name="options" class="form-control" value="@campo.Options" placeholder="Opz1|Opz2|Opz3" /></div>
+                                                            <div class="mb-3"><label class="form-label">Valore Default</label><input type="text" name="defaultValue" class="form-control" value="@campo.DefaultValue" /></div>
+                                                            <div class="row mb-3">
+                                                                <div class="col-6"><label class="form-label">Largh. Form (1-12)</label><input type="number" name="colWidth" class="form-control" value="@campo.ColWidth" min="1" max="12" /></div>
+                                                                <div class="col-6"><label class="form-label">Largh. Griglia (px)</label><input type="number" name="columnWidth" class="form-control" value="@campo.ColumnWidth" min="0" max="500" /></div>
+                                                            </div>
+                                                            <div class="row mb-3">
+                                                                <div class="col-3"><div class="form-check"><input type="checkbox" name="isRequired" value="true" class="form-check-input" @(campo.IsRequired ? "checked" : "") /><label class="form-check-label">Obbligatorio</label></div></div>
+                                                                <div class="col-3"><div class="form-check"><input type="checkbox" name="showInList" value="true" class="form-check-input" @(campo.ShowInList ? "checked" : "") /><label class="form-check-label">In Lista</label></div></div>
+                                                                <div class="col-3"><div class="form-check"><input type="checkbox" name="useAsFilter" value="true" class="form-check-input" @(campo.UseAsFilter ? "checked" : "") /><label class="form-check-label">Filtro</label></div></div>
+                                                                <div class="col-3"><div class="form-check"><input type="checkbox" name="isCampoCliente" value="true" class="form-check-input" @(campo.IsCampoCliente ? "checked" : "") /><label class="form-check-label" title="Mostrato una volta vicino al nome cliente">Campo Cliente</label></div></div>
+                                                            </div>
+                                                            <div class="row mb-3">
+                                                                <div class="col-6"><div class="form-check"><input type="checkbox" name="isCompletionIndicator" value="true" class="form-check-input" @(campo.IsCompletionIndicator ? "checked" : "") /><label class="form-check-label" title="Se compilato, indica che il periodo è completato"><i class="fas fa-check-circle text-success me-1"></i>Indica Completamento</label></div></div>
+                                                                <div class="col-6"><div class="form-check"><input type="checkbox" name="isResultIndicator" value="true" class="form-check-input" @(campo.IsResultIndicator ? "checked" : "") /><label class="form-check-label" title="Mostra credito/debito nel badge cliente"><i class="fas fa-balance-scale text-primary me-1"></i>Indica Risultato</label></div></div>
+                                                            </div>
+                                                            <!-- Periodi Visibili -->
+                                                            <div class="mb-3">
+                                                                <label class="form-label"><i class="fas fa-eye me-1"></i>Visibile Solo in Periodi</label>
+                                                                <input type="text" name="periodiVisibili" class="form-control form-control-sm" value="@campo.PeriodiVisibili" placeholder="es: 1,12 (vuoto = tutti)" />
+                                                                <small class="text-muted">Numeri separati da virgola. Vuoto = visibile ovunque.</small>
+                                                                <div class="mt-1">
+                                                                    @for (int pi = 0; pi < Model.NumeroPeriodi; pi++)
+                                                                    {
+                                                                        var numPeriodo = pi + 1;
+                                                                        var etichettaPeriodo = pi < etichette.Count ? etichette[pi] : $"P{numPeriodo}";
+                                                                        var periodiArray = (campo.PeriodiVisibili ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim()).ToList();
+                                                                        var isChecked = periodiArray.Contains(numPeriodo.ToString());
+                                                                        <button type="button" class="btn btn-sm @(isChecked ? "btn-primary" : "btn-outline-secondary") me-1 mb-1 periodo-btn-@campo.Id" 
+                                                                                data-periodo="@numPeriodo" onclick="togglePeriodo(@campo.Id, @numPeriodo)">
+                                                                            @etichettaPeriodo
+                                                                        </button>
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                            <!-- Campo Calcolato -->
+                                                            <div class="card bg-light">
+                                                                <div class="card-body py-2">
+                                                                    <div class="form-check mb-2">
+                                                                        <input type="checkbox" name="isCalculated" value="true" class="form-check-input" id="isCalc-@campo.Id" @(campo.IsCalculated ? "checked" : "") onchange="toggleFormula(@campo.Id)" />
+                                                                        <label class="form-check-label" for="isCalc-@campo.Id"><i class="fas fa-calculator me-1"></i><strong>Campo Calcolato</strong></label>
+                                                                    </div>
+                                                                    <div id="formulaSection-@campo.Id" style="display: @(campo.IsCalculated ? "block" : "none");">
+                                                                        <input type="text" name="formula" id="formulaInput-@campo.Id" class="form-control form-control-sm" value="@campo.Formula" placeholder="Es: [CREDITO_PREC] + [CREDITO] - [DEBITO]" />
+                                                                        <small class="text-muted">Usa [NomeCampo]. Operatori: + - * /</small>
+                                                                        @{
+                                                                            var altriCampi = Model.Campi.Where(c => !c.IsCalculated && c.Id != campo.Id).ToList();
+                                                                        }
+                                                                        @if (altriCampi.Any())
+                                                                        {
+                                                                            <div class="mt-1">
+                                                                                @foreach (var c in altriCampi)
+                                                                                {
+                                                                                    <button type="button" class="btn btn-sm btn-outline-primary me-1 mb-1" onclick="inserisciCampoEdit(@campo.Id, '@c.Nome')">[@c.Nome]</button>
+                                                                                }
+                                                                            </div>
+                                                                        }
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button><button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Salva</button></div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Aggiungi Campo -->
+<div class="modal fade" id="addCampoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CreaCampo" method="post">
+                <input type="hidden" name="TipoPeriodoId" value="@Model.Id" />
+                <div class="modal-header bg-info text-white"><h5 class="modal-title"><i class="fas fa-plus me-2"></i>Nuovo Campo</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="form-label">Nome Campo *</label><input type="text" name="Nome" class="form-control" required pattern="[A-Za-z0-9_]+" placeholder="es: IMPORTO_CREDITO" /><small class="text-muted">Solo lettere, numeri, underscore</small></div>
+                    <div class="mb-3"><label class="form-label">Etichetta *</label><input type="text" name="Label" class="form-control" required placeholder="es: Importo Credito" /></div>
+                    <div class="mb-3"><label class="form-label">Etichetta Primo Periodo</label><input type="text" name="LabelPrimoPeriodo" class="form-control" placeholder="es: Cred. Iva Anno Prec. (opzionale)" /></div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo Campo</label>
+                        <select name="TipoCampo" class="form-select">
+                            <option value="decimal" selected>💰 Decimale (per importi)</option>
+                            <option value="number">🔢 Numero intero</option>
+                            <option value="text">📝 Testo</option>
+                            <option value="date">📅 Data</option>
+                            <option value="checkbox">☑️ Checkbox</option>
+                            <option value="dropdown">📋 Dropdown</option>
+                        </select>
+                    </div>
+                    <div class="mb-3"><label class="form-label">Valore Default</label><input type="text" name="DefaultValue" class="form-control" value="0" /></div>
+                    <div class="row mb-3">
+                        <div class="col-6"><label class="form-label">Largh. Form (1-12)</label><input type="number" name="ColWidth" class="form-control" value="4" min="1" max="12" /></div>
+                        <div class="col-6"><label class="form-label">Largh. Griglia (px)</label><input type="number" name="ColumnWidth" class="form-control" value="100" min="0" max="500" /></div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-3"><div class="form-check"><input type="checkbox" name="IsRequired" value="true" class="form-check-input" id="newReq" /><label class="form-check-label" for="newReq">Obbligatorio</label></div></div>
+                        <div class="col-3"><div class="form-check"><input type="checkbox" name="ShowInList" value="true" class="form-check-input" id="newList" checked /><label class="form-check-label" for="newList">In Lista</label></div></div>
+                        <div class="col-3"><div class="form-check"><input type="checkbox" name="UseAsFilter" value="true" class="form-check-input" id="newFilter" /><label class="form-check-label" for="newFilter">Filtro</label></div></div>
+                        <div class="col-3"><div class="form-check"><input type="checkbox" name="IsCampoCliente" value="true" class="form-check-input" id="newCampoCliente" /><label class="form-check-label" for="newCampoCliente" title="Mostrato una volta vicino al nome cliente">Campo Cliente</label></div></div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6"><div class="form-check"><input type="checkbox" name="IsCompletionIndicator" value="true" class="form-check-input" id="newCompletion" /><label class="form-check-label" for="newCompletion" title="Se compilato, indica che il periodo è completato"><i class="fas fa-check-circle text-success me-1"></i>Indica Completamento</label></div></div>
+                        <div class="col-6"><div class="form-check"><input type="checkbox" name="IsResultIndicator" value="true" class="form-check-input" id="newResult" /><label class="form-check-label" for="newResult" title="Mostra credito/debito nel badge cliente"><i class="fas fa-balance-scale text-primary me-1"></i>Indica Risultato</label></div></div>
+                    </div>
+                    <!-- Periodi Visibili -->
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-eye me-1"></i>Visibile Solo in Periodi</label>
+                        <input type="text" name="PeriodiVisibili" id="newPeriodiVisibili" class="form-control form-control-sm" placeholder="es: 1,12 (vuoto = tutti)" />
+                        <small class="text-muted">Numeri separati da virgola. Vuoto = visibile ovunque.</small>
+                        <div class="mt-1">
+                            @for (int pi = 0; pi < Model.NumeroPeriodi; pi++)
+                            {
+                                var numPeriodo = pi + 1;
+                                var etichettaPeriodo = pi < etichette.Count ? etichette[pi] : $"P{numPeriodo}";
+                                <button type="button" class="btn btn-sm btn-outline-secondary me-1 mb-1 periodo-btn-new" 
+                                        data-periodo="@numPeriodo" onclick="togglePeriodoNew(@numPeriodo)">
+                                    @etichettaPeriodo
+                                </button>
+                            }
+                        </div>
+                    </div>
+                    <!-- Campo Calcolato -->
+                    <div class="card bg-light">
+                        <div class="card-body py-2">
+                            <div class="form-check mb-2">
+                                <input type="checkbox" name="IsCalculated" value="true" class="form-check-input" id="newCalc" onchange="toggleNewFormula()" />
+                                <label class="form-check-label" for="newCalc"><i class="fas fa-calculator me-1"></i><strong>Campo Calcolato</strong></label>
+                            </div>
+                            <div id="newFormulaSection" style="display: none;">
+                                <input type="text" name="Formula" id="newFormulaInput" class="form-control form-control-sm" placeholder="Es: [CREDITO_PREC] + [CREDITO] - [DEBITO]" />
+                                <small class="text-muted">Usa [NomeCampo]. Operatori: + - * /</small>
+                                @if (Model.Campi.Where(c => !c.IsCalculated).Any())
+                                {
+                                    <div class="mt-2">
+                                        <small>Campi disponibili:</small><br/>
+                                        @foreach (var c in Model.Campi.Where(c => !c.IsCalculated))
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-primary me-1 mb-1" onclick="inserisciCampoNew('@c.Nome')">[@c.Nome]</button>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button><button type="submit" class="btn btn-info"><i class="fas fa-plus me-1"></i>Aggiungi</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Elimina Tipo -->
+<div class="modal fade" id="deleteTipoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white"><h5 class="modal-title">Conferma Eliminazione</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <p>Sei sicuro di voler eliminare il tipo <strong>@Model.Nome</strong>?</p>
+                <div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>Verranno eliminati TUTTI i campi e dati associati!</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                <form asp-action="EliminaTipoPeriodo" method="post"><input type="hidden" name="id" value="@Model.Id" /><button type="submit" class="btn btn-danger"><i class="fas fa-trash me-1"></i>Elimina</button></form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function toggleNewFormula() {
+    var checkbox = document.getElementById('newCalc');
+    document.getElementById('newFormulaSection').style.display = checkbox.checked ? 'block' : 'none';
+}
+
+function toggleFormula(campoId) {
+    var checkbox = document.getElementById('isCalc-' + campoId);
+    document.getElementById('formulaSection-' + campoId).style.display = checkbox.checked ? 'block' : 'none';
+}
+
+function inserisciCampoNew(nomeCampo) {
+    var input = document.getElementById('newFormulaInput');
+    var pos = input.selectionStart || input.value.length;
+    var testo = '[' + nomeCampo + ']';
+    input.value = input.value.substring(0, pos) + testo + input.value.substring(pos);
+    input.focus();
+}
+
+function inserisciCampoEdit(campoId, nomeCampo) {
+    var input = document.getElementById('formulaInput-' + campoId);
+    var pos = input.selectionStart || input.value.length;
+    var testo = '[' + nomeCampo + ']';
+    input.value = input.value.substring(0, pos) + testo + input.value.substring(pos);
+    input.focus();
+}
+
+// Toggle periodo per modal modifica
+function togglePeriodo(campoId, numPeriodo) {
+    // Trova l'input hidden nel modal corretto
+    var modal = document.getElementById('editCampoModal' + campoId);
+    var input = modal.querySelector('input[name="periodiVisibili"]');
+    var btn = modal.querySelector('.periodo-btn-' + campoId + '[data-periodo="' + numPeriodo + '"]');
+    
+    var periodi = input.value ? input.value.split(',').map(x => x.trim()).filter(x => x) : [];
+    var idx = periodi.indexOf(numPeriodo.toString());
+    
+    if (idx >= 0) {
+        periodi.splice(idx, 1);
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-secondary');
+    } else {
+        periodi.push(numPeriodo.toString());
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('btn-primary');
+    }
+    
+    // Ordina e salva
+    periodi.sort((a, b) => parseInt(a) - parseInt(b));
+    input.value = periodi.join(',');
+}
+
+// Toggle periodo per modal creazione
+function togglePeriodoNew(numPeriodo) {
+    var input = document.getElementById('newPeriodiVisibili');
+    var btn = document.querySelector('.periodo-btn-new[data-periodo="' + numPeriodo + '"]');
+    
+    var periodi = input.value ? input.value.split(',').map(x => x.trim()).filter(x => x) : [];
+    var idx = periodi.indexOf(numPeriodo.toString());
+    
+    if (idx >= 0) {
+        periodi.splice(idx, 1);
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-secondary');
+    } else {
+        periodi.push(numPeriodo.toString());
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('btn-primary');
+    }
+    
+    // Ordina e salva
+    periodi.sort((a, b) => parseInt(a) - parseInt(b));
+    input.value = periodi.join(',');
+}
+</script>
+}

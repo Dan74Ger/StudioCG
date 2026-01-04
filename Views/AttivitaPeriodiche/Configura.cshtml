@@ -1,0 +1,289 @@
+@model StudioCG.Web.Models.AttivitaPeriodiche.AttivitaPeriodica
+@{
+    ViewData["Title"] = $"Configura: {Model.Nome}";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>
+                <i class="@Model.Icona me-2" style="color: @Model.Colore;"></i>
+                Configura: @Model.Nome
+            </h2>
+            <p class="text-muted mb-0">Definisci tipi periodo e impostazioni per questa sezione</p>
+        </div>
+        <div class="btn-group">
+            @if (Model.TipiPeriodo.Any())
+            {
+                <a asp-action="Dati" asp-route-id="@Model.Id" class="btn btn-primary">
+                    <i class="fas fa-database me-1"></i>Vai ai Dati
+                </a>
+            }
+            <a asp-action="Gestione" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Torna a Gestione
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Impostazioni Sezione -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-cog me-2"></i>Impostazioni Sezione</h5>
+        </div>
+        <div class="card-body">
+            <form asp-action="AggiornaSezione" method="post">
+                <input type="hidden" name="id" value="@Model.Id" />
+                <div class="row">
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label">Nome</label>
+                        <input type="text" name="nome" class="form-control" value="@Model.Nome" required />
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Nome Plurale</label>
+                        <input type="text" name="nomePlurale" class="form-control" value="@Model.NomePlurale" />
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label">Icona</label>
+                        <input type="text" name="icona" class="form-control" value="@Model.Icona" />
+                    </div>
+                    <div class="col-md-1 mb-3">
+                        <label class="form-label">Colore</label>
+                        <input type="color" name="colore" class="form-control form-control-color" value="@Model.Colore" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Descrizione</label>
+                        <input type="text" name="descrizione" class="form-control" value="@Model.Descrizione" />
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label"><i class="fas fa-columns text-info me-1"></i>Larghezza Colonne (px, 0=auto)</label>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Cliente</span>
+                                    <input type="number" name="larghezzaColonnaCliente" class="form-control" value="@Model.LarghezzaColonnaCliente" min="0" max="500" />
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Titolo</span>
+                                    <input type="number" name="larghezzaColonnaTitolo" class="form-control" value="@Model.LarghezzaColonnaTitolo" min="0" max="500" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex gap-3 align-items-center">
+                    <div class="form-check">
+                        <input type="checkbox" name="collegataACliente" value="true" class="form-check-input" 
+                               id="collegata" @(Model.CollegataACliente ? "checked" : "")>
+                        <label class="form-check-label" for="collegata">Collegata a Cliente</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-save me-1"></i>Salva Impostazioni
+                    </button>
+                    <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteSezioneModal">
+                        <i class="fas fa-trash me-1"></i>Elimina Sezione
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Tipi Periodo -->
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Tipi Periodo (@Model.TipiPeriodo.Count())</h5>
+                    <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addTipoPeriodoModal">
+                        <i class="fas fa-plus me-1"></i>Aggiungi
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    @if (!Model.TipiPeriodo.Any())
+                    {
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-clock fa-2x mb-2"></i>
+                            <p class="mb-0">Nessun tipo periodo. Aggiungi Mensile, Trimestrale, ecc.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="list-group list-group-flush">
+                            @foreach (var tipo in Model.TipiPeriodo)
+                            {
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="@tipo.Icona me-2" style="color: @tipo.Colore;"></i>
+                                        <strong>@tipo.Nome</strong>
+                                        <span class="badge bg-secondary ms-2">@tipo.NumeroPeriodi periodi</span>
+                                        <span class="badge bg-primary ms-1">@tipo.Campi.Count campi</span>
+                                    </div>
+                                    <a asp-action="ConfiguraTipo" asp-route-id="@tipo.Id" class="btn btn-sm btn-outline-primary" title="Modifica campi">
+                                        <i class="fas fa-cog"></i>
+                                    </a>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Riepilogo rapido -->
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Riepilogo Configurazione</h5>
+                </div>
+                <div class="card-body">
+                    @if (!Model.TipiPeriodo.Any())
+                    {
+                        <div class="alert alert-warning mb-0">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Passo 1:</strong> Crea almeno un tipo periodo (es: Mensile, Trimestrale)
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Tipo Periodo</th>
+                                        <th>Periodi</th>
+                                        <th>Campi</th>
+                                        <th>Stato</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var tipo in Model.TipiPeriodo)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <i class="@tipo.Icona me-1" style="color: @tipo.Colore;"></i>
+                                                @tipo.Nome
+                                            </td>
+                                            <td>@tipo.NumeroPeriodi</td>
+                                            <td>@tipo.Campi.Count</td>
+                                            <td>
+                                                @if (tipo.Campi.Any())
+                                                {
+                                                    <span class="badge bg-success"><i class="fas fa-check"></i> Pronto</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-warning text-dark"><i class="fas fa-exclamation"></i> Configura campi</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Aggiungi Tipo Periodo -->
+<div class="modal fade" id="addTipoPeriodoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CreaTipoPeriodo" method="post">
+                <input type="hidden" name="attivitaPeriodicaId" value="@Model.Id" />
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Nuovo Tipo Periodo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nome Tipo *</label>
+                        <input type="text" name="nome" class="form-control" required placeholder="es: Mensile, Trimestrale" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Numero Periodi *</label>
+                        <select name="numeroPeriodi" class="form-select" id="selNumeroPeriodi">
+                            <option value="12">12 - Mensile (Gennaio → Dicembre)</option>
+                            <option value="4">4 - Trimestrale (Q1 → Q4)</option>
+                            <option value="2">2 - Semestrale (1° Sem → 2° Sem)</option>
+                            <option value="1">1 - Annuale</option>
+                            <option value="0">Altro (personalizzato)</option>
+                        </select>
+                        <div id="customPeriodi" style="display: none;" class="mt-2">
+                            <input type="number" name="numeroPeriodiCustom" class="form-control" min="1" max="52" placeholder="Inserisci numero periodi" />
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-8">
+                            <label class="form-label">Icona</label>
+                            <input type="text" name="icona" class="form-control" value="fas fa-calendar" />
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label">Colore</label>
+                            <input type="color" name="colore" class="form-control form-control-color w-100" value="#007bff" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-info"><i class="fas fa-plus me-1"></i>Crea Tipo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Elimina Sezione -->
+<div class="modal fade" id="deleteSezioneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Conferma Eliminazione</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Sei sicuro di voler eliminare la sezione <strong>@Model.Nome</strong>?</p>
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Verranno eliminati TUTTI i dati, tipi periodo e campi associati!
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                <form asp-action="EliminaSezione" method="post">
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <button type="submit" class="btn btn-danger"><i class="fas fa-trash me-1"></i>Elimina</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.getElementById('selNumeroPeriodi').addEventListener('change', function() {
+    document.getElementById('customPeriodi').style.display = this.value === '0' ? 'block' : 'none';
+});
+</script>
+}

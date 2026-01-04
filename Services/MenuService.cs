@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using StudioCG.Web.Data;
 using StudioCG.Web.Models;
+using StudioCG.Web.Models.AttivitaPeriodiche;
 using StudioCG.Web.Models.Entita;
 
 namespace StudioCG.Web.Services
@@ -96,6 +97,10 @@ namespace StudioCG.Web.Services
                 case "DynamicDatiUtenza":
                     // Gruppo DATI UTENZA - sempre visibile se ci sono pagine o admin
                     break;
+
+                case "DynamicAttivitaPeriodiche":
+                    // Gruppo ATTIVITÀ PERIODICHE - sempre visibile se ci sono sezioni o admin
+                    break;
             }
 
             var menuItem = new MenuItemDto
@@ -136,6 +141,10 @@ namespace StudioCG.Web.Services
 
                 case "DynamicDatiUtenza":
                     await AddDynamicDatiUtenzaAsync(menuItem, username, isAdmin);
+                    break;
+
+                case "DynamicAttivitaPeriodiche":
+                    await AddDynamicAttivitaPeriodicheAsync(menuItem, username, isAdmin);
                     break;
             }
 
@@ -290,6 +299,53 @@ namespace StudioCG.Web.Services
 
                 if (generaliGroup.Children.Any() || isAdmin)
                     parent.Children.Add(generaliGroup);
+            }
+        }
+
+        private async Task AddDynamicAttivitaPeriodicheAsync(MenuItemDto parent, string username, bool isAdmin)
+        {
+            var attivita = await _context.AttivitaPeriodiche
+                .Include(a => a.TipiPeriodo)
+                .Where(a => a.IsActive)
+                .OrderBy(a => a.OrdineMenu)
+                .ThenBy(a => a.Nome)
+                .ToListAsync();
+
+            foreach (var att in attivita)
+            {
+                // Se ha tipi periodo, mostra link ai dati
+                if (att.TipiPeriodo.Any(t => t.IsActive))
+                {
+                    var url = $"/AttivitaPeriodiche/Dati/{att.Id}";
+
+                    if (!isAdmin && !await _permissionService.UserHasPermissionAsync(username, url))
+                        continue;
+
+                    parent.Children.Add(new MenuItemDto
+                    {
+                        Id = 3000 + att.Id,
+                        Nome = att.Nome,
+                        Url = url,
+                        Icon = att.Icona,
+                        IconColor = att.Colore,
+                        DisplayOrder = 10 + att.OrdineMenu,
+                        TipoVoce = "DynamicItem"
+                    });
+                }
+            }
+
+            // Se admin, aggiungi sempre link a Gestione
+            if (isAdmin)
+            {
+                parent.Children.Add(new MenuItemDto
+                {
+                    Id = 3999,
+                    Nome = "⚙️ Gestione",
+                    Url = "/AttivitaPeriodiche/Gestione",
+                    Icon = "fas fa-cog",
+                    DisplayOrder = 999,
+                    TipoVoce = "DynamicItem"
+                });
             }
         }
     }

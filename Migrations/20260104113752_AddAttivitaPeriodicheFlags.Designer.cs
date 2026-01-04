@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StudioCG.Web.Data;
 
@@ -11,9 +12,11 @@ using StudioCG.Web.Data;
 namespace StudioCG.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260104113752_AddAttivitaPeriodicheFlags")]
+    partial class AddAttivitaPeriodicheFlags
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -237,16 +240,7 @@ namespace StudioCG.Web.Migrations
                     b.Property<bool>("IsCalculated")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("IsCampoCliente")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsCompletionIndicator")
-                        .HasColumnType("bit");
-
                     b.Property<bool>("IsRequired")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsResultIndicator")
                         .HasColumnType("bit");
 
                     b.Property<string>("Label")
@@ -266,10 +260,6 @@ namespace StudioCG.Web.Migrations
                     b.Property<string>("Options")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("PeriodiVisibili")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Placeholder")
                         .HasMaxLength(200)

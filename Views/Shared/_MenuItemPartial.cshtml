@@ -10,8 +10,10 @@
     var isActive = false;
     if (!string.IsNullOrEmpty(Model.Url))
     {
-        // Confronto URL
-        isActive = currentPath.StartsWith(Model.Url, StringComparison.OrdinalIgnoreCase);
+        var cleanModelUrl = Model.Url.Split('?')[0];
+        // Match esatto o con path segment successivo (evita /Attivita che matcha /AttivitaPeriodiche)
+        isActive = currentPath.Equals(cleanModelUrl, StringComparison.OrdinalIgnoreCase) ||
+                   currentPath.StartsWith(cleanModelUrl + "/", StringComparison.OrdinalIgnoreCase);
         
         // Caso speciale per voci con ID
         if (Model.Url.Contains("/Attivita/Tipo/") || Model.Url.Contains("/Entita/Dati/") || Model.Url.Contains("/DynamicData/Page/"))
@@ -21,9 +23,18 @@
     }
     
     // Per i gruppi, controlla se un figlio è attivo
+    // Usa matching esatto o con segmento successivo per evitare falsi positivi
+    Func<string, bool> isUrlActive = (url) => {
+        if (string.IsNullOrEmpty(url)) return false;
+        var cleanUrl = url.Split('?')[0];
+        // Match esatto o match con path segment (es: /Attivita/qualcosa ma NON /AttivitaPeriodiche)
+        return currentPath.Equals(cleanUrl, StringComparison.OrdinalIgnoreCase) ||
+               currentPath.StartsWith(cleanUrl + "/", StringComparison.OrdinalIgnoreCase);
+    };
+    
     var hasActiveChild = Model.Children.Any(c => 
-        !string.IsNullOrEmpty(c.Url) && currentPath.StartsWith(c.Url.Split('?')[0], StringComparison.OrdinalIgnoreCase) ||
-        c.Children.Any(cc => !string.IsNullOrEmpty(cc.Url) && currentPath.StartsWith(cc.Url.Split('?')[0], StringComparison.OrdinalIgnoreCase))
+        isUrlActive(c.Url ?? "") ||
+        c.Children.Any(cc => isUrlActive(cc.Url ?? ""))
     );
     
     var menuId = $"menu_{Model.Id}";
@@ -124,7 +135,7 @@ else if (Model.TipoVoce == "DynamicGroup" && Model.Children.Any())
     <!-- SOTTO-GRUPPO DINAMICO (es: Dati Riservati) -->
     <li class="nav-item">
         @{
-            var subHasActiveChild = Model.Children.Any(c => !string.IsNullOrEmpty(c.Url) && currentPath.StartsWith(c.Url.Split('?')[0], StringComparison.OrdinalIgnoreCase));
+            var subHasActiveChild = Model.Children.Any(c => isUrlActive(c.Url ?? ""));
         }
         <a class="nav-link section-toggle @(subHasActiveChild ? "" : "collapsed") subsection-toggle" 
            data-bs-toggle="collapse" 

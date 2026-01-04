@@ -1,0 +1,603 @@
+@model StudioCG.Web.Models.AttivitaPeriodiche.TipoPeriodo
+@{
+    ViewData["Title"] = $"Regole: {Model.Nome}";
+    var campi = Model.Campi.ToList();
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>
+                <i class="@Model.Icona me-2" style="color: @Model.Colore;"></i>
+                Regole: @Model.Nome
+            </h2>
+            <p class="text-muted mb-0">
+                <a asp-action="Configura" asp-route-id="@Model.AttivitaPeriodicaId">@Model.AttivitaPeriodica?.Nome</a>
+                → @Model.Nome • Configura riporti automatici e colori condizionali
+            </p>
+        </div>
+        <div class="btn-group">
+            <a asp-action="ConfiguraTipo" asp-route-id="@Model.Id" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Torna a Campi
+            </a>
+            <a asp-action="Dati" asp-route-id="@Model.AttivitaPeriodicaId" asp-route-tipoPeriodoId="@Model.Id" class="btn btn-primary">
+                <i class="fas fa-database me-1"></i>Vai ai Dati
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (!campi.Any())
+    {
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Nessun campo configurato. <a asp-action="ConfiguraTipo" asp-route-id="@Model.Id">Aggiungi prima i campi</a>.
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <!-- Regole di Riporto -->
+            <div class="col-lg-6 mb-4">
+                <div class="card">
+                    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-arrow-right me-2"></i>Regole di Riporto</h5>
+                        <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addRiportoModal">
+                            <i class="fas fa-plus me-1"></i>Nuova
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        @{
+                            var regoleRiporto = campi.SelectMany(c => c.Regole.Where(r => r.TipoRegola == "riporto")).ToList();
+                        }
+                        @if (!regoleRiporto.Any())
+                        {
+                            <div class="text-center py-4 text-muted">
+                                <i class="fas fa-arrow-right fa-2x mb-2"></i>
+                                <p class="mb-0">Nessuna regola di riporto.<br><small>I riporti copiano valori dal periodo precedente.</small></p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (var regola in regoleRiporto)
+                                {
+                                    var campoOrigine = campi.FirstOrDefault(c => c.Id == (regola.CampoOrigineId ?? regola.CampoPeriodicoId));
+                                    var campoDest = campi.FirstOrDefault(c => c.Id == (regola.CampoDestinazioneId ?? regola.CampoPeriodicoId));
+                                    <div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>@campoOrigine?.Label</strong>
+                                                <i class="fas fa-arrow-right mx-2 text-info"></i>
+                                                <strong>@campoDest?.Label</strong>
+                                                <br>
+                                                <small class="text-muted">
+                                                    Condizione: 
+                                                    @(regola.CondizioneRiporto switch {
+                                                        ">" => $"> {regola.ValoreConfronto ?? "0"}",
+                                                        ">=" => $">= {regola.ValoreConfronto ?? "0"}",
+                                                        "<" => $"< {regola.ValoreConfronto ?? "0"}",
+                                                        "<=" => $"<= {regola.ValoreConfronto ?? "0"}",
+                                                        "=" => $"= {regola.ValoreConfronto ?? "0"}",
+                                                        "!=" => $"≠ {regola.ValoreConfronto ?? "0"}",
+                                                        "se_positivo" => "Se positivo",
+                                                        "se_negativo" => "Se negativo",
+                                                        "se_diverso_zero" => "Se diverso da zero",
+                                                        _ => "Sempre"
+                                                    })
+                                                </small>
+                                            </div>
+                                            <div class="btn-group">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                        data-bs-toggle="modal" data-bs-target="#editRiportoModal@(regola.Id)">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <form asp-action="EliminaRegola" method="post" class="d-inline" 
+                                                      onsubmit="return confirm('Eliminare questa regola?')">
+                                                    <input type="hidden" name="id" value="@regola.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Modal Modifica Regola Riporto -->
+                                    <div class="modal fade" id="editRiportoModal@(regola.Id)" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <form asp-action="AggiornaRegola" method="post">
+                                                    <input type="hidden" name="id" value="@regola.Id" />
+                                                    <input type="hidden" name="tipoRegola" value="riporto" />
+                                                    <div class="modal-header bg-info text-white">
+                                                        <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Modifica Regola Riporto</h5>
+                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Campo Origine</label>
+                                                            <select name="campoOrigineId" class="form-select">
+                                                                @foreach (var campo in campi)
+                                                                {
+                                                                    var isSelected = (regola.CampoOrigineId ?? regola.CampoPeriodicoId) == campo.Id;
+                                                                    if (isSelected)
+                                                                    {
+                                                                        <option value="@campo.Id" selected>@campo.Label</option>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <option value="@campo.Id">@campo.Label</option>
+                                                                    }
+                                                                }
+                                                            </select>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Campo Destinazione</label>
+                                                            <select name="campoDestinazioneId" class="form-select">
+                                                                <option value="">-- Stesso campo --</option>
+                                                                @foreach (var campo in campi.Where(c => !c.IsCalculated))
+                                                                {
+                                                                    var isSelected = regola.CampoDestinazioneId == campo.Id;
+                                                                    if (isSelected)
+                                                                    {
+                                                                        <option value="@campo.Id" selected>@campo.Label</option>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <option value="@campo.Id">@campo.Label</option>
+                                                                    }
+                                                                }
+                                                            </select>
+                                                        </div>
+                                                        <div class="row mb-3">
+                                                            <div class="col-6">
+                                                                <label class="form-label">Condizione</label>
+                                                                @{
+                                                                    var condizioniRiportoEdit = new[] {
+                                                                        ("sempre", "Sempre"),
+                                                                        (">", "Maggiore di (>)"),
+                                                                        (">=", "Maggiore o uguale (>=)"),
+                                                                        ("<", "Minore di (<)"),
+                                                                        ("<=", "Minore o uguale (<=)"),
+                                                                        ("=", "Uguale a (=)"),
+                                                                        ("!=", "Diverso da (!=)")
+                                                                    };
+                                                                }
+                                                                <select name="condizioneRiporto" class="form-select">
+                                                                    @foreach (var (val, label) in condizioniRiportoEdit)
+                                                                    {
+                                                                        if (regola.CondizioneRiporto == val)
+                                                                        {
+                                                                            <option value="@val" selected>@label</option>
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            <option value="@val">@label</option>
+                                                                        }
+                                                                    }
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-6">
+                                                                <label class="form-label">Valore Confronto</label>
+                                                                <input type="number" name="valoreConfronto" class="form-control" value="@(regola.ValoreConfronto ?? "0")" step="0.01" />
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <!-- Mini Guida -->
+                                                        <div class="alert alert-info small mb-3 py-2">
+                                                            <i class="fas fa-lightbulb me-1"></i><strong>Esempi:</strong>
+                                                            Maggiore di + <code>0</code> = solo positivi |
+                                                            Minore di + <code>0</code> = solo negativi |
+                                                            Diverso da + <code>0</code> = se ≠ 0
+                                                        </div>
+                                                        
+                                                        <input type="hidden" name="priorita" value="@regola.Priorita" />
+                                                        <input type="hidden" name="applicaA" value="campo" />
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                                                        <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Salva</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Info Riporti -->
+                <div class="card mt-3">
+                    <div class="card-body bg-light">
+                        <h6><i class="fas fa-info-circle text-info me-2"></i>Come funzionano i riporti</h6>
+                        <ul class="mb-0 small">
+                            <li>Il valore del <strong>campo origine</strong> del periodo N viene copiato nel <strong>campo destinazione</strong> del periodo N+1</li>
+                            <li>Utile per: credito IVA da riportare, saldi iniziali, ecc.</li>
+                            <li>I riporti si applicano con il pulsante "Ricalcola Riporti" nella griglia dati</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Regole di Colore -->
+            <div class="col-lg-6 mb-4">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-palette me-2"></i>Regole di Colore</h5>
+                        <button class="btn btn-dark btn-sm" data-bs-toggle="modal" data-bs-target="#addColoreModal">
+                            <i class="fas fa-plus me-1"></i>Nuova
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        @{
+                            var regoleColore = campi.SelectMany(c => c.Regole.Where(r => r.TipoRegola == "colore")).ToList();
+                        }
+                        @if (!regoleColore.Any())
+                        {
+                            <div class="text-center py-4 text-muted">
+                                <i class="fas fa-palette fa-2x mb-2"></i>
+                                <p class="mb-0">Nessuna regola di colore.<br><small>I colori evidenziano valori in base a condizioni.</small></p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (var regola in regoleColore.OrderBy(r => r.Priorita))
+                                {
+                                    var campo = campi.FirstOrDefault(c => c.Id == regola.CampoPeriodicoId);
+                                    var stile = "";
+                                    if (!string.IsNullOrEmpty(regola.ColoreTesto)) stile += $"color: {regola.ColoreTesto};";
+                                    if (!string.IsNullOrEmpty(regola.ColoreSfondo)) stile += $"background-color: {regola.ColoreSfondo};";
+                                    if (regola.Grassetto) stile += "font-weight: bold;";
+                                    
+                                    <div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>@campo?.Label</strong>
+                                                <span class="text-muted mx-1">@regola.Operatore</span>
+                                                <code>@regola.ValoreConfronto</code>
+                                                <br>
+                                                <span class="badge" style="@stile padding: 4px 8px;">
+                                                    @if (!string.IsNullOrEmpty(regola.Icona))
+                                                    {
+                                                        <i class="@regola.Icona me-1"></i>
+                                                    }
+                                                    Esempio Stile
+                                                </span>
+                                                <small class="text-muted ms-2">
+                                                    Applica a: @(regola.ApplicaA == "riga" ? "Intera riga" : "Solo campo")
+                                                </small>
+                                            </div>
+                                            <div class="btn-group">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                        data-bs-toggle="modal" data-bs-target="#editColoreModal@(regola.Id)">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <form asp-action="EliminaRegola" method="post" class="d-inline" 
+                                                      onsubmit="return confirm('Eliminare questa regola?')">
+                                                    <input type="hidden" name="id" value="@regola.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Modal Modifica Regola Colore -->
+                                    <div class="modal fade" id="editColoreModal@(regola.Id)" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <form asp-action="AggiornaRegola" method="post">
+                                                    <input type="hidden" name="id" value="@regola.Id" />
+                                                    <input type="hidden" name="tipoRegola" value="colore" />
+                                                    <div class="modal-header bg-warning text-dark">
+                                                        <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Modifica Regola Colore</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <div class="row mb-3">
+                                                            <div class="col-6">
+                                                                <label class="form-label">Operatore</label>
+                                                                @{
+                                                                    var operatoriColore = new[] {
+                                                                        ("sempre", "🎨 Sempre (no condizione)"),
+                                                                        ("<", "< Minore di"),
+                                                                        ("<=", "≤ Minore o uguale"),
+                                                                        ("=", "= Uguale a"),
+                                                                        ("!=", "≠ Diverso da"),
+                                                                        (">", "> Maggiore di"),
+                                                                        (">=", "≥ Maggiore o uguale"),
+                                                                        ("vuoto", "⬜ Campo vuoto"),
+                                                                        ("non_vuoto", "✅ Campo non vuoto")
+                                                                    };
+                                                                }
+                                                                <select name="operatore" class="form-select" onchange="toggleValoreColore(this)">
+                                                                    @foreach (var (val, label) in operatoriColore)
+                                                                    {
+                                                                        if (regola.Operatore == val)
+                                                                        {
+                                                                            <option value="@val" selected>@label</option>
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            <option value="@val">@label</option>
+                                                                        }
+                                                                    }
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-6">
+                                                                <label class="form-label">Valore</label>
+                                                                <input type="text" name="valoreConfronto" class="form-control" value="@regola.ValoreConfronto" placeholder="Non richiesto per 'Sempre'" />
+                                                            </div>
+                                                        </div>
+                                                        <div class="row mb-3">
+                                                            <div class="col-6">
+                                                                <label class="form-label">Colore Testo</label>
+                                                                <input type="color" name="coloreTesto" class="form-control form-control-color w-100" value="@(regola.ColoreTesto ?? "#000000")" />
+                                                            </div>
+                                                            <div class="col-6">
+                                                                <label class="form-label">Colore Sfondo</label>
+                                                                <input type="color" name="coloreSfondo" class="form-control form-control-color w-100" value="@(regola.ColoreSfondo ?? "#ffffff")" />
+                                                            </div>
+                                                        </div>
+                                                        <div class="row mb-3">
+                                                            <div class="col-6">
+                                                                <div class="form-check">
+                                                                    <input type="checkbox" name="grassetto" value="true" class="form-check-input" id="grassetto@(regola.Id)" @(regola.Grassetto ? "checked" : "") />
+                                                                    <label class="form-check-label" for="grassetto@(regola.Id)"><strong>Grassetto</strong></label>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-6">
+                                                                <label class="form-label">Icona</label>
+                                                                <input type="text" name="icona" class="form-control form-control-sm" value="@regola.Icona" placeholder="fas fa-exclamation" />
+                                                            </div>
+                                                        </div>
+                                                        <div class="row mb-3">
+                                                            <div class="col-6">
+                                                                <label class="form-label">Applica a</label>
+                                                                <select name="applicaA" class="form-select">
+                                                                    @if (regola.ApplicaA == "campo")
+                                                                    {
+                                                                        <option value="campo" selected>Solo campo</option>
+                                                                        <option value="riga">Intera riga</option>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <option value="campo">Solo campo</option>
+                                                                        <option value="riga" selected>Intera riga</option>
+                                                                    }
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-6">
+                                                                <label class="form-label">Priorità</label>
+                                                                <input type="number" name="priorita" class="form-control" value="@regola.Priorita" min="0" />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                                                        <button type="submit" class="btn btn-warning"><i class="fas fa-save me-1"></i>Salva</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Info Colori -->
+                <div class="card mt-3">
+                    <div class="card-body bg-light">
+                        <h6><i class="fas fa-info-circle text-warning me-2"></i>Come funzionano i colori</h6>
+                        <ul class="mb-0 small">
+                            <li>Se il valore del campo soddisfa la condizione, viene applicato lo stile</li>
+                            <li>Priorità più bassa = valutata prima</li>
+                            <li>Esempi: rosso se negativo, verde se positivo, grassetto se > 1000</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Modal Nuova Regola Riporto -->
+<div class="modal fade" id="addRiportoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CreaRegola" method="post">
+                <input type="hidden" name="TipoRegola" value="riporto" />
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="fas fa-arrow-right me-2"></i>Nuova Regola Riporto</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Campo Origine (periodo N) *</label>
+                        <select name="CampoPeriodicoId" class="form-select" required>
+                            @foreach (var campo in campi)
+                            {
+                                <option value="@campo.Id">@campo.Label @(campo.IsCalculated ? "(calcolato)" : "")</option>
+                            }
+                        </select>
+                        <small class="text-muted">Il valore di questo campo sarà copiato</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Campo Destinazione (periodo N+1)</label>
+                        <select name="CampoDestinazioneId" class="form-select">
+                            <option value="">-- Stesso campo --</option>
+                            @foreach (var campo in campi.Where(c => !c.IsCalculated))
+                            {
+                                <option value="@campo.Id">@campo.Label</option>
+                            }
+                        </select>
+                        <small class="text-muted">Lascia vuoto per riportare nello stesso campo</small>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Condizione</label>
+                            <select name="CondizioneRiporto" class="form-select" onchange="toggleValoreConfronto(this)">
+                                <option value="sempre">Sempre</option>
+                                <option value=">">Maggiore di (&gt;)</option>
+                                <option value=">=">Maggiore o uguale (&gt;=)</option>
+                                <option value="<">Minore di (&lt;)</option>
+                                <option value="<=">Minore o uguale (&lt;=)</option>
+                                <option value="=">Uguale a (=)</option>
+                                <option value="!=">Diverso da (≠)</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Valore Confronto</label>
+                            <input type="number" name="ValoreConfrontoRiporto" class="form-control" value="0" step="0.01" placeholder="0" />
+                        </div>
+                    </div>
+
+                    <!-- Mini Guida -->
+                    <div class="alert alert-info small mb-0">
+                        <i class="fas fa-lightbulb me-2"></i><strong>Come usare:</strong>
+                        <ul class="mb-0 mt-2 ps-3">
+                            <li><strong>Sempre</strong> → riporta sempre (ignora il valore)</li>
+                            <li><strong>Maggiore di</strong> + <code>0</code> → riporta solo se positivo</li>
+                            <li><strong>Minore di</strong> + <code>0</code> → riporta solo se negativo</li>
+                            <li><strong>Diverso da</strong> + <code>0</code> → riporta se ≠ 0</li>
+                            <li><strong>Maggiore di</strong> + <code>500</code> → riporta se supera 500</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-info"><i class="fas fa-plus me-1"></i>Crea Regola</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nuova Regola Colore -->
+<div class="modal fade" id="addColoreModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CreaRegola" method="post">
+                <input type="hidden" name="TipoRegola" value="colore" />
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title"><i class="fas fa-palette me-2"></i>Nuova Regola Colore</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Campo *</label>
+                        <select name="CampoPeriodicoId" class="form-select" required>
+                            @foreach (var campo in campi)
+                            {
+                                <option value="@campo.Id">@campo.Label</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Operatore *</label>
+                            <select name="Operatore" class="form-select" required onchange="toggleValoreColore(this)">
+                                <option value="sempre">🎨 Sempre (no condizione)</option>
+                                <option value="<">< Minore di</option>
+                                <option value="<=">≤ Minore o uguale</option>
+                                <option value="=">= Uguale a</option>
+                                <option value="!=">≠ Diverso da</option>
+                                <option value=">">Maggiore di</option>
+                                <option value=">=">≥ Maggiore o uguale</option>
+                                <option value="vuoto">⬜ Campo vuoto</option>
+                                <option value="non_vuoto">✅ Campo non vuoto</option>
+                            </select>
+                        </div>
+                        <div class="col-6" id="valoreColoreSection">
+                            <label class="form-label">Valore</label>
+                            <input type="text" name="ValoreConfronto" class="form-control" placeholder="es: 0 (opzionale per 'Sempre')" />
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Colore Testo</label>
+                            <input type="color" name="ColoreTesto" class="form-control form-control-color w-100" value="#dc3545" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Colore Sfondo</label>
+                            <input type="color" name="ColoreSfondo" class="form-control form-control-color w-100" value="#f8d7da" />
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <div class="form-check">
+                                <input type="checkbox" name="Grassetto" value="true" class="form-check-input" id="grassetto" />
+                                <label class="form-check-label" for="grassetto"><strong>Grassetto</strong></label>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Icona (opz.)</label>
+                            <input type="text" name="Icona" class="form-control form-control-sm" placeholder="fas fa-exclamation" />
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Applica a</label>
+                            <select name="ApplicaA" class="form-select">
+                                <option value="campo">Solo campo</option>
+                                <option value="riga">Intera riga</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Priorità</label>
+                            <input type="number" name="Priorita" class="form-control" value="0" min="0" />
+                            <small class="text-muted">0 = massima</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-warning"><i class="fas fa-plus me-1"></i>Crea Regola</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function toggleValoreColore(select) {
+    const valoreSection = select.closest('.row').querySelector('#valoreColoreSection, .col-6:last-child');
+    const valoreInput = valoreSection?.querySelector('input[name="ValoreConfronto"]');
+    
+    if (select.value === 'sempre' || select.value === 'vuoto' || select.value === 'non_vuoto') {
+        if (valoreInput) {
+            valoreInput.removeAttribute('required');
+            valoreInput.placeholder = 'Non richiesto';
+            valoreInput.value = '';
+        }
+    } else {
+        if (valoreInput) {
+            valoreInput.placeholder = 'es: 0';
+        }
+    }
+}
+</script>
+}

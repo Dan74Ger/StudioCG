@@ -58,6 +58,14 @@ namespace StudioCG.Web.Models
 
         public string? Note { get; set; }
 
+        /// <summary>
+        /// Flag per attività periodiche a cui il cliente è associato.
+        /// JSON: {"tipoPeriodoId_anno": true, ...}
+        /// Es: {"5_2026": true, "5_2025": true}
+        /// </summary>
+        [Display(Name = "Attività Periodiche")]
+        public string? AttivitaPeriodicheFlags { get; set; }
+
         // Navigation properties
         public virtual ICollection<ClienteSoggetto> Soggetti { get; set; } = new List<ClienteSoggetto>();
         public virtual ICollection<ClienteAttivita> Attivita { get; set; } = new List<ClienteAttivita>();
