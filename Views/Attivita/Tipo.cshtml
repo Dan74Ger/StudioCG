@@ -50,14 +50,9 @@
         </a>
         @if (annoPrecedente != null && clientiAnnoPrecedente > 0)
         {
-            <form asp-action="CopiaClientiDaAnno" method="post" class="d-inline" 
-                  onsubmit="return confirm('Copiare @clientiAnnoPrecedente clienti dal @annoPrecedente.Anno al @Model.AnnualitaFiscale?.Anno?');">
-                <input type="hidden" name="attivitaAnnualeId" value="@Model.Id" />
-                <input type="hidden" name="annoPrecedenteId" value="@annoPrecedente.Id" />
-                <button type="submit" class="btn btn-info">
-                    <i class="fas fa-copy me-1"></i>Copia da @annoPrecedente.Anno (@clientiAnnoPrecedente)
-                </button>
-            </form>
+            <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#copiaAnnoModal">
+                <i class="fas fa-copy me-1"></i>Copia da @annoPrecedente.Anno (@clientiAnnoPrecedente)
+            </button>
         }
         <a asp-action="ExportExcel" asp-route-id="@Model.Id" class="btn btn-success">
             <i class="fas fa-file-excel me-1"></i>Export Excel
@@ -198,7 +193,7 @@
             var numColonne = 4 + campiVisibili.Count; // Cliente, Ateco, Stato, Azioni + campi
             
             <div class="table-responsive" style="overflow: visible;">
-                <table class="table table-hover mb-0">
+                <table class="table table-hover mb-0" style="table-layout: fixed;">
                     <thead>
                         <tr>
                             <th style="width: 250px;">Cliente</th>
@@ -434,6 +429,81 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Copia Anno -->
+@if (annoPrecedente != null && clientiAnnoPrecedente > 0)
+{
+    var campiAttivita = Model.AttivitaTipo?.Campi?.OrderBy(c => c.DisplayOrder).ToList() ?? new List<AttivitaCampo>();
+    <div class="modal fade" id="copiaAnnoModal" tabindex="-1">
+        <div class="modal-dialog">
+            <form asp-action="CopiaClientiDaAnno" method="post">
+                <div class="modal-content">
+                    <div class="modal-header bg-info text-white">
+                        <h5 class="modal-title"><i class="fas fa-copy me-2"></i>Copia da Anno Precedente</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="attivitaAnnualeId" value="@Model.Id" />
+                        <input type="hidden" name="annoPrecedenteId" value="@annoPrecedente.Id" />
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Verranno copiati <strong>@clientiAnnoPrecedente clienti</strong> dal <strong>@annoPrecedente.Anno</strong> al <strong>@Model.AnnualitaFiscale?.Anno</strong>.
+                        </div>
+                        
+                        <div class="p-3 bg-light rounded">
+                            <div class="form-check mb-2">
+                                <input type="checkbox" name="copiaDati" value="true" class="form-check-input" id="copiaDatiCheckAttivita" 
+                                       style="border: 3px solid #333;" onchange="toggleCampiCopiaAttivita(this.checked)">
+                                <label class="form-check-label fw-bold" for="copiaDatiCheckAttivita">
+                                    <i class="fas fa-database me-1"></i>Copia anche i dati inseriti
+                                </label>
+                            </div>
+                            
+                            @if (campiAttivita.Any())
+                            {
+                                <div id="selezioneCampiCopiaAttivita" style="display: none;">
+                                    <div class="border rounded p-2 mt-2 bg-white" style="max-height: 200px; overflow-y: auto;">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <small class="fw-bold">Seleziona campi da copiare:</small>
+                                            <div>
+                                                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1" onclick="selezionaTuttiCampiCopiaAttivita(true)">Tutti</button>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" onclick="selezionaTuttiCampiCopiaAttivita(false)">Nessuno</button>
+                                            </div>
+                                        </div>
+                                        @foreach (var campo in campiAttivita)
+                                        {
+                                            <div class="form-check">
+                                                <input type="checkbox" name="campiDaCopiare" value="@campo.Id" 
+                                                       class="form-check-input campo-copia-check-attivita" id="copiaCampoAtt_@campo.Id" checked
+                                                       style="border: 2px solid #666;">
+                                                <label class="form-check-label small" for="copiaCampoAtt_@campo.Id">
+                                                    @campo.Label
+                                                </label>
+                                            </div>
+                                        }
+                                    </div>
+                                    <small class="text-muted d-block mt-1">
+                                        Solo i campi selezionati verranno copiati nell'anno destinazione.
+                                    </small>
+                                </div>
+                            }
+                            
+                            <small class="text-muted d-block mt-2">
+                                <i class="fas fa-info-circle me-1"></i>
+                                I clienti già presenti nell'anno destinazione saranno ignorati.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                        <button type="submit" class="btn btn-info"><i class="fas fa-copy me-1"></i>Copia</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+}
 
 @section Scripts {
     <script>
@@ -720,5 +790,23 @@
                 });
             });
         });
+        
+        // ========== COPIA ANNO FUNZIONI ==========
+        
+        // Toggle visualizzazione campi da copiare
+        function toggleCampiCopiaAttivita(mostra) {
+            var div = document.getElementById('selezioneCampiCopiaAttivita');
+            if (div) {
+                div.style.display = mostra ? 'block' : 'none';
+            }
+        }
+
+        // Seleziona/deseleziona tutti i campi da copiare
+        function selezionaTuttiCampiCopiaAttivita(seleziona) {
+            var checkboxes = document.querySelectorAll('.campo-copia-check-attivita');
+            checkboxes.forEach(function(cb) {
+                cb.checked = seleziona;
+            });
+        }
     </script>
 }

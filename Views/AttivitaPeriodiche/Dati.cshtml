@@ -9,6 +9,7 @@
     var campi = ViewBag.Campi as List<StudioCG.Web.Models.AttivitaPeriodiche.CampoPeriodico> ?? new List<StudioCG.Web.Models.AttivitaPeriodiche.CampoPeriodico>();
     var clientiDisponibili = ViewBag.ClientiDisponibili as IEnumerable<dynamic> ?? Enumerable.Empty<dynamic>();
     var annualita = ViewBag.Annualita as List<StudioCG.Web.Models.AnnualitaFiscale> ?? new List<StudioCG.Web.Models.AnnualitaFiscale>();
+    var clienteIdDaAprire = ViewBag.ClienteIdDaAprire as int?;
     var campiConRiporto = ViewBag.CampiConRiporto as List<string> ?? new List<string>();
     
     ViewData["Title"] = $"{attivita?.Nome} - {anno}";
@@ -359,13 +360,20 @@
                     ? JsonSerializer.Deserialize<Dictionary<string, string>>(primoPeriodo.Valori) ?? new Dictionary<string, string>()
                     : new Dictionary<string, string>();
 
-                <div class="accordion-item" data-cliente-id="@cliente.Id">
+                var isClienteDaAprire = clienteIdDaAprire.HasValue && cliente.ClienteId == clienteIdDaAprire.Value;
+
+                <div class="accordion-item @(isClienteDaAprire ? "border-primary border-2" : "")" data-cliente-id="@cliente.Id">
                     <h2 class="accordion-header d-flex align-items-center">
-                        <button class="accordion-button collapsed py-2 flex-grow-1" type="button" data-bs-toggle="collapse" 
-                                data-bs-target="#collapse@(cliente.Id)" aria-expanded="false">
+                        <button class="accordion-button @(isClienteDaAprire ? "" : "collapsed") py-2 flex-grow-1" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#collapse@(cliente.Id)" aria-expanded="@(isClienteDaAprire ? "true" : "false")">
                             <div class="d-flex justify-content-between align-items-center w-100">
                                 <div class="d-flex align-items-center flex-wrap gap-2">
-                                    <strong>@cliente.Cliente?.RagioneSociale</strong>
+                                    <a href="@Url.Action("Details", "Clienti", new { id = cliente.ClienteId })" 
+                                       class="text-decoration-none text-dark fw-bold" 
+                                       title="Vai alla scheda cliente"
+                                       onclick="event.stopPropagation();">
+                                        <i class="fas fa-user me-1 text-primary"></i>@cliente.Cliente?.RagioneSociale
+                                    </a>
                                     @foreach (var campoCliente in campiCliente)
                                     {
                                         valoriCliente.TryGetValue(campoCliente.Nome, out string? valCl);
@@ -450,7 +458,7 @@
                             </form>
                         </div>
                     </h2>
-                    <div id="collapse@(cliente.Id)" class="accordion-collapse collapse" data-bs-parent="#accordionClienti">
+                    <div id="collapse@(cliente.Id)" class="accordion-collapse collapse @(isClienteDaAprire ? "show" : "")" data-bs-parent="#accordionClienti">
                         <div class="accordion-body p-2">
                             @* Campi Cliente (mostrati una sola volta, editabili) *@
                             @if (campiCliente.Any())
@@ -477,11 +485,16 @@
                             }
 
                             @* Tabella Periodi *@
+                            @{
+                                // Calcola larghezza totale tabella per scroll orizzontale
+                                var largPeriodo = 120;
+                                var largTotale = largPeriodo + campiPeriodo.Sum(c => c.ColumnWidth > 0 ? c.ColumnWidth : 100);
+                            }
                             <div class="table-responsive">
-                                <table class="table table-sm table-bordered table-hover griglia-periodi mb-0">
+                                <table class="table table-sm table-bordered table-hover griglia-periodi mb-0" style="table-layout: fixed; width: @(largTotale)px; min-width: @(largTotale)px;">
                                     <thead class="table-light">
                                         <tr>
-                                            <th style="width: 120px;">Periodo</th>
+                                            <th style="width: @(largPeriodo)px;">Periodo</th>
                                             @foreach (var campo in campiPeriodo)
                                             {
                                                 var width = campo.ColumnWidth > 0 ? campo.ColumnWidth : 100;
@@ -753,9 +766,14 @@
                         <div class="col-6">
                             <label class="form-label">Anno Origine</label>
                             <select name="annoOrigine" class="form-select">
-                                @foreach (var af in annualita)
+                                @{
+                                    // Ordina anni dal più vecchio al più recente
+                                    var anniOrdinati = annualita.OrderBy(a => a.Anno).ToList();
+                                }
+                                @foreach (var af in anniOrdinati)
                                 {
-                                    var isOrigineSelected = af.Anno == anno - 1 || (annualita.Count == 1 && af.Anno == anno);
+                                    // L'origine di default è l'anno corrente (copio DA questo anno)
+                                    var isOrigineSelected = af.Anno == anno;
                                     if (isOrigineSelected)
                                     {
                                         <option value="@af.Anno" selected>@af.Anno</option>
@@ -770,9 +788,15 @@
                         <div class="col-6">
                             <label class="form-label">Anno Destinazione</label>
                             <select name="annoDestinazione" class="form-select">
-                                @foreach (var af in annualita)
+                                @{
+                                    // Trova l'anno successivo a quello corrente
+                                    var annoSuccessivo = anniOrdinati.FirstOrDefault(a => a.Anno > anno)?.Anno ?? anno + 1;
+                                }
+                                @foreach (var af in anniOrdinati)
                                 {
-                                    if (af.Anno == anno)
+                                    // La destinazione di default è l'anno successivo (copio A questo anno)
+                                    var isDestinazioneSelected = af.Anno == annoSuccessivo;
+                                    if (isDestinazioneSelected)
                                     {
                                         <option value="@af.Anno" selected>@af.Anno</option>
                                     }
@@ -784,10 +808,51 @@
                             </select>
                         </div>
                     </div>
-                    <p class="text-muted small mt-3 mb-0">
-                        <i class="fas fa-info-circle me-1"></i>
-                        Verranno copiati solo i clienti (senza i valori). I clienti già presenti nell'anno destinazione saranno ignorati.
-                    </p>
+                    
+                    <div class="mt-3 p-3 bg-light rounded">
+                        <div class="form-check mb-3">
+                            <input type="checkbox" name="copiaDati" value="true" class="form-check-input" id="copiaDatiCheck" 
+                                   style="border: 3px solid #333;" onchange="toggleCampiCopia(this.checked)" checked>
+                            <label class="form-check-label fw-bold" for="copiaDatiCheck">
+                                <i class="fas fa-database me-1"></i>Copia anche i dati inseriti
+                            </label>
+                        </div>
+                        
+                        <div id="selezioneCampiCopia" class="border-top pt-3">
+                            <div class="alert alert-warning py-2 mb-2">
+                                <i class="fas fa-columns me-1"></i><strong>Seleziona le colonne da copiare:</strong>
+                            </div>
+                            <div class="border rounded p-2 bg-white" style="max-height: 200px; overflow-y: auto;">
+                                <div class="d-flex justify-content-end mb-2">
+                                    <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2 me-1" onclick="selezionaTuttiCampiCopia(true)">
+                                        <i class="fas fa-check-double me-1"></i>Tutti
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="selezionaTuttiCampiCopia(false)">
+                                        <i class="fas fa-times me-1"></i>Nessuno
+                                    </button>
+                                </div>
+                                @foreach (var campo in campi.Where(c => !c.IsCalculated))
+                                {
+                                    <div class="form-check">
+                                        <input type="checkbox" name="campiDaCopiare" value="@campo.Nome" 
+                                               class="form-check-input campo-copia-check" id="copiaCampo_@campo.Id" checked
+                                               style="border: 2px solid #666;">
+                                        <label class="form-check-label" for="copiaCampo_@campo.Id">
+                                            @campo.Label
+                                        </label>
+                                    </div>
+                                }
+                            </div>
+                            <small class="text-muted d-block mt-2">
+                                <i class="fas fa-calculator me-1"></i>I campi calcolati verranno ricalcolati automaticamente.
+                            </small>
+                        </div>
+                        
+                        <small class="text-muted d-block mt-2">
+                            <i class="fas fa-info-circle me-1"></i>
+                            I dati già presenti nell'anno destinazione NON saranno sovrascritti.
+                        </small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
@@ -1268,6 +1333,41 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(applicaRegoleColore, 100);
         });
     });
+
+    // Auto-scroll al cliente aperto se specificato
+    @if (clienteIdDaAprire.HasValue)
+    {
+        <text>
+        setTimeout(function() {
+            var clienteAperto = document.querySelector('.accordion-item.border-primary');
+            if (clienteAperto) {
+                clienteAperto.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Evidenzia brevemente
+                clienteAperto.style.transition = 'box-shadow 0.5s';
+                clienteAperto.style.boxShadow = '0 0 20px rgba(13, 110, 253, 0.5)';
+                setTimeout(function() {
+                    clienteAperto.style.boxShadow = '';
+                }, 2000);
+            }
+        }, 300);
+        </text>
+    }
 });
+
+// Toggle visualizzazione campi da copiare
+function toggleCampiCopia(mostra) {
+    var div = document.getElementById('selezioneCampiCopia');
+    if (div) {
+        div.style.display = mostra ? 'block' : 'none';
+    }
+}
+
+// Seleziona/deseleziona tutti i campi da copiare
+function selezionaTuttiCampiCopia(seleziona) {
+    var checkboxes = document.querySelectorAll('.campo-copia-check');
+    checkboxes.forEach(function(cb) {
+        cb.checked = seleziona;
+    });
+}
 </script>
 }

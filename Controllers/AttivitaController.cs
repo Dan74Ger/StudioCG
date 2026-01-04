@@ -581,7 +581,7 @@ namespace StudioCG.Web.Controllers
         // POST: Attivita/CopiaClientiDaAnno - Copia clienti da anno precedente
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CopiaClientiDaAnno(int attivitaAnnualeId, int annoPrecedenteId)
+        public async Task<IActionResult> CopiaClientiDaAnno(int attivitaAnnualeId, int annoPrecedenteId, bool copiaDati = false, int[]? campiDaCopiare = null)
         {
             var attivitaAnnualeDestinazione = await _context.AttivitaAnnuali
                 .Include(aa => aa.ClientiAttivita)
@@ -592,6 +592,7 @@ namespace StudioCG.Web.Controllers
             // Trova l'attività dello stesso tipo nell'anno precedente
             var attivitaAnnoPrecedente = await _context.AttivitaAnnuali
                 .Include(aa => aa.ClientiAttivita)
+                    .ThenInclude(ca => ca.Valori)
                 .FirstOrDefaultAsync(aa => aa.AttivitaTipoId == attivitaAnnualeDestinazione.AttivitaTipoId 
                     && aa.AnnualitaFiscaleId == annoPrecedenteId);
 
@@ -604,10 +605,19 @@ namespace StudioCG.Web.Controllers
                 });
             }
 
+            // Set di campi da copiare (null significa tutti)
+            HashSet<int>? campiFiltro = campiDaCopiare?.Length > 0 ? new HashSet<int>(campiDaCopiare) : null;
+
             // Clienti già assegnati nella destinazione
             var clientiGiaAssegnati = attivitaAnnualeDestinazione.ClientiAttivita
                 .Select(ca => ca.ClienteId)
                 .ToHashSet();
+
+            // Dizionario per recuperare ClienteAttivita esistenti per clienteId
+            var clientiDestinazioneDict = await _context.ClientiAttivita
+                .Include(ca => ca.Valori)
+                .Where(ca => ca.AttivitaAnnualeId == attivitaAnnualeId)
+                .ToDictionaryAsync(ca => ca.ClienteId);
 
             // Trova lo stato default per questa attività (con fallback al primo disponibile)
             var statoDefault = await _context.StatiAttivitaTipo
@@ -617,19 +627,66 @@ namespace StudioCG.Web.Controllers
                 .FirstOrDefaultAsync();
 
             int copiati = 0;
+            int datiCopiati = 0;
+            
             foreach (var clienteAttivita in attivitaAnnoPrecedente.ClientiAttivita)
             {
+                ClienteAttivita? clienteDestinazione = null;
+                
                 if (!clientiGiaAssegnati.Contains(clienteAttivita.ClienteId))
                 {
-                    _context.ClientiAttivita.Add(new ClienteAttivita
+                    // Crea nuovo cliente
+                    clienteDestinazione = new ClienteAttivita
                     {
                         ClienteId = clienteAttivita.ClienteId,
                         AttivitaAnnualeId = attivitaAnnualeId,
                         Stato = StatoAttivita.DaFare,
                         StatoAttivitaTipoId = statoDefault?.Id,
+                        Note = clienteAttivita.Note,
                         CreatedAt = DateTime.Now
-                    });
+                    };
+                    _context.ClientiAttivita.Add(clienteDestinazione);
+                    await _context.SaveChangesAsync(); // Salva per ottenere l'Id
                     copiati++;
+                }
+                else if (copiaDati)
+                {
+                    // Cliente esiste già, prendi il riferimento
+                    clientiDestinazioneDict.TryGetValue(clienteAttivita.ClienteId, out clienteDestinazione);
+                }
+
+                // Copia valori se richiesto
+                if (copiaDati && clienteDestinazione != null && clienteAttivita.Valori != null)
+                {
+                    foreach (var valore in clienteAttivita.Valori)
+                    {
+                        // Controlla se il campo è nella lista dei campi da copiare
+                        if (campiFiltro != null && !campiFiltro.Contains(valore.AttivitaCampoId))
+                            continue;
+
+                        // Verifica se esiste già un valore per questo campo
+                        var valoreEsistente = await _context.ClientiAttivitaValori
+                            .FirstOrDefaultAsync(v => v.ClienteAttivitaId == clienteDestinazione.Id 
+                                                   && v.AttivitaCampoId == valore.AttivitaCampoId);
+
+                        if (valoreEsistente == null)
+                        {
+                            // Crea nuovo valore
+                            _context.ClientiAttivitaValori.Add(new ClienteAttivitaValore
+                            {
+                                ClienteAttivitaId = clienteDestinazione.Id,
+                                AttivitaCampoId = valore.AttivitaCampoId,
+                                Valore = valore.Valore
+                            });
+                            datiCopiati++;
+                        }
+                        else if (string.IsNullOrEmpty(valoreEsistente.Valore))
+                        {
+                            // Aggiorna solo se vuoto
+                            valoreEsistente.Valore = valore.Valore;
+                            datiCopiati++;
+                        }
+                    }
                 }
             }
 
@@ -637,7 +694,9 @@ namespace StudioCG.Web.Controllers
 
             var annoPrecedente = await _context.AnnualitaFiscali.FindAsync(annoPrecedenteId);
             var annoDestinazione = await _context.AnnualitaFiscali.FindAsync(attivitaAnnualeDestinazione.AnnualitaFiscaleId);
-            TempData["Success"] = $"Copiati {copiati} clienti dal {annoPrecedente?.Anno} al {annoDestinazione?.Anno}.";
+            
+            var messaggioDati = copiaDati && datiCopiati > 0 ? $" ({datiCopiati} valori copiati)" : "";
+            TempData["Success"] = $"Copiati {copiati} clienti dal {annoPrecedente?.Anno} al {annoDestinazione?.Anno}.{messaggioDati}";
 
             return RedirectToAction(nameof(Tipo), new { 
                 id = attivitaAnnualeDestinazione.AttivitaTipoId,

@@ -74,12 +74,62 @@
                 <form asp-action="CopiaAttivitaConfirm" method="post">
                     <input type="hidden" name="id" value="@Model.Id" />
                     
-                    <div class="form-check mb-3">
-                        <input type="checkbox" class="form-check-input" id="copiaClienti" name="copiaClienti" value="true" checked />
-                        <label class="form-check-label" for="copiaClienti">
-                            <strong>Copia anche gli abbinamenti cliente-attività</strong>
-                            <small class="d-block text-muted">I clienti che avevano queste attività nell'anno precedente le avranno anche per questo anno (stato: Da Fare)</small>
-                        </label>
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <i class="fas fa-cog me-1"></i>Opzioni di copia
+                        </div>
+                        <div class="card-body">
+                            <div class="form-check mb-3">
+                                <input type="checkbox" class="form-check-input" id="copiaClienti" name="copiaClienti" value="true" checked 
+                                       style="border: 3px solid #333;" />
+                                <label class="form-check-label" for="copiaClienti">
+                                    <strong><i class="fas fa-users me-1"></i>Copia abbinamenti cliente-attività</strong>
+                                    <small class="d-block text-muted">I clienti che avevano queste attività nell'anno precedente le avranno anche per questo anno</small>
+                                </label>
+                            </div>
+                            
+                            <div class="form-check mb-3">
+                                <input type="checkbox" class="form-check-input" id="copiaDati" name="copiaDati" value="true"
+                                       style="border: 3px solid #333;" onchange="toggleOpzioniDati(this.checked)" />
+                                <label class="form-check-label" for="copiaDati">
+                                    <strong><i class="fas fa-database me-1"></i>Copia anche i dati inseriti</strong>
+                                    <small class="d-block text-muted">Tutti i valori dei campi verranno copiati (es: date, note, importi)</small>
+                                </label>
+                            </div>
+                            
+                            <div id="opzioniDati" style="display: none;" class="ms-4 p-3 bg-light rounded">
+                                <p class="small mb-2"><i class="fas fa-info-circle me-1"></i>Per ogni attività puoi scegliere i campi da copiare nella pagina specifica dell'attività.</p>
+                                
+                                @foreach (var attivita in annoPrecedente.AttivitaAnnuali.Where(a => a.AttivitaTipo?.Campi?.Any() == true))
+                                {
+                                    var campiAttivita = attivita.AttivitaTipo?.Campi?.OrderBy(c => c.DisplayOrder).ToList();
+                                    if (campiAttivita != null && campiAttivita.Any())
+                                    {
+                                        <div class="mb-2">
+                                            <strong class="small"><i class="@attivita.AttivitaTipo?.Icon me-1"></i>@attivita.AttivitaTipo?.Nome:</strong>
+                                            <div class="border rounded p-2 mt-1 bg-white" style="max-height: 120px; overflow-y: auto;">
+                                                @foreach (var campo in campiAttivita)
+                                                {
+                                                    <div class="form-check form-check-inline">
+                                                        <input type="checkbox" name="campiDaCopiare_@attivita.AttivitaTipoId" value="@campo.Id" 
+                                                               class="form-check-input campo-copia-att-@attivita.AttivitaTipoId" 
+                                                               id="copiaC@(attivita.AttivitaTipoId)x@(campo.Id)" checked
+                                                               style="border: 2px solid #666;">
+                                                        <label class="form-check-label small" for="copiaC@(attivita.AttivitaTipoId)x@(campo.Id)">
+                                                            @campo.Label
+                                                        </label>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                }
+                                
+                                <small class="text-muted">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>I dati già presenti nell'anno destinazione NON saranno sovrascritti.
+                                </small>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="d-flex justify-content-between">
@@ -91,6 +141,12 @@
                         </button>
                     </div>
                 </form>
+                
+                <script>
+                function toggleOpzioniDati(mostra) {
+                    document.getElementById('opzioniDati').style.display = mostra ? 'block' : 'none';
+                }
+                </script>
             }
             else
             {

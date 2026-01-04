@@ -1123,7 +1123,7 @@ namespace StudioCG.Web.Controllers
         // ============ VISUALIZZAZIONE DATI ============
 
         // GET: AttivitaPeriodiche/Dati/5
-        public async Task<IActionResult> Dati(int id, int? tipoPeriodoId, int anno = 0, string? search = null)
+        public async Task<IActionResult> Dati(int id, int? tipoPeriodoId, int anno = 0, string? search = null, int? clienteId = null)
         {
             var attivita = await _context.AttivitaPeriodiche
                 .Include(a => a.TipiPeriodo.Where(t => t.IsActive).OrderBy(t => t.DisplayOrder))
@@ -1204,6 +1204,7 @@ namespace StudioCG.Web.Controllers
             ViewBag.ClientiDisponibili = clientiDisponibili;
             ViewBag.Campi = tipoSelezionato.Campi.ToList();
             ViewBag.Annualita = annualita;
+            ViewBag.ClienteIdDaAprire = clienteId;
 
             // Carica i campi che hanno regole di riporto (per renderli readonly dal periodo 2 in poi)
             var campiConRiporto = await _context.RegoleCampi
@@ -1347,6 +1348,75 @@ namespace StudioCG.Web.Controllers
             }
 
             return RedirectToAction(nameof(Dati), new { id = attivitaPeriodicaId, tipoPeriodoId, anno });
+        }
+
+        // POST: AttivitaPeriodiche/AssegnaClienteDaDettaglio
+        // Assegna un cliente a più tipi periodo dalla pagina dettagli cliente
+        [HttpPost]
+        public async Task<IActionResult> AssegnaClienteDaDettaglio(int clienteId, int[] tipiPeriodoIds, int annoFiscale)
+        {
+            if (tipiPeriodoIds == null || tipiPeriodoIds.Length == 0)
+            {
+                TempData["Error"] = "Seleziona almeno un tipo di periodo.";
+                return RedirectToAction("Details", "Clienti", new { id = clienteId });
+            }
+
+            int aggiunti = 0;
+            
+            foreach (var tipoPeriodoId in tipiPeriodoIds)
+            {
+                var tipo = await _context.TipiPeriodo
+                    .Include(t => t.AttivitaPeriodica)
+                    .FirstOrDefaultAsync(t => t.Id == tipoPeriodoId);
+                
+                if (tipo == null) continue;
+
+                // Verifica se esiste già
+                var exists = await _context.ClientiAttivitaPeriodiche
+                    .AnyAsync(c => c.TipoPeriodoId == tipoPeriodoId && c.ClienteId == clienteId && c.AnnoFiscale == annoFiscale);
+
+                if (exists) continue;
+
+                var nuovaAssociazione = new ClienteAttivitaPeriodica
+                {
+                    AttivitaPeriodicaId = tipo.AttivitaPeriodicaId,
+                    TipoPeriodoId = tipoPeriodoId,
+                    ClienteId = clienteId,
+                    AnnoFiscale = annoFiscale,
+                    IsActive = true,
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now
+                };
+
+                _context.ClientiAttivitaPeriodiche.Add(nuovaAssociazione);
+                await _context.SaveChangesAsync();
+
+                // Crea record ValorePeriodo vuoti
+                for (int i = 1; i <= tipo.NumeroPeriodi; i++)
+                {
+                    _context.ValoriPeriodi.Add(new ValorePeriodo
+                    {
+                        ClienteAttivitaPeriodicaId = nuovaAssociazione.Id,
+                        NumeroPeriodo = i,
+                        Valori = "{}",
+                        ValoriCalcolati = "{}"
+                    });
+                }
+                await _context.SaveChangesAsync();
+
+                aggiunti++;
+            }
+
+            if (aggiunti > 0)
+            {
+                TempData["Success"] = $"{aggiunti} attività periodiche assegnate con successo.";
+            }
+            else
+            {
+                TempData["Warning"] = "Le attività selezionate erano già assegnate.";
+            }
+
+            return RedirectToAction("Details", "Clienti", new { id = clienteId });
         }
 
         // POST: AttivitaPeriodiche/RimuoviCliente
@@ -1655,7 +1725,7 @@ namespace StudioCG.Web.Controllers
 
         // POST: AttivitaPeriodiche/CopiaAnno
         [HttpPost]
-        public async Task<IActionResult> CopiaAnno(int attivitaPeriodicaId, int tipoPeriodoId, int annoOrigine, int annoDestinazione)
+        public async Task<IActionResult> CopiaAnno(int attivitaPeriodicaId, int tipoPeriodoId, int annoOrigine, int annoDestinazione, bool copiaDati = false, string[]? campiDaCopiare = null)
         {
             if (annoOrigine == annoDestinazione)
             {
@@ -1664,22 +1734,30 @@ namespace StudioCG.Web.Controllers
             }
 
             var clientiOrigine = await _context.ClientiAttivitaPeriodiche
+                .Include(c => c.ValoriPeriodi) // Include valori per copiare anche i dati
                 .Where(c => c.AttivitaPeriodicaId == attivitaPeriodicaId 
                          && c.TipoPeriodoId == tipoPeriodoId 
                          && c.AnnoFiscale == annoOrigine)
                 .ToListAsync();
+            
+            // Set di campi da copiare (null significa tutti)
+            HashSet<string>? campiFiltro = campiDaCopiare?.Length > 0 ? new HashSet<string>(campiDaCopiare) : null;
 
             int copiati = 0;
+            int datiCopiati = 0;
+            
             foreach (var cliente in clientiOrigine)
             {
                 // Verifica se esiste già
-                var exists = await _context.ClientiAttivitaPeriodiche
-                    .AnyAsync(c => c.TipoPeriodoId == tipoPeriodoId 
+                var clienteEsistente = await _context.ClientiAttivitaPeriodiche
+                    .Include(c => c.ValoriPeriodi)
+                    .FirstOrDefaultAsync(c => c.TipoPeriodoId == tipoPeriodoId 
                                 && c.ClienteId == cliente.ClienteId 
                                 && c.AnnoFiscale == annoDestinazione);
 
-                if (!exists)
+                if (clienteEsistente == null)
                 {
+                    // Crea nuovo cliente
                     var nuova = new ClienteAttivitaPeriodica
                     {
                         AttivitaPeriodicaId = attivitaPeriodicaId,
@@ -1693,7 +1771,60 @@ namespace StudioCG.Web.Controllers
                         UpdatedAt = DateTime.Now
                     };
                     _context.ClientiAttivitaPeriodiche.Add(nuova);
+                    await _context.SaveChangesAsync(); // Salva per ottenere l'Id
+
+                    // Copia valori periodi se richiesto
+                    if (copiaDati && cliente.ValoriPeriodi.Any())
+                    {
+                        foreach (var valore in cliente.ValoriPeriodi)
+                        {
+                            var valoriFiltrati = FiltraValoriJson(valore.Valori, campiFiltro);
+                            _context.ValoriPeriodi.Add(new ValorePeriodo
+                            {
+                                ClienteAttivitaPeriodicaId = nuova.Id,
+                                NumeroPeriodo = valore.NumeroPeriodo,
+                                Valori = valoriFiltrati,  // Copia solo i campi selezionati
+                                ValoriCalcolati = "{}", // Reset calcolati (verranno ricalcolati)
+                                DataAggiornamento = DateTime.Now
+                            });
+                            datiCopiati++;
+                        }
+                    }
                     copiati++;
+                }
+                else if (copiaDati && cliente.ValoriPeriodi.Any())
+                {
+                    // Cliente esiste già, ma copiamo i dati se richiesto
+                    foreach (var valoreOrigine in cliente.ValoriPeriodi)
+                    {
+                        var valoriFiltrati = FiltraValoriJson(valoreOrigine.Valori, campiFiltro);
+                        var valoreDestinazione = clienteEsistente.ValoriPeriodi
+                            .FirstOrDefault(v => v.NumeroPeriodo == valoreOrigine.NumeroPeriodo);
+                        
+                        if (valoreDestinazione != null)
+                        {
+                            // Aggiorna solo se i dati destinazione sono vuoti
+                            if (valoreDestinazione.Valori == "{}" || string.IsNullOrEmpty(valoreDestinazione.Valori))
+                            {
+                                valoreDestinazione.Valori = valoriFiltrati;
+                                valoreDestinazione.DataAggiornamento = DateTime.Now;
+                                datiCopiati++;
+                            }
+                        }
+                        else
+                        {
+                            // Crea nuovo periodo
+                            _context.ValoriPeriodi.Add(new ValorePeriodo
+                            {
+                                ClienteAttivitaPeriodicaId = clienteEsistente.Id,
+                                NumeroPeriodo = valoreOrigine.NumeroPeriodo,
+                                Valori = valoriFiltrati,
+                                ValoriCalcolati = "{}",
+                                DataAggiornamento = DateTime.Now
+                            });
+                            datiCopiati++;
+                        }
+                    }
                 }
             }
 
@@ -1727,11 +1858,43 @@ namespace StudioCG.Web.Controllers
                 await _context.SaveChangesAsync();
             }
 
-            TempData["Success"] = $"{copiati} clienti copiati da {annoOrigine} a {annoDestinazione}.";
+            var messaggioDati = copiaDati && datiCopiati > 0 ? $" ({datiCopiati} periodi con dati copiati)" : "";
+            TempData["Success"] = $"{copiati} clienti copiati da {annoOrigine} a {annoDestinazione}.{messaggioDati}";
             return RedirectToAction(nameof(Dati), new { id = attivitaPeriodicaId, tipoPeriodoId, anno = annoDestinazione });
         }
 
         // ============ HELPERS ============
+        
+        /// <summary>
+        /// Filtra i valori JSON mantenendo solo i campi specificati nel filtro.
+        /// Se il filtro è null, restituisce il JSON originale.
+        /// </summary>
+        private string FiltraValoriJson(string valoriJson, HashSet<string>? campiFiltro)
+        {
+            if (campiFiltro == null || string.IsNullOrEmpty(valoriJson) || valoriJson == "{}")
+                return valoriJson;
+            
+            try
+            {
+                var valoriOriginali = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(valoriJson) 
+                                      ?? new Dictionary<string, string>();
+                
+                var valoriFiltrati = new Dictionary<string, string>();
+                foreach (var kvp in valoriOriginali)
+                {
+                    if (campiFiltro.Contains(kvp.Key))
+                    {
+                        valoriFiltrati[kvp.Key] = kvp.Value;
+                    }
+                }
+                
+                return System.Text.Json.JsonSerializer.Serialize(valoriFiltrati);
+            }
+            catch
+            {
+                return "{}";
+            }
+        }
 
         private (List<string> etichette, List<string> dateInizio, List<string> dateFine) GeneraPeriodiDefault(int numeroPeriodi)
         {

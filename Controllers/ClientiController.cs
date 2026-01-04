@@ -6,6 +6,7 @@ using OfficeOpenXml;
 using StudioCG.Web.Data;
 using StudioCG.Web.Filters;
 using StudioCG.Web.Models;
+using StudioCG.Web.Models.AttivitaPeriodiche;
 
 namespace StudioCG.Web.Controllers
 {
@@ -144,6 +145,37 @@ namespace StudioCG.Web.Controllers
                 recordsPerEntita[entita.Id] = count;
             }
             ViewBag.RecordsPerEntita = recordsPerEntita;
+
+            // Carica Attività Periodiche collegate al cliente
+            var attivitaPeriodiche = await _context.ClientiAttivitaPeriodiche
+                .Include(cap => cap.TipoPeriodo)
+                    .ThenInclude(tp => tp!.AttivitaPeriodica)
+                .Where(cap => cap.ClienteId == id && cap.IsActive)
+                .ToListAsync();
+            
+            // Raggruppa per AttivitaPeriodica
+            var attivitaPeriodicheRaggruppate = attivitaPeriodiche
+                .Where(cap => cap.TipoPeriodo?.AttivitaPeriodica != null)
+                .GroupBy(cap => cap.TipoPeriodo!.AttivitaPeriodica!)
+                .Select(g => new {
+                    Attivita = g.Key,
+                    TipiPeriodo = g.Select(cap => cap.TipoPeriodo).Distinct().ToList(),
+                    ClienteAttivitaIds = g.ToDictionary(cap => cap.TipoPeriodoId, cap => cap.Id)
+                })
+                .ToList();
+            ViewBag.AttivitaPeriodiche = attivitaPeriodicheRaggruppate;
+            
+            // Carica TUTTE le attività periodiche disponibili per assegnazione
+            var tutteAttivitaPeriodiche = await _context.AttivitaPeriodiche
+                .Include(ap => ap.TipiPeriodo)
+                .Where(ap => ap.IsActive)
+                .OrderBy(ap => ap.Nome)
+                .ToListAsync();
+            ViewBag.TutteAttivitaPeriodiche = tutteAttivitaPeriodiche;
+            
+            // IDs delle attività periodiche già assegnate (per tipo periodo)
+            var tipiPeriodoAssegnati = attivitaPeriodiche.Select(cap => cap.TipoPeriodoId).ToHashSet();
+            ViewBag.TipiPeriodoAssegnati = tipiPeriodoAssegnati;
 
             return View(cliente);
         }

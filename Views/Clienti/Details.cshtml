@@ -1,6 +1,7 @@
 @model StudioCG.Web.Models.Cliente
 @using StudioCG.Web.Models
 @using StudioCG.Web.Models.Entita
+@using StudioCG.Web.Models.AttivitaPeriodiche
 
 @{
     ViewData["Title"] = Model.RagioneSociale;
@@ -15,6 +16,9 @@
     
     var entitaCollegate = ViewBag.EntitaCollegate as List<EntitaDinamica> ?? new List<EntitaDinamica>();
     var recordsPerEntita = ViewBag.RecordsPerEntita as Dictionary<int, int> ?? new Dictionary<int, int>();
+    
+    // Attività Periodiche (LIPE, ecc.)
+    var attivitaPeriodiche = ViewBag.AttivitaPeriodiche as dynamic ?? new List<dynamic>();
 }
 
 <!-- Header -->
@@ -412,6 +416,89 @@
                 </div>
             </div>
         }
+        
+        <!-- Attività Periodiche (LIPE, ecc.) -->
+        @{
+            var tutteAttivitaPeriodiche = ViewBag.TutteAttivitaPeriodiche as List<AttivitaPeriodica> ?? new List<AttivitaPeriodica>();
+            var tipiPeriodoAssegnati = ViewBag.TipiPeriodoAssegnati as HashSet<int> ?? new HashSet<int>();
+        }
+        <div class="card mt-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Attività Periodiche</h6>
+                @if (tutteAttivitaPeriodiche.Any())
+                {
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#assegnaAttivitaPeriodicaModal">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                }
+            </div>
+            <div class="card-body p-0">
+                @if (((IEnumerable<dynamic>)attivitaPeriodiche).Any())
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var item in (IEnumerable<dynamic>)attivitaPeriodiche)
+                        {
+                            var attivita = item.Attivita as AttivitaPeriodica;
+                            var tipiPeriodo = item.TipiPeriodo as IEnumerable<TipoPeriodo>;
+                            var clienteAttivitaIds = item.ClienteAttivitaIds as Dictionary<int, int>;
+                            
+                            @if (attivita != null && tipiPeriodo != null)
+                            {
+                                <li class="list-group-item p-0">
+                                    <a asp-controller="AttivitaPeriodiche" asp-action="Dati" 
+                                       asp-route-id="@attivita.Id"
+                                       class="fw-bold d-flex justify-content-between align-items-center text-decoration-none p-3"
+                                       style="color: @attivita.Colore; background-color: #f8f9fa;"
+                                       title="Vai a @attivita.Nome"
+                                       onmouseover="this.style.backgroundColor='#e7f1ff'" 
+                                       onmouseout="this.style.backgroundColor='#f8f9fa'">
+                                        <span>
+                                            <i class="@attivita.Icona me-2"></i>@attivita.Nome
+                                        </span>
+                                        <i class="fas fa-external-link-alt"></i>
+                                    </a>
+                                    <div class="px-3 pb-2">
+                                    @foreach (var tipo in tipiPeriodo)
+                                    {
+                                        @if (tipo != null)
+                                        {
+                                            <a asp-controller="AttivitaPeriodiche" asp-action="Dati" 
+                                               asp-route-id="@attivita.Id" 
+                                               asp-route-tipoPeriodoId="@tipo.Id"
+                                               asp-route-clienteId="@Model.Id"
+                                               class="d-flex justify-content-between align-items-center mb-1 text-decoration-none p-2 rounded"
+                                               style="color: @tipo.Colore; transition: background 0.2s;"
+                                               title="Vai a @attivita.Nome - @tipo.Nome"
+                                               onmouseover="this.style.backgroundColor='#e7f1ff'" 
+                                               onmouseout="this.style.backgroundColor=''">
+                                                <span>
+                                                    <i class="@tipo.Icona me-1"></i>
+                                                    @tipo.Nome
+                                                </span>
+                                                <i class="fas fa-arrow-right text-primary"></i>
+                                            </a>
+                                        }
+                                    }
+                                    </div>
+                                </li>
+                            }
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <div class="p-3">
+                        <p class="text-muted small mb-2">Nessuna attività periodica assegnata.</p>
+                        @if (tutteAttivitaPeriodiche.Any())
+                        {
+                            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#assegnaAttivitaPeriodicaModal">
+                                <i class="fas fa-plus me-1"></i>Assegna attività periodica
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
     </div>
 </div>
 
@@ -420,6 +507,84 @@
         <i class="fas fa-arrow-left me-1"></i>Torna all'elenco
     </a>
 </div>
+
+<!-- Modal Assegna Attività Periodica -->
+@if (tutteAttivitaPeriodiche.Any())
+{
+    <div class="modal fade" id="assegnaAttivitaPeriodicaModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form asp-controller="AttivitaPeriodiche" asp-action="AssegnaClienteDaDettaglio" method="post">
+                    <input type="hidden" name="clienteId" value="@Model.Id" />
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title"><i class="fas fa-calendar-plus me-2"></i>Assegna Attività Periodica</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small">Seleziona l'attività periodica e il tipo di periodo da assegnare a <strong>@Model.RagioneSociale</strong>.</p>
+                        
+                        @foreach (var ap in tutteAttivitaPeriodiche)
+                        {
+                            <div class="card mb-2">
+                                <div class="card-header py-2" style="background-color: @(ap.Colore)20;">
+                                    <strong><i class="@ap.Icona me-2" style="color: @ap.Colore;"></i>@ap.Nome</strong>
+                                </div>
+                                <div class="card-body py-2">
+                                    @if (ap.TipiPeriodo != null && ap.TipiPeriodo.Any())
+                                    {
+                                        @foreach (var tipo in ap.TipiPeriodo.Where(t => t.IsActive))
+                                        {
+                                            var giaAssegnato = tipiPeriodoAssegnati.Contains(tipo.Id);
+                                            <div class="form-check">
+                                                <input type="checkbox" name="tipiPeriodoIds" value="@tipo.Id" 
+                                                       class="form-check-input" id="tipoPeriodo_@tipo.Id"
+                                                       @(giaAssegnato ? "disabled checked" : "")
+                                                       style="border: 2px solid @(giaAssegnato ? "#28a745" : "#666");">
+                                                <label class="form-check-label @(giaAssegnato ? "text-success" : "")" for="tipoPeriodo_@tipo.Id">
+                                                    <i class="@tipo.Icona me-1" style="color: @tipo.Colore;"></i>
+                                                    @tipo.Nome
+                                                    @if (giaAssegnato)
+                                                    {
+                                                        <span class="badge bg-success ms-1">Già assegnato</span>
+                                                    }
+                                                </label>
+                                            </div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">Nessun tipo periodo configurato</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        
+                        <div class="mt-3">
+                            <label class="form-label">Anno Fiscale</label>
+                            <select name="annoFiscale" class="form-select">
+                                @foreach (var af in tuttiAnni.OrderByDescending(a => a.Anno))
+                                {
+                                    if (af.IsCurrent)
+                                    {
+                                        <option value="@af.Anno" selected>@af.Anno (corrente)</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@af.Anno">@af.Anno</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-check me-1"></i>Assegna</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
 
 <!-- Modal Aggiungi Soggetto -->
 <div class="modal fade" id="addSoggettoModal" tabindex="-1">
