@@ -812,6 +812,63 @@ namespace StudioCG.Web.Data
                     Category = "ANAGRAFICA",
                     DisplayOrder = 13,
                     ShowInMenu = true
+                },
+                // ============ PERMESSI MANCANTI ============
+                new Permission
+                {
+                    Id = 104,
+                    PageName = "Attività",
+                    PageUrl = "/Attivita",
+                    Description = "Gestione dati attività annuali clienti",
+                    Icon = "fas fa-tasks",
+                    Category = "ANAGRAFICA",
+                    DisplayOrder = 14,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 105,
+                    PageName = "Attività Periodiche",
+                    PageUrl = "/AttivitaPeriodiche",
+                    Description = "Gestione attività periodiche (LIPE, ecc.)",
+                    Icon = "fas fa-calendar-check",
+                    Category = "ANAGRAFICA",
+                    DisplayOrder = 15,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 106,
+                    PageName = "Entità",
+                    PageUrl = "/Entita",
+                    Description = "Gestione entità dinamiche",
+                    Icon = "fas fa-cubes",
+                    Category = "ANAGRAFICA",
+                    DisplayOrder = 16,
+                    ShowInMenu = true
+                },
+                // ============ PERMESSI SISTEMA ============
+                new Permission
+                {
+                    Id = 400,
+                    PageName = "Pagine Dinamiche",
+                    PageUrl = "/DynamicPages",
+                    Description = "Gestione pagine dinamiche",
+                    Icon = "fas fa-file-alt",
+                    Category = "SISTEMA",
+                    DisplayOrder = 50,
+                    ShowInMenu = true
+                },
+                new Permission
+                {
+                    Id = 402,
+                    PageName = "Permessi",
+                    PageUrl = "/Permissions",
+                    Description = "Gestione permessi utenti",
+                    Icon = "fas fa-user-shield",
+                    Category = "SISTEMA",
+                    DisplayOrder = 52,
+                    ShowInMenu = true
                 }
             );
 

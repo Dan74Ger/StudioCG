@@ -13,10 +13,20 @@ namespace StudioCG.Web.Controllers
     public class EntitaController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IPermissionService _permissionService;
 
-        public EntitaController(ApplicationDbContext context)
+        public EntitaController(ApplicationDbContext context, IPermissionService permissionService)
         {
             _context = context;
+            _permissionService = permissionService;
+        }
+
+        private async Task<bool> CanAccessAsync(string pageUrl)
+        {
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username)) return false;
+            if (username.Equals("admin", StringComparison.OrdinalIgnoreCase)) return true;
+            return await _permissionService.UserHasPermissionAsync(username, pageUrl);
         }
 
         // ============ GESTIONE ENTITÀ (ADMIN) ============
@@ -472,6 +482,11 @@ namespace StudioCG.Web.Controllers
         // GET: Entita/Dati/5
         public async Task<IActionResult> Dati(int id, int? clienteId, int? statoId, string? search)
         {
+            // Verifica permessi per questa entità
+            var pageUrl = $"/Entita/Dati/{id}";
+            if (!await CanAccessAsync(pageUrl))
+                return RedirectToAction("AccessDenied", "Account");
+
             var entita = await _context.EntitaDinamiche
                 .Include(e => e.Campi.Where(c => c.IsActive).OrderBy(c => c.DisplayOrder))
                 .Include(e => e.Stati.Where(s => s.IsActive).OrderBy(s => s.DisplayOrder))

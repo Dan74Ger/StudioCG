@@ -12,10 +12,20 @@ namespace StudioCG.Web.Controllers
     public class AttivitaController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IPermissionService _permissionService;
 
-        public AttivitaController(ApplicationDbContext context)
+        public AttivitaController(ApplicationDbContext context, IPermissionService permissionService)
         {
             _context = context;
+            _permissionService = permissionService;
+        }
+
+        private async Task<bool> CanAccessAsync(string pageUrl)
+        {
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username)) return false;
+            if (username.Equals("admin", StringComparison.OrdinalIgnoreCase)) return true;
+            return await _permissionService.UserHasPermissionAsync(username, pageUrl);
         }
 
         // GET: Attivita - Lista attività per anno corrente
@@ -76,6 +86,11 @@ namespace StudioCG.Web.Controllers
         public async Task<IActionResult> Tipo(int? id, int? annoId, string? searchNome, int? filtroStatoId, string? ordinamento)
         {
             if (id == null) return NotFound();
+
+            // Verifica permessi per questa attività
+            var pageUrl = $"/Attivita/Tipo/{id}";
+            if (!await CanAccessAsync(pageUrl))
+                return RedirectToAction("AccessDenied", "Account");
 
             var annoCorrente = annoId.HasValue
                 ? await _context.AnnualitaFiscali.FindAsync(annoId)

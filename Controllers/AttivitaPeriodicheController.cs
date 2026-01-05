@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StudioCG.Web.Data;
@@ -9,14 +10,24 @@ using System.Text.Json;
 
 namespace StudioCG.Web.Controllers
 {
-    [AdminOnly]
+    [Authorize]  // Richiede login, ma i permessi sono controllati per singola azione
     public class AttivitaPeriodicheController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IPermissionService _permissionService;
 
-        public AttivitaPeriodicheController(ApplicationDbContext context)
+        public AttivitaPeriodicheController(ApplicationDbContext context, IPermissionService permissionService)
         {
             _context = context;
+            _permissionService = permissionService;
+        }
+
+        private async Task<bool> CanAccessAsync(string pageUrl)
+        {
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username)) return false;
+            if (username.Equals("admin", StringComparison.OrdinalIgnoreCase)) return true;
+            return await _permissionService.UserHasPermissionAsync(username, pageUrl);
         }
 
         // DEBUG: Endpoint per visualizzare campi e formule
@@ -289,6 +300,7 @@ namespace StudioCG.Web.Controllers
         // ============ GESTIONE SEZIONI ============
 
         // GET: AttivitaPeriodiche/Gestione
+        [AdminOnly]
         public async Task<IActionResult> Gestione()
         {
             // Assicura che esista la voce di menu per Attività Periodiche
@@ -423,6 +435,7 @@ namespace StudioCG.Web.Controllers
 
         // POST: AttivitaPeriodiche/CreaSezione
         [HttpPost]
+        [AdminOnly]
         public async Task<IActionResult> CreaSezione(string nome, string nomePlurale, string? descrizione, 
             string icona, string colore, bool collegataACliente)
         {
@@ -483,6 +496,7 @@ namespace StudioCG.Web.Controllers
         }
 
         // GET: AttivitaPeriodiche/Configura/5
+        [AdminOnly]
         public async Task<IActionResult> Configura(int id)
         {
             var attivita = await _context.AttivitaPeriodiche
@@ -549,6 +563,7 @@ namespace StudioCG.Web.Controllers
 
         // POST: AttivitaPeriodiche/CreaTipoPeriodo
         [HttpPost]
+        [AdminOnly]
         public async Task<IActionResult> CreaTipoPeriodo(int attivitaPeriodicaId, string nome, int numeroPeriodi,
             string? icona, string? colore, bool mostraInteressi, decimal percentualeInteressiDefault)
         {
@@ -589,6 +604,7 @@ namespace StudioCG.Web.Controllers
         }
 
         // GET: AttivitaPeriodiche/ConfiguraTipo/5
+        [AdminOnly]
         public async Task<IActionResult> ConfiguraTipo(int id)
         {
             var tipo = await _context.TipiPeriodo
@@ -660,6 +676,7 @@ namespace StudioCG.Web.Controllers
 
         // POST: AttivitaPeriodiche/CreaCampo
         [HttpPost]
+        [AdminOnly]
         public async Task<IActionResult> CreaCampo(CampoPeriodico campo)
         {
             if (string.IsNullOrWhiteSpace(campo.Nome) || string.IsNullOrWhiteSpace(campo.Label))
@@ -791,6 +808,7 @@ namespace StudioCG.Web.Controllers
         // ============ GESTIONE REGOLE ============
 
         // GET: AttivitaPeriodiche/ConfiguraRegole/5 (tipoPeriodoId)
+        [AdminOnly]
         public async Task<IActionResult> ConfiguraRegole(int id)
         {
             var tipo = await _context.TipiPeriodo
@@ -810,6 +828,7 @@ namespace StudioCG.Web.Controllers
 
         // POST: AttivitaPeriodiche/CreaRegola
         [HttpPost]
+        [AdminOnly]
         public async Task<IActionResult> CreaRegola(RegolaCampo regola, string? ValoreConfrontoRiporto)
         {
             if (regola.CampoPeriodicoId == 0)
@@ -1125,6 +1144,13 @@ namespace StudioCG.Web.Controllers
         // GET: AttivitaPeriodiche/Dati/5
         public async Task<IActionResult> Dati(int id, int? tipoPeriodoId, int anno = 0, string? search = null, int? clienteId = null)
         {
+            // Verifica permessi per questa attività periodica
+            var pageUrl = $"/AttivitaPeriodiche/Dati/{id}";
+            if (!await CanAccessAsync(pageUrl))
+            {
+                return RedirectToAction("AccessDenied", "Account");
+            }
+
             var attivita = await _context.AttivitaPeriodiche
                 .Include(a => a.TipiPeriodo.Where(t => t.IsActive).OrderBy(t => t.DisplayOrder))
                     .ThenInclude(t => t.Campi.Where(c => c.IsActive).OrderBy(c => c.DisplayOrder))

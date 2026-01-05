@@ -4,22 +4,36 @@ using Microsoft.EntityFrameworkCore;
 using StudioCG.Web.Data;
 using StudioCG.Web.Filters;
 using StudioCG.Web.Models;
+using StudioCG.Web.Services;
 
 namespace StudioCG.Web.Controllers
 {
-    [AdminOnly]
+    [Authorize]
     public class AnnualitaController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IPermissionService _permissionService;
 
-        public AnnualitaController(ApplicationDbContext context)
+        public AnnualitaController(ApplicationDbContext context, IPermissionService permissionService)
         {
             _context = context;
+            _permissionService = permissionService;
+        }
+
+        private async Task<bool> CanAccessAsync(string pageUrl)
+        {
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username)) return false;
+            if (username.Equals("admin", StringComparison.OrdinalIgnoreCase)) return true;
+            return await _permissionService.UserHasPermissionAsync(username, pageUrl);
         }
 
         // GET: Annualita
         public async Task<IActionResult> Index()
         {
+            if (!await CanAccessAsync("/Annualita"))
+                return RedirectToAction("AccessDenied", "Account");
+
             var annualita = await _context.AnnualitaFiscali
                 .Include(a => a.AttivitaAnnuali)
                 .OrderByDescending(a => a.Anno)

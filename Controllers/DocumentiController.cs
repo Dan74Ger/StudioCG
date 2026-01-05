@@ -9,26 +9,38 @@ using StudioCG.Web.Services;
 namespace StudioCG.Web.Controllers
 {
     [Authorize]
-    [AdminOnly]
     public class DocumentiController : Controller
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<DocumentiController> _logger;
         private readonly DocumentoGeneratorService _generatorService;
+        private readonly IPermissionService _permissionService;
 
         public DocumentiController(
             ApplicationDbContext context, 
             ILogger<DocumentiController> logger,
-            DocumentoGeneratorService generatorService)
+            DocumentoGeneratorService generatorService,
+            IPermissionService permissionService)
         {
             _context = context;
             _logger = logger;
             _generatorService = generatorService;
+            _permissionService = permissionService;
+        }
+
+        private async Task<bool> CanAccessAsync(string pageUrl)
+        {
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username)) return false;
+            if (username.Equals("admin", StringComparison.OrdinalIgnoreCase)) return true;
+            return await _permissionService.UserHasPermissionAsync(username, pageUrl);
         }
 
         // GET: /Documenti
         public async Task<IActionResult> Index()
         {
+            if (!await CanAccessAsync("/Documenti"))
+                return RedirectToAction("AccessDenied", "Account");
             var stats = new DocumentiDashboardViewModel
             {
                 NumeroTemplate = await _context.TemplateDocumenti.CountAsync(t => t.IsActive),

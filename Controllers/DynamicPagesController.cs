@@ -1,26 +1,40 @@
 using ClosedXML.Excel;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StudioCG.Web.Data;
 using StudioCG.Web.Filters;
 using StudioCG.Web.Models;
+using StudioCG.Web.Services;
 using System.Text.RegularExpressions;
 
 namespace StudioCG.Web.Controllers
 {
-    [AdminOnly]
+    [Authorize]
     public class DynamicPagesController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IPermissionService _permissionService;
 
-        public DynamicPagesController(ApplicationDbContext context)
+        public DynamicPagesController(ApplicationDbContext context, IPermissionService permissionService)
         {
             _context = context;
+            _permissionService = permissionService;
+        }
+
+        private async Task<bool> CanAccessAsync(string pageUrl)
+        {
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username)) return false;
+            if (username.Equals("admin", StringComparison.OrdinalIgnoreCase)) return true;
+            return await _permissionService.UserHasPermissionAsync(username, pageUrl);
         }
 
         // GET: DynamicPages
         public async Task<IActionResult> Index()
         {
+            if (!await CanAccessAsync("/DynamicPages"))
+                return RedirectToAction("AccessDenied", "Account");
             var pages = await _context.DynamicPages
                 .Include(p => p.Fields)
                 .OrderBy(p => p.Category)

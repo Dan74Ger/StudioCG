@@ -9,19 +9,32 @@ using System.Text.RegularExpressions;
 
 namespace StudioCG.Web.Controllers
 {
-    [AdminOnly]
+    [Authorize]
     public class AttivitaTipiController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IPermissionService _permissionService;
 
-        public AttivitaTipiController(ApplicationDbContext context)
+        public AttivitaTipiController(ApplicationDbContext context, IPermissionService permissionService)
         {
             _context = context;
+            _permissionService = permissionService;
+        }
+
+        private async Task<bool> CanAccessAsync(string pageUrl)
+        {
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username)) return false;
+            if (username.Equals("admin", StringComparison.OrdinalIgnoreCase)) return true;
+            return await _permissionService.UserHasPermissionAsync(username, pageUrl);
         }
 
         // GET: AttivitaTipi
         public async Task<IActionResult> Index()
         {
+            if (!await CanAccessAsync("/AttivitaTipi"))
+                return RedirectToAction("AccessDenied", "Account");
+
             var tipi = await _context.AttivitaTipi
                 .Include(t => t.Campi)
                 .Include(t => t.Stati)
