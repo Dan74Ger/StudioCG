@@ -1956,6 +1956,71 @@ namespace StudioCG.Web.Controllers
             return RedirectToAction(nameof(Mandati), new { anno });
         }
 
+        // GET: /Amministrazione/GetScadenzeMandato
+        [HttpGet]
+        public async Task<IActionResult> GetScadenzeMandato(int mandatoId)
+        {
+            try
+            {
+                var scadenze = await _context.ScadenzeFatturazione
+                    .Where(s => s.MandatoClienteId == mandatoId)
+                    .OrderBy(s => s.DataScadenza)
+                    .Select(s => new
+                    {
+                        id = s.Id,
+                        dataScadenza = s.DataScadenza,
+                        importo = s.ImportoMandato,
+                        numeroProforma = s.NumeroProforma,
+                        numeroFattura = s.NumeroFattura
+                    })
+                    .ToListAsync();
+
+                return Json(new { success = true, scadenze });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, error = ex.Message });
+            }
+        }
+
+        // POST: /Amministrazione/UpdateScadenzeDateMandato
+        [HttpPost]
+        public async Task<IActionResult> UpdateScadenzeDateMandato([FromBody] UpdateScadenzeDateRequest request)
+        {
+            try
+            {
+                if (request?.Scadenze == null || !request.Scadenze.Any())
+                {
+                    return Json(new { success = false, error = "Nessuna scadenza da aggiornare." });
+                }
+
+                foreach (var item in request.Scadenze)
+                {
+                    var scadenza = await _context.ScadenzeFatturazione.FindAsync(item.Id);
+                    if (scadenza != null)
+                    {
+                        // Non permettere modifica se ha già proforma o fattura
+                        if (scadenza.NumeroProforma.HasValue || scadenza.NumeroFattura.HasValue)
+                        {
+                            continue;
+                        }
+
+                        if (DateTime.TryParse(item.DataScadenza, out var nuovaData))
+                        {
+                            scadenza.DataScadenza = nuovaData;
+                        }
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                return Json(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, error = ex.Message });
+            }
+        }
+
         // POST: /Amministrazione/GeneraScadenze
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -2793,6 +2858,18 @@ namespace StudioCG.Web.Controllers
         }
 
         #endregion
+    }
+
+    // Request classes for API endpoints
+    public class UpdateScadenzeDateRequest
+    {
+        public List<ScadenzaDateItem> Scadenze { get; set; } = new();
+    }
+
+    public class ScadenzaDateItem
+    {
+        public int Id { get; set; }
+        public string DataScadenza { get; set; } = string.Empty;
     }
 }
 

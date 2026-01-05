@@ -198,13 +198,13 @@
                         <tr>
                             <th style="width: 250px;">Cliente</th>
                             <th style="width: 100px;">Cod. Ateco</th>
-                            <th style="width: 140px;">Stato</th>
+                            <th style="width: 160px; padding-right: 15px;">Stato</th>
                             @foreach (var campo in campiVisibili)
                             {
                                 var widthStyle = campo.ColumnWidth > 0 
                                     ? $"width: {campo.ColumnWidth}px; min-width: {campo.ColumnWidth}px; max-width: {campo.ColumnWidth}px;" 
                                     : "min-width: 100px;";
-                                <th class="text-center" style="@widthStyle white-space: normal; word-wrap: break-word;" data-campo-name="@campo.Name">
+                                <th class="text-center" style="@widthStyle white-space: normal; word-wrap: break-word; padding-left: 10px;" data-campo-name="@campo.Name">
                                     @campo.Label
                                     @if (campo.IsCalculated)
                                     {
@@ -226,7 +226,7 @@
                                     </a>
                                 </td>
                                 <td><code class="small">@ca.Cliente?.CodiceAteco</code></td>
-                                <td>
+                                <td style="padding-right: 15px;">
                                     <!-- Dropdown stato inline -->
                                     <div class="dropdown stato-dropdown-container">
                                         <button class="btn btn-sm dropdown-toggle stato-badge-btn" 
@@ -261,7 +261,7 @@
                                     var valore = ca.Valori.FirstOrDefault(v => v.AttivitaCampoId == campo.Id)?.Valore ?? "";
                                     var cellWidth = campo.ColumnWidth > 0 ? $"width: {campo.ColumnWidth}px; max-width: {campo.ColumnWidth}px;" : "";
                                     var inputWidth = campo.ColumnWidth > 0 ? $"width: {campo.ColumnWidth - 10}px;" : "width: 100%; min-width: 80px;";
-                                    <td class="text-center p-1" style="@cellWidth">
+                                    <td class="text-center p-1" style="@cellWidth padding-left: 10px;">
                                         @if (campo.IsCalculated)
                                         {
                                             // Campo calcolato: mostra valore non editabile

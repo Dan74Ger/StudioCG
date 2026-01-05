@@ -168,7 +168,11 @@
                                         }
                                         @if (scadenzeCount > 0)
                                         {
-                                            <span class="badge bg-success">@scadenzeCount / @mandato.NumeroRate</span>
+                                            <button type="button" class="btn btn-success btn-sm" 
+                                                    onclick="apriModalScadenze(@mandato.Id, '@mandato.Cliente?.RagioneSociale?.Replace("'", "\\'")')"
+                                                    title="Clicca per visualizzare e modificare le scadenze">
+                                                <i class="fas fa-calendar-alt me-1"></i>@scadenzeCount / @mandato.NumeroRate
+                                            </button>
                                         }
                                         else
                                         {
@@ -394,6 +398,54 @@
     </div>
 </div>
 
+<!-- Modal Scadenze Mandato -->
+<div class="modal fade" id="modalScadenzeMandato" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-calendar-alt me-2"></i>Scadenze Mandato - <span id="scadenzeClienteNome"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="scadenzeLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Caricamento...</span>
+                    </div>
+                    <p class="mt-2">Caricamento scadenze...</p>
+                </div>
+                <div id="scadenzeContent" style="display: none;">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center" style="width: 50px;">#</th>
+                                <th style="width: 160px;">Data Scadenza</th>
+                                <th class="text-end">Importo</th>
+                                <th class="text-center">N° Proforma</th>
+                                <th class="text-center">N° Fattura</th>
+                                <th class="text-center">Stato</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scadenzeTableBody">
+                        </tbody>
+                    </table>
+                    <div class="alert alert-info small mb-0">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Modifica le date di scadenza e clicca "Salva Modifiche" per aggiornare.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+                <button type="button" class="btn btn-primary" onclick="salvaScadenze()" id="btnSalvaScadenze">
+                    <i class="fas fa-save me-1"></i>Salva Modifiche
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
 <script>
     // Ricerca nella tabella
@@ -418,6 +470,123 @@
         document.getElementById('editNote').value = button.getAttribute('data-note') || '';
         document.getElementById('editIsActive').checked = button.getAttribute('data-attivo') === 'true';
     });
+    
+    // ========== GESTIONE SCADENZE ==========
+    var mandatoCorrenteId = null;
+    
+    function apriModalScadenze(mandatoId, clienteNome) {
+        mandatoCorrenteId = mandatoId;
+        document.getElementById('scadenzeClienteNome').textContent = clienteNome;
+        document.getElementById('scadenzeLoading').style.display = 'block';
+        document.getElementById('scadenzeContent').style.display = 'none';
+        
+        var modal = new bootstrap.Modal(document.getElementById('modalScadenzeMandato'));
+        modal.show();
+        
+        // Carica le scadenze via AJAX
+        fetch('@Url.Action("GetScadenzeMandato", "Amministrazione")?mandatoId=' + mandatoId)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    renderScadenze(data.scadenze);
+                } else {
+                    alert('Errore: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Errore:', error);
+                alert('Errore di connessione');
+            });
+    }
+    
+    function renderScadenze(scadenze) {
+        var tbody = document.getElementById('scadenzeTableBody');
+        tbody.innerHTML = '';
+        
+        scadenze.forEach(function(s, index) {
+            var dataFormattata = s.dataScadenza ? s.dataScadenza.split('T')[0] : '';
+            var haDocumenti = s.numeroProforma || s.numeroFattura;
+            
+            var statoHtml = '';
+            if (s.numeroFattura) {
+                statoHtml = '<span class="badge bg-success">Fatturata</span>';
+            } else if (s.numeroProforma) {
+                statoHtml = '<span class="badge bg-info">Proforma</span>';
+            } else {
+                statoHtml = '<span class="badge bg-warning text-dark">Da Fatturare</span>';
+            }
+            
+            var row = '<tr>' +
+                '<td class="text-center">' + (index + 1) + '</td>' +
+                '<td>' +
+                    '<input type="date" class="form-control form-control-sm scadenza-data" ' +
+                           'data-scadenza-id="' + s.id + '" ' +
+                           'value="' + dataFormattata + '" ' +
+                           (haDocumenti ? 'disabled title="Non modificabile: ha già documenti associati"' : '') + '>' +
+                '</td>' +
+                '<td class="text-end">' + formatCurrency(s.importo) + '</td>' +
+                '<td class="text-center">' + (s.numeroProforma ? s.numeroProforma : '-') + '</td>' +
+                '<td class="text-center">' + (s.numeroFattura ? s.numeroFattura : '-') + '</td>' +
+                '<td class="text-center">' + statoHtml + '</td>' +
+            '</tr>';
+            
+            tbody.innerHTML += row;
+        });
+        
+        document.getElementById('scadenzeLoading').style.display = 'none';
+        document.getElementById('scadenzeContent').style.display = 'block';
+    }
+    
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+    }
+    
+    function salvaScadenze() {
+        var scadenze = [];
+        document.querySelectorAll('.scadenza-data').forEach(function(input) {
+            if (!input.disabled) {
+                scadenze.push({
+                    id: parseInt(input.getAttribute('data-scadenza-id')),
+                    dataScadenza: input.value
+                });
+            }
+        });
+        
+        if (scadenze.length === 0) {
+            alert('Nessuna scadenza modificabile.');
+            return;
+        }
+        
+        document.getElementById('btnSalvaScadenze').disabled = true;
+        document.getElementById('btnSalvaScadenze').innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Salvataggio...';
+        
+        fetch('@Url.Action("UpdateScadenzeDateMandato", "Amministrazione")', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+            },
+            body: JSON.stringify({ scadenze: scadenze })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('modalScadenzeMandato')).hide();
+                // Mostra messaggio di successo
+                alert('Scadenze aggiornate con successo!');
+            } else {
+                alert('Errore: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Errore:', error);
+            alert('Errore di connessione');
+        })
+        .finally(function() {
+            document.getElementById('btnSalvaScadenze').disabled = false;
+            document.getElementById('btnSalvaScadenze').innerHTML = '<i class="fas fa-save me-1"></i>Salva Modifiche';
+        });
+    }
 </script>
 }
 
