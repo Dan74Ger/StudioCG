@@ -14,12 +14,18 @@
                 <h4 class="mb-0"><i class="fas fa-calendar-alt me-2 text-primary"></i>Gestione Anni Fatturazione</h4>
                 <small class="text-muted">Crea e gestisci gli anni di fatturazione (separati dagli anni fiscali attività)</small>
             </div>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 flex-wrap">
                 <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuovoAnno">
                     <i class="fas fa-plus me-2"></i>Nuovo Anno
                 </button>
                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCopiaMandati">
                     <i class="fas fa-copy me-2"></i>Copia Mandati
+                </button>
+                <button type="button" class="btn btn-info text-white" data-bs-toggle="modal" data-bs-target="#modalCopiaFTCloud">
+                    <i class="fas fa-cloud me-2"></i>Copia FT Cloud
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#modalCopiaBilanciCEE">
+                    <i class="fas fa-balance-scale me-2"></i>Copia Bilanci CEE
                 </button>
             </div>
         </div>
@@ -221,3 +227,104 @@
     </div>
 </div>
 
+<!-- Modal Copia FT Cloud -->
+<div class="modal fade" id="modalCopiaFTCloud" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CopiaFTCloudAnnoSuccessivo" method="post">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="fas fa-cloud me-2"></i>Copia FT Cloud Anno Successivo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label">Da Anno</label>
+                            <select name="annoDa" class="form-select" required>
+                                @foreach (var anno in Model.OrderByDescending(a => a.Anno))
+                                {
+                                    <option value="@anno.Anno" selected="@(anno.IsCurrent)">@anno.Anno</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-2 text-center pt-4">
+                            <i class="fas fa-arrow-right fa-2x text-info"></i>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">A Anno</label>
+                            <select name="annoA" class="form-select" required>
+                                @for (int i = annoCorrente - 1; i <= annoCorrente + 2; i++)
+                                {
+                                    <option value="@i" selected="@(i == annoCorrente + 1)">@i</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Verranno copiati i record FT Cloud dei clienti con <strong>mandato attivo</strong> nell'anno origine.
+                        I record già esistenti nell'anno destinazione non verranno duplicati.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-info text-white">
+                        <i class="fas fa-cloud me-2"></i>Copia FT Cloud
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Copia Bilanci CEE -->
+<div class="modal fade" id="modalCopiaBilanciCEE" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CopiaBilanciCEEAnnoSuccessivo" method="post">
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title"><i class="fas fa-balance-scale me-2"></i>Copia Bilanci CEE Anno Successivo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label">Da Anno</label>
+                            <select name="annoDa" class="form-select" required>
+                                @foreach (var anno in Model.OrderByDescending(a => a.Anno))
+                                {
+                                    <option value="@anno.Anno" selected="@(anno.IsCurrent)">@anno.Anno</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-2 text-center pt-4">
+                            <i class="fas fa-arrow-right fa-2x text-secondary"></i>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">A Anno</label>
+                            <select name="annoA" class="form-select" required>
+                                @for (int i = annoCorrente - 1; i <= annoCorrente + 2; i++)
+                                {
+                                    <option value="@i" selected="@(i == annoCorrente + 1)">@i</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-secondary">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Verranno copiati i Bilanci CEE dei clienti con <strong>mandato attivo</strong> nell'anno origine.
+                        I bilanci già esistenti nell'anno destinazione non verranno duplicati.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-dark">
+                        <i class="fas fa-balance-scale me-2"></i>Copia Bilanci CEE
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

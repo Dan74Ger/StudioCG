@@ -2968,6 +2968,142 @@ namespace StudioCG.Web.Controllers
             return RedirectToAction(nameof(GestioneAnni));
         }
 
+        // POST: /Amministrazione/CopiaFTCloudAnnoSuccessivo
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CopiaFTCloudAnnoSuccessivo(int annoDa, int annoA)
+        {
+            try
+            {
+                // Verifica che l'anno destinazione esista
+                var annoDestinazione = await _context.AnniFatturazione.FirstOrDefaultAsync(a => a.Anno == annoA);
+                if (annoDestinazione == null)
+                {
+                    annoDestinazione = new AnnoFatturazione
+                    {
+                        Anno = annoA,
+                        IsCurrent = false,
+                        IsActive = true,
+                        CreatedAt = DateTime.Now
+                    };
+                    _context.AnniFatturazione.Add(annoDestinazione);
+                    await _context.SaveChangesAsync();
+                }
+
+                // Prendi solo i clienti con mandato attivo nell'anno origine
+                var clientiConMandatoAttivo = await _context.MandatiClienti
+                    .Where(m => m.Anno == annoDa && m.IsActive)
+                    .Select(m => m.ClienteId)
+                    .ToListAsync();
+
+                var fattureCloudDaCopiare = await _context.FattureCloud
+                    .Where(f => f.Anno == annoDa && clientiConMandatoAttivo.Contains(f.ClienteId))
+                    .ToListAsync();
+
+                int fattureCloudCopiate = 0;
+                foreach (var fattura in fattureCloudDaCopiare)
+                {
+                    if (await _context.FattureCloud.AnyAsync(f => f.ClienteId == fattura.ClienteId && f.Anno == annoA))
+                        continue;
+
+                    var nuovaFattura = new FatturaCloud
+                    {
+                        ClienteId = fattura.ClienteId,
+                        Anno = annoA,
+                        Importo = fattura.Importo,
+                        DataScadenza = new DateTime(annoA, fattura.DataScadenza.Month, Math.Min(fattura.DataScadenza.Day, DateTime.DaysInMonth(annoA, fattura.DataScadenza.Month))),
+                        ScadenzaFatturazioneId = null,
+                        Note = $"Copiato da anno {annoDa}",
+                        CreatedAt = DateTime.Now
+                    };
+
+                    _context.FattureCloud.Add(nuovaFattura);
+                    fattureCloudCopiate++;
+                }
+
+                await _context.SaveChangesAsync();
+
+                if (fattureCloudCopiate > 0)
+                    TempData["Success"] = $"Copiati {fattureCloudCopiate} FT Cloud da {annoDa} a {annoA}.";
+                else
+                    TempData["Warning"] = $"Nessun FT Cloud da copiare da {annoDa} a {annoA} (già presenti o non esistenti).";
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = $"Errore: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(GestioneAnni));
+        }
+
+        // POST: /Amministrazione/CopiaBilanciCEEAnnoSuccessivo
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CopiaBilanciCEEAnnoSuccessivo(int annoDa, int annoA)
+        {
+            try
+            {
+                // Verifica che l'anno destinazione esista
+                var annoDestinazione = await _context.AnniFatturazione.FirstOrDefaultAsync(a => a.Anno == annoA);
+                if (annoDestinazione == null)
+                {
+                    annoDestinazione = new AnnoFatturazione
+                    {
+                        Anno = annoA,
+                        IsCurrent = false,
+                        IsActive = true,
+                        CreatedAt = DateTime.Now
+                    };
+                    _context.AnniFatturazione.Add(annoDestinazione);
+                    await _context.SaveChangesAsync();
+                }
+
+                // Prendi solo i clienti con mandato attivo nell'anno origine
+                var clientiConMandatoAttivo = await _context.MandatiClienti
+                    .Where(m => m.Anno == annoDa && m.IsActive)
+                    .Select(m => m.ClienteId)
+                    .ToListAsync();
+
+                var bilanciCEEDaCopiare = await _context.BilanciCEE
+                    .Where(b => b.Anno == annoDa && clientiConMandatoAttivo.Contains(b.ClienteId))
+                    .ToListAsync();
+
+                int bilanciCEECopiati = 0;
+                foreach (var bilancio in bilanciCEEDaCopiare)
+                {
+                    if (await _context.BilanciCEE.AnyAsync(b => b.ClienteId == bilancio.ClienteId && b.Anno == annoA))
+                        continue;
+
+                    var nuovoBilancio = new BilancioCEE
+                    {
+                        ClienteId = bilancio.ClienteId,
+                        Anno = annoA,
+                        Importo = bilancio.Importo,
+                        DataScadenza = new DateTime(annoA, bilancio.DataScadenza.Month, Math.Min(bilancio.DataScadenza.Day, DateTime.DaysInMonth(annoA, bilancio.DataScadenza.Month))),
+                        ScadenzaFatturazioneId = null,
+                        Note = $"Copiato da anno {annoDa}",
+                        CreatedAt = DateTime.Now
+                    };
+
+                    _context.BilanciCEE.Add(nuovoBilancio);
+                    bilanciCEECopiati++;
+                }
+
+                await _context.SaveChangesAsync();
+
+                if (bilanciCEECopiati > 0)
+                    TempData["Success"] = $"Copiati {bilanciCEECopiati} Bilanci CEE da {annoDa} a {annoA}.";
+                else
+                    TempData["Warning"] = $"Nessun Bilancio CEE da copiare da {annoDa} a {annoA} (già presenti o non esistenti).";
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = $"Errore: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(GestioneAnni));
+        }
+
         #endregion
     }
 
