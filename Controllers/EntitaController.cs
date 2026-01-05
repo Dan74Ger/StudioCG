@@ -32,9 +32,12 @@ namespace StudioCG.Web.Controllers
         // ============ GESTIONE ENTITÀ (ADMIN) ============
 
         // GET: Entita/Gestione
-        [AdminOnly]
         public async Task<IActionResult> Gestione()
         {
+            // Verifica permessi: accetta permesso specifico o generale
+            if (!await CanAccessAsync("/Entita/Gestione") && !await CanAccessAsync("/Entita"))
+                return RedirectToAction("AccessDenied", "Account");
+
             var entita = await _context.EntitaDinamiche
                 .Include(e => e.Campi.OrderBy(c => c.DisplayOrder))
                 .Include(e => e.Stati.OrderBy(s => s.DisplayOrder))
@@ -48,7 +51,6 @@ namespace StudioCG.Web.Controllers
         // POST: Entita/CreaEntita
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> CreaEntita(EntitaDinamica entita)
         {
             if (string.IsNullOrWhiteSpace(entita.Nome))
@@ -94,7 +96,6 @@ namespace StudioCG.Web.Controllers
         }
 
         // GET: Entita/Configura/5
-        [AdminOnly]
         public async Task<IActionResult> Configura(int id)
         {
             var entita = await _context.EntitaDinamiche
@@ -114,7 +115,6 @@ namespace StudioCG.Web.Controllers
         // POST: Entita/AggiornaEntita
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> AggiornaEntita(int id, string nome, string nomePluruale, string? descrizione, string icon, string colore, bool collegataACliente, int giorniPreavvisoScadenza = 15, int larghezzaColonnaCliente = 150, int larghezzaColonnaTitolo = 200, int larghezzaColonnaStato = 120)
         {
             var entita = await _context.EntitaDinamiche.FindAsync(id);
@@ -144,7 +144,6 @@ namespace StudioCG.Web.Controllers
         // POST: Entita/EliminaEntita
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> EliminaEntita(int id)
         {
             var entita = await _context.EntitaDinamiche
@@ -176,7 +175,6 @@ namespace StudioCG.Web.Controllers
         // POST: Entita/MoveEntitaUp/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> MoveEntitaUp(int id)
         {
             // Prima normalizza gli ordini se necessario
@@ -203,7 +201,6 @@ namespace StudioCG.Web.Controllers
         // POST: Entita/MoveEntitaDown/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> MoveEntitaDown(int id)
         {
             // Prima normalizza gli ordini se necessario
@@ -254,7 +251,6 @@ namespace StudioCG.Web.Controllers
         // POST: Entita/AddCampo
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> AddCampo(CampoEntita campo)
         {
             if (string.IsNullOrWhiteSpace(campo.Nome) || string.IsNullOrWhiteSpace(campo.Label))
@@ -308,7 +304,6 @@ namespace StudioCG.Web.Controllers
         // POST: Entita/EditCampo
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> EditCampo(int id, string label, string tipoCampo, bool isRequired,
             bool showInList, bool useAsFilter, string? options, string? defaultValue, string? placeholder,
             int colWidth, bool isCalculated, string? formula, int columnWidth = 0, bool isDataScadenza = false)
@@ -363,7 +358,6 @@ namespace StudioCG.Web.Controllers
         // POST: Entita/DeleteCampo
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> DeleteCampo(int id)
         {
             var campo = await _context.CampiEntita.FindAsync(id);
@@ -384,7 +378,6 @@ namespace StudioCG.Web.Controllers
         // POST: Entita/MoveCampoUp e MoveCampoDown
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> MoveCampoUp(int id)
         {
             var campo = await _context.CampiEntita.FindAsync(id);
@@ -408,7 +401,6 @@ namespace StudioCG.Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> MoveCampoDown(int id)
         {
             var campo = await _context.CampiEntita.FindAsync(id);
@@ -435,7 +427,6 @@ namespace StudioCG.Web.Controllers
         // POST: Entita/AddStato
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> AddStato(StatoEntita stato)
         {
             if (string.IsNullOrWhiteSpace(stato.Nome))
@@ -460,7 +451,6 @@ namespace StudioCG.Web.Controllers
         // POST: Entita/DeleteStato
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> DeleteStato(int id)
         {
             var stato = await _context.StatiEntita.FindAsync(id);
@@ -482,9 +472,10 @@ namespace StudioCG.Web.Controllers
         // GET: Entita/Dati/5
         public async Task<IActionResult> Dati(int id, int? clienteId, int? statoId, string? search)
         {
-            // Verifica permessi per questa entità
-            var pageUrl = $"/Entita/Dati/{id}";
-            if (!await CanAccessAsync(pageUrl))
+            // Verifica permessi: accetta sia permesso specifico che generale
+            var pageUrlSpecific = $"/Entita/Dati/{id}";
+            var pageUrlGeneral = "/Entita";
+            if (!await CanAccessAsync(pageUrlSpecific) && !await CanAccessAsync(pageUrlGeneral))
                 return RedirectToAction("AccessDenied", "Account");
 
             var entita = await _context.EntitaDinamiche
@@ -1056,3 +1047,4 @@ namespace StudioCG.Web.Controllers
         }
     }
 }
+

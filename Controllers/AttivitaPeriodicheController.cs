@@ -300,7 +300,6 @@ namespace StudioCG.Web.Controllers
         // ============ GESTIONE SEZIONI ============
 
         // GET: AttivitaPeriodiche/Gestione
-        [AdminOnly]
         public async Task<IActionResult> Gestione()
         {
             // Assicura che esista la voce di menu per Attività Periodiche
@@ -435,7 +434,6 @@ namespace StudioCG.Web.Controllers
 
         // POST: AttivitaPeriodiche/CreaSezione
         [HttpPost]
-        [AdminOnly]
         public async Task<IActionResult> CreaSezione(string nome, string nomePlurale, string? descrizione, 
             string icona, string colore, bool collegataACliente)
         {
@@ -496,7 +494,6 @@ namespace StudioCG.Web.Controllers
         }
 
         // GET: AttivitaPeriodiche/Configura/5
-        [AdminOnly]
         public async Task<IActionResult> Configura(int id)
         {
             var attivita = await _context.AttivitaPeriodiche
@@ -563,7 +560,6 @@ namespace StudioCG.Web.Controllers
 
         // POST: AttivitaPeriodiche/CreaTipoPeriodo
         [HttpPost]
-        [AdminOnly]
         public async Task<IActionResult> CreaTipoPeriodo(int attivitaPeriodicaId, string nome, int numeroPeriodi,
             string? icona, string? colore, bool mostraInteressi, decimal percentualeInteressiDefault)
         {
@@ -604,7 +600,6 @@ namespace StudioCG.Web.Controllers
         }
 
         // GET: AttivitaPeriodiche/ConfiguraTipo/5
-        [AdminOnly]
         public async Task<IActionResult> ConfiguraTipo(int id)
         {
             var tipo = await _context.TipiPeriodo
@@ -676,7 +671,6 @@ namespace StudioCG.Web.Controllers
 
         // POST: AttivitaPeriodiche/CreaCampo
         [HttpPost]
-        [AdminOnly]
         public async Task<IActionResult> CreaCampo(CampoPeriodico campo)
         {
             if (string.IsNullOrWhiteSpace(campo.Nome) || string.IsNullOrWhiteSpace(campo.Label))
@@ -808,7 +802,6 @@ namespace StudioCG.Web.Controllers
         // ============ GESTIONE REGOLE ============
 
         // GET: AttivitaPeriodiche/ConfiguraRegole/5 (tipoPeriodoId)
-        [AdminOnly]
         public async Task<IActionResult> ConfiguraRegole(int id)
         {
             var tipo = await _context.TipiPeriodo
@@ -828,7 +821,6 @@ namespace StudioCG.Web.Controllers
 
         // POST: AttivitaPeriodiche/CreaRegola
         [HttpPost]
-        [AdminOnly]
         public async Task<IActionResult> CreaRegola(RegolaCampo regola, string? ValoreConfrontoRiporto)
         {
             if (regola.CampoPeriodicoId == 0)
@@ -1144,9 +1136,10 @@ namespace StudioCG.Web.Controllers
         // GET: AttivitaPeriodiche/Dati/5
         public async Task<IActionResult> Dati(int id, int? tipoPeriodoId, int anno = 0, string? search = null, int? clienteId = null)
         {
-            // Verifica permessi per questa attività periodica
-            var pageUrl = $"/AttivitaPeriodiche/Dati/{id}";
-            if (!await CanAccessAsync(pageUrl))
+            // Verifica permessi: accetta sia permesso specifico che generale
+            var pageUrlSpecific = $"/AttivitaPeriodiche/Dati/{id}";
+            var pageUrlGeneral = "/AttivitaPeriodiche";
+            if (!await CanAccessAsync(pageUrlSpecific) && !await CanAccessAsync(pageUrlGeneral))
             {
                 return RedirectToAction("AccessDenied", "Account");
             }
@@ -2003,3 +1996,4 @@ namespace StudioCG.Web.Controllers
         public int NumeroPeriodo { get; set; } // 0 = tutti i periodi
     }
 }
+

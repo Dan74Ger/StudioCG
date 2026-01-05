@@ -9,21 +9,33 @@ using StudioCG.Web.Services;
 
 namespace StudioCG.Web.Controllers
 {
-    [AdminOnly] // Solo l'utente "admin" può accedere a questo controller
+    [Authorize]
     public class UsersController : Controller
     {
         private readonly ApplicationDbContext _context;
         private readonly IPasswordService _passwordService;
+        private readonly IPermissionService _permissionService;
 
-        public UsersController(ApplicationDbContext context, IPasswordService passwordService)
+        public UsersController(ApplicationDbContext context, IPasswordService passwordService, IPermissionService permissionService)
         {
             _context = context;
             _passwordService = passwordService;
+            _permissionService = permissionService;
+        }
+
+        private async Task<bool> CanAccessAsync(string pageUrl)
+        {
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username)) return false;
+            if (username.Equals("admin", StringComparison.OrdinalIgnoreCase)) return true;
+            return await _permissionService.UserHasPermissionAsync(username, pageUrl);
         }
 
         // GET: Users
         public async Task<IActionResult> Index()
         {
+            if (!await CanAccessAsync("/Users"))
+                return RedirectToAction("AccessDenied", "Account");
             var users = await _context.Users
                 .OrderBy(u => u.Cognome)
                 .ThenBy(u => u.Nome)

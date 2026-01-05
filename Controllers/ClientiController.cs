@@ -1270,7 +1270,6 @@ namespace StudioCG.Web.Controllers
         // ============ GESTIONE CAMPI CUSTOM CLIENTE ============
 
         // GET: Clienti/CampiCustom
-        [AdminOnly]
         public async Task<IActionResult> CampiCustom()
         {
             var campi = await _context.CampiCustomClienti
@@ -1284,7 +1283,6 @@ namespace StudioCG.Web.Controllers
         // POST: Clienti/AddCampoCustom
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> AddCampoCustom(CampoCustomCliente campo)
         {
             if (string.IsNullOrWhiteSpace(campo.Nome))
@@ -1319,7 +1317,6 @@ namespace StudioCG.Web.Controllers
         // POST: Clienti/EditCampoCustom
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> EditCampoCustom(int id, string label, string tipoCampo, bool isRequired, 
             bool showInList, bool useAsFilter, string? options, string? defaultValue, string? placeholder)
         {
@@ -1348,7 +1345,6 @@ namespace StudioCG.Web.Controllers
         // POST: Clienti/DeleteCampoCustom
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> DeleteCampoCustom(int id)
         {
             var campo = await _context.CampiCustomClienti
@@ -1373,7 +1369,6 @@ namespace StudioCG.Web.Controllers
         // POST: Clienti/MoveCampoCustomUp
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> MoveCampoCustomUp(int id)
         {
             var campo = await _context.CampiCustomClienti.FindAsync(id);
@@ -1398,7 +1393,6 @@ namespace StudioCG.Web.Controllers
         // POST: Clienti/MoveCampoCustomDown
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [AdminOnly]
         public async Task<IActionResult> MoveCampoCustomDown(int id)
         {
             var campo = await _context.CampiCustomClienti.FindAsync(id);
@@ -1443,4 +1437,5 @@ namespace StudioCG.Web.Controllers
         public string? ClienteEsistenteNome { get; set; }
     }
 }
+
 

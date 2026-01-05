@@ -9,7 +9,6 @@ using StudioCG.Web.Services;
 namespace StudioCG.Web.Controllers
 {
     [Authorize]
-    [AdminOnly]
     public class MenuController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -21,9 +20,20 @@ namespace StudioCG.Web.Controllers
             _permissionService = permissionService;
         }
 
+        private async Task<bool> CanAccessAsync(string pageUrl)
+        {
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username)) return false;
+            if (username.Equals("admin", StringComparison.OrdinalIgnoreCase)) return true;
+            return await _permissionService.UserHasPermissionAsync(username, pageUrl);
+        }
+
         // GET: Menu
         public async Task<IActionResult> Index()
         {
+            if (!await CanAccessAsync("/Menu"))
+                return RedirectToAction("AccessDenied", "Account");
+
             // Inizializza il menu se non esiste
             if (!await _context.VociMenu.AnyAsync())
             {

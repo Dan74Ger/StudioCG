@@ -87,9 +87,10 @@ namespace StudioCG.Web.Controllers
         {
             if (id == null) return NotFound();
 
-            // Verifica permessi per questa attività
-            var pageUrl = $"/Attivita/Tipo/{id}";
-            if (!await CanAccessAsync(pageUrl))
+            // Verifica permessi: accetta sia permesso specifico che generale
+            var pageUrlSpecific = $"/Attivita/Tipo/{id}";
+            var pageUrlGeneral = "/Attivita";
+            if (!await CanAccessAsync(pageUrlSpecific) && !await CanAccessAsync(pageUrlGeneral))
                 return RedirectToAction("AccessDenied", "Account");
 
             var annoCorrente = annoId.HasValue
