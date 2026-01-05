@@ -591,12 +591,40 @@ namespace StudioCG.Web.Controllers
                     return RedirectToAction(nameof(SpesePratiche), new { anno });
                 }
 
-                // Le spese pratiche sono SEMPRE cancellabili (nessun controllo sullo stato della scadenza)
+                // Salva l'id della scadenza prima di eliminare la spesa
+                var scadenzaId = spesa.ScadenzaFatturazioneId;
 
+                // Le spese pratiche sono SEMPRE cancellabili
                 _context.SpesePratiche.Remove(spesa);
                 await _context.SaveChangesAsync();
 
-                TempData["Success"] = "Spesa pratica eliminata.";
+                // Verifica se la scadenza è rimasta vuota (nessun mandato, nessun accesso, nessun'altra spesa)
+                if (scadenzaId.HasValue)
+                {
+                    var scadenza = await _context.ScadenzeFatturazione
+                        .Include(s => s.AccessiClienti)
+                        .Include(s => s.SpesePratiche)
+                        .FirstOrDefaultAsync(s => s.Id == scadenzaId.Value);
+
+                    if (scadenza != null && 
+                        !scadenza.MandatoClienteId.HasValue &&  // Non ha mandato associato
+                        (scadenza.AccessiClienti == null || !scadenza.AccessiClienti.Any()) &&  // Nessun accesso
+                        (scadenza.SpesePratiche == null || !scadenza.SpesePratiche.Any()) &&  // Nessuna spesa
+                        scadenza.Stato == StatoScadenza.Aperta)  // Ancora aperta
+                    {
+                        _context.ScadenzeFatturazione.Remove(scadenza);
+                        await _context.SaveChangesAsync();
+                        TempData["Success"] = "Spesa pratica e scadenza vuota eliminate.";
+                    }
+                    else
+                    {
+                        TempData["Success"] = "Spesa pratica eliminata.";
+                    }
+                }
+                else
+                {
+                    TempData["Success"] = "Spesa pratica eliminata.";
+                }
             }
             catch (Exception ex)
             {
@@ -656,14 +684,45 @@ namespace StudioCG.Web.Controllers
         // POST: /Amministrazione/CreateAccessoCliente
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateAccessoCliente(int clienteId, int scadenzaFatturazioneId, 
+        public async Task<IActionResult> CreateAccessoCliente(int clienteId, string scadenzaFatturazioneId, 
             DateTime data, string? oraInizioMattina, string? oraFineMattina,
             string? oraInizioPomeriggio, string? oraFinePomeriggio,
-            string tariffaOraria, string? note, int anno)
+            string tariffaOraria, string? note, int anno, DateTime? dataNuovaScadenza)
         {
             try
             {
-                var scadenza = await _context.ScadenzeFatturazione.FindAsync(scadenzaFatturazioneId);
+                int scadenzaId;
+                
+                // Se è richiesta una nuova scadenza, la creiamo
+                if (scadenzaFatturazioneId == "NUOVA")
+                {
+                    if (!dataNuovaScadenza.HasValue)
+                    {
+                        TempData["Error"] = "Specificare la data per la nuova scadenza.";
+                        return RedirectToAction(nameof(AccessiClienti), new { anno });
+                    }
+                    
+                    var nuovaScadenza = new ScadenzaFatturazione
+                    {
+                        ClienteId = clienteId,
+                        Anno = anno,
+                        DataScadenza = dataNuovaScadenza.Value,
+                        ImportoMandato = 0, // Verrà calcolato dal totale degli accessi
+                        Stato = StatoScadenza.Aperta,
+                        CreatedAt = DateTime.Now,
+                        UpdatedAt = DateTime.Now
+                    };
+                    
+                    _context.ScadenzeFatturazione.Add(nuovaScadenza);
+                    await _context.SaveChangesAsync();
+                    scadenzaId = nuovaScadenza.Id;
+                }
+                else
+                {
+                    scadenzaId = int.Parse(scadenzaFatturazioneId);
+                }
+                
+                var scadenza = await _context.ScadenzeFatturazione.FindAsync(scadenzaId);
                 if (scadenza == null || scadenza.Stato != StatoScadenza.Aperta)
                 {
                     TempData["Error"] = "La scadenza selezionata non è disponibile.";
@@ -678,7 +737,7 @@ namespace StudioCG.Web.Controllers
                 var accesso = new AccessoCliente
                 {
                     ClienteId = clienteId,
-                    ScadenzaFatturazioneId = scadenzaFatturazioneId,
+                    ScadenzaFatturazioneId = scadenzaId,
                     Data = data,
                     OraInizioMattino = string.IsNullOrEmpty(oraInizioMattina) ? null : TimeSpan.Parse(oraInizioMattina),
                     OraFineMattino = string.IsNullOrEmpty(oraFineMattina) ? null : TimeSpan.Parse(oraFineMattina),
@@ -707,10 +766,10 @@ namespace StudioCG.Web.Controllers
         // POST: /Amministrazione/UpdateAccessoCliente
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateAccessoCliente(int id, int scadenzaFatturazioneId, 
+        public async Task<IActionResult> UpdateAccessoCliente(int id, string scadenzaFatturazioneId, 
             DateTime data, string? oraInizioMattina, string? oraFineMattina,
             string? oraInizioPomeriggio, string? oraFinePomeriggio,
-            string tariffaOraria, string? note, int anno)
+            string tariffaOraria, string? note, int anno, DateTime? dataNuovaScadenza)
         {
             try
             {
@@ -723,15 +782,46 @@ namespace StudioCG.Web.Controllers
                 }
 
                 // Gli accessi clienti sono SEMPRE modificabili
+                
+                int scadenzaId;
+                
+                // Se è richiesta una nuova scadenza, la creiamo
+                if (scadenzaFatturazioneId == "NUOVA")
+                {
+                    if (!dataNuovaScadenza.HasValue)
+                    {
+                        TempData["Error"] = "Specificare la data per la nuova scadenza.";
+                        return RedirectToAction(nameof(AccessiClienti), new { anno });
+                    }
+                    
+                    var nuovaScadenzaEntity = new ScadenzaFatturazione
+                    {
+                        ClienteId = accesso.ClienteId,
+                        Anno = anno,
+                        DataScadenza = dataNuovaScadenza.Value,
+                        ImportoMandato = 0,
+                        Stato = StatoScadenza.Aperta,
+                        CreatedAt = DateTime.Now,
+                        UpdatedAt = DateTime.Now
+                    };
+                    
+                    _context.ScadenzeFatturazione.Add(nuovaScadenzaEntity);
+                    await _context.SaveChangesAsync();
+                    scadenzaId = nuovaScadenzaEntity.Id;
+                }
+                else
+                {
+                    scadenzaId = int.Parse(scadenzaFatturazioneId);
+                }
 
-                var nuovaScadenza = await _context.ScadenzeFatturazione.FindAsync(scadenzaFatturazioneId);
+                var nuovaScadenza = await _context.ScadenzeFatturazione.FindAsync(scadenzaId);
                 if (nuovaScadenza == null || nuovaScadenza.Stato != StatoScadenza.Aperta)
                 {
                     TempData["Error"] = "La scadenza selezionata non è disponibile.";
                     return RedirectToAction(nameof(AccessiClienti), new { anno });
                 }
 
-                accesso.ScadenzaFatturazioneId = scadenzaFatturazioneId;
+                accesso.ScadenzaFatturazioneId = scadenzaId;
                 accesso.Data = data;
                 accesso.OraInizioMattino = string.IsNullOrEmpty(oraInizioMattina) ? null : TimeSpan.Parse(oraInizioMattina);
                 accesso.OraFineMattino = string.IsNullOrEmpty(oraFineMattina) ? null : TimeSpan.Parse(oraFineMattina);
@@ -767,12 +857,33 @@ namespace StudioCG.Web.Controllers
                     return RedirectToAction(nameof(AccessiClienti), new { anno });
                 }
 
-                // Gli accessi clienti sono SEMPRE cancellabili
+                // Salva l'id della scadenza prima di eliminare l'accesso
+                var scadenzaId = accesso.ScadenzaFatturazioneId;
 
+                // Gli accessi clienti sono SEMPRE cancellabili
                 _context.AccessiClienti.Remove(accesso);
                 await _context.SaveChangesAsync();
 
-                TempData["Success"] = "Accesso eliminato.";
+                // Verifica se la scadenza è rimasta vuota (nessun mandato, nessun altro accesso, nessuna spesa)
+                var scadenza = await _context.ScadenzeFatturazione
+                    .Include(s => s.AccessiClienti)
+                    .Include(s => s.SpesePratiche)
+                    .FirstOrDefaultAsync(s => s.Id == scadenzaId);
+
+                if (scadenza != null && 
+                    !scadenza.MandatoClienteId.HasValue &&  // Non ha mandato associato
+                    (scadenza.AccessiClienti == null || !scadenza.AccessiClienti.Any()) &&  // Nessun accesso
+                    (scadenza.SpesePratiche == null || !scadenza.SpesePratiche.Any()) &&  // Nessuna spesa
+                    scadenza.Stato == StatoScadenza.Aperta)  // Ancora aperta
+                {
+                    _context.ScadenzeFatturazione.Remove(scadenza);
+                    await _context.SaveChangesAsync();
+                    TempData["Success"] = "Accesso e scadenza vuota eliminati.";
+                }
+                else
+                {
+                    TempData["Success"] = "Accesso eliminato.";
+                }
             }
             catch (Exception ex)
             {

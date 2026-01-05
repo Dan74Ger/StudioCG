@@ -369,6 +369,12 @@
                         <select name="scadenzaFatturazioneId" id="selectScadenzaNuovo" class="form-select" required>
                             <option value="">-- Prima seleziona un cliente --</option>
                         </select>
+                        <small class="form-text text-muted">Seleziona una scadenza esistente o creane una nuova</small>
+                    </div>
+                    <div class="mb-3" id="nuovaScadenzaContainer" style="display: none;">
+                        <label class="form-label">Data Nuova Scadenza <span class="text-danger">*</span></label>
+                        <input type="date" name="dataNuovaScadenza" id="dataNuovaScadenza" class="form-control">
+                        <small class="form-text text-muted">Verrà creata una scadenza per questa data</small>
                     </div>
 
                     <div class="mb-3">
@@ -470,6 +476,12 @@
                         <label class="form-label">Scadenza Destinazione <span class="text-danger">*</span></label>
                         <select name="scadenzaFatturazioneId" id="editScadenzaId" class="form-select" required>
                         </select>
+                        <small class="form-text text-muted">Seleziona una scadenza esistente o creane una nuova</small>
+                    </div>
+                    <div class="mb-3" id="editNuovaScadenzaContainer" style="display: none;">
+                        <label class="form-label">Data Nuova Scadenza <span class="text-danger">*</span></label>
+                        <input type="date" name="dataNuovaScadenza" id="editDataNuovaScadenza" class="form-control">
+                        <small class="form-text text-muted">Verrà creata una scadenza per questa data</small>
                     </div>
 
                     <div class="mb-3">
@@ -561,6 +573,7 @@
         
         if (!clienteId) {
             selectScadenza.innerHTML = '<option value="">-- Prima seleziona un cliente --</option>';
+            document.getElementById('nuovaScadenzaContainer').style.display = 'none';
             return;
         }
         
@@ -568,6 +581,7 @@
             .then(response => response.json())
             .then(data => {
                 selectScadenza.innerHTML = '<option value="">-- Seleziona scadenza --</option>';
+                selectScadenza.innerHTML += '<option value="NUOVA">➕ Crea nuova scadenza...</option>';
                 data.forEach(function(scad) {
                     var opt = document.createElement('option');
                     opt.value = scad.id;
@@ -575,6 +589,32 @@
                     selectScadenza.appendChild(opt);
                 });
             });
+    });
+
+    // Mostra/Nascondi campo data nuova scadenza (nuovo)
+    document.getElementById('selectScadenzaNuovo').addEventListener('change', function() {
+        var container = document.getElementById('nuovaScadenzaContainer');
+        var dataInput = document.getElementById('dataNuovaScadenza');
+        if (this.value === 'NUOVA') {
+            container.style.display = 'block';
+            dataInput.required = true;
+        } else {
+            container.style.display = 'none';
+            dataInput.required = false;
+        }
+    });
+
+    // Mostra/Nascondi campo data nuova scadenza (modifica)
+    document.getElementById('editScadenzaId').addEventListener('change', function() {
+        var container = document.getElementById('editNuovaScadenzaContainer');
+        var dataInput = document.getElementById('editDataNuovaScadenza');
+        if (this.value === 'NUOVA') {
+            container.style.display = 'block';
+            dataInput.required = true;
+        } else {
+            container.style.display = 'none';
+            dataInput.required = false;
+        }
     });
 
     // Modal Modifica
@@ -602,7 +642,8 @@
             .then(response => response.json())
             .then(data => {
                 var selectScadenza = document.getElementById('editScadenzaId');
-                selectScadenza.innerHTML = '';
+                selectScadenza.innerHTML = '<option value="">-- Seleziona scadenza --</option>';
+                selectScadenza.innerHTML += '<option value="NUOVA">➕ Crea nuova scadenza...</option>';
                 data.forEach(function(scad) {
                     var opt = document.createElement('option');
                     opt.value = scad.id;
@@ -611,6 +652,9 @@
                     selectScadenza.appendChild(opt);
                 });
             });
+        
+        // Nascondi il container nuova scadenza all'apertura
+        document.getElementById('editNuovaScadenzaContainer').style.display = 'none';
     });
 </script>
 }
