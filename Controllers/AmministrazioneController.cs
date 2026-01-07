@@ -292,7 +292,7 @@ namespace StudioCG.Web.Controllers
         }
 
         // GET: /Amministrazione/SpesePratiche
-        public async Task<IActionResult> SpesePratiche(int? anno, int? clienteId, int? mese)
+        public async Task<IActionResult> SpesePratiche(int? anno, int? clienteId, int? mese, int? meseScadenza)
         {
             var annoCorrente = anno ?? await GetAnnoCorrenteFatturazione();
             
@@ -307,8 +307,13 @@ namespace StudioCG.Web.Controllers
             if (clienteId.HasValue)
                 query = query.Where(s => s.ClienteId == clienteId.Value);
 
+            // Filtro per mese data creazione spesa
             if (mese.HasValue && mese.Value > 0)
                 query = query.Where(s => s.Data.Month == mese.Value);
+
+            // Filtro per mese data scadenza
+            if (meseScadenza.HasValue && meseScadenza.Value > 0)
+                query = query.Where(s => s.ScadenzaFatturazione != null && s.ScadenzaFatturazione.DataScadenza.Month == meseScadenza.Value);
 
             var spese = await query
                 .OrderByDescending(s => s.Data)
@@ -342,6 +347,7 @@ namespace StudioCG.Web.Controllers
             ViewBag.Clienti = clienti;
             ViewBag.ClienteIdSelezionato = clienteId;
             ViewBag.MeseSelezionato = mese;
+            ViewBag.MeseScadenzaSelezionato = meseScadenza;
             ViewData["Title"] = "Spese Pratiche";
             
             return View(spese);

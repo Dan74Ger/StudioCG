@@ -7,6 +7,7 @@
     var clienti = (List<StudioCG.Web.Models.Cliente>)ViewBag.Clienti;
     var clienteIdSelezionato = (int?)ViewBag.ClienteIdSelezionato;
     var meseSelezionato = (int?)ViewBag.MeseSelezionato;
+    var meseScadenzaSelezionato = (int?)ViewBag.MeseScadenzaSelezionato;
     
     var mesi = new Dictionary<int, string>
     {
@@ -117,7 +118,7 @@
         <div class="card-body py-2">
             <form asp-action="SpesePratiche" method="get" class="row g-2 align-items-end">
                 <input type="hidden" name="anno" value="@annoSelezionato" />
-                <div class="col-md-5">
+                <div class="col-md-3">
                     <label class="form-label small text-muted">Cliente</label>
                     <select name="clienteId" class="form-select form-select-sm">
                         <option value="">-- Tutti i clienti --</option>
@@ -127,7 +128,27 @@
                         }
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-2">
+                    <label class="form-label small text-muted">Mese Creazione</label>
+                    <select name="mese" class="form-select form-select-sm">
+                        <option value="">-- Tutti --</option>
+                        @foreach (var m in mesi)
+                        {
+                            <option value="@m.Key" selected="@(meseSelezionato == m.Key)">@m.Value</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted">Mese Scadenza</label>
+                    <select name="meseScadenza" class="form-select form-select-sm">
+                        <option value="">-- Tutti --</option>
+                        @foreach (var m in mesi)
+                        {
+                            <option value="@m.Key" selected="@(meseScadenzaSelezionato == m.Key)">@m.Value</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
                     <button type="submit" class="btn btn-primary btn-sm">
                         <i class="fas fa-filter me-1"></i>Filtra
                     </button>
