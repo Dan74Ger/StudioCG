@@ -583,7 +583,9 @@ namespace StudioCG.Web.Controllers
         {
             try
             {
-                var spesa = await _context.SpesePratiche.FindAsync(id);
+                var spesa = await _context.SpesePratiche
+                    .Include(s => s.ScadenzaFatturazione)
+                    .FirstOrDefaultAsync(s => s.Id == id);
 
                 if (spesa == null)
                 {
@@ -591,10 +593,30 @@ namespace StudioCG.Web.Controllers
                     return RedirectToAction(nameof(SpesePratiche), new { anno });
                 }
 
+                // Verifica se la spesa è collegata a una scadenza già fatturata o incassata
+                if (spesa.ScadenzaFatturazione != null)
+                {
+                    if (spesa.ScadenzaFatturazione.Stato == StatoScadenza.Proforma)
+                    {
+                        TempData["Error"] = "Impossibile eliminare: la spesa è in una scadenza in stato Proforma.";
+                        return RedirectToAction(nameof(SpesePratiche), new { anno });
+                    }
+                    if (spesa.ScadenzaFatturazione.Stato == StatoScadenza.Fatturata)
+                    {
+                        TempData["Error"] = "Impossibile eliminare: la spesa è già stata fatturata.";
+                        return RedirectToAction(nameof(SpesePratiche), new { anno });
+                    }
+                    if (spesa.ScadenzaFatturazione.StatoIncasso != StatoIncasso.DaIncassare)
+                    {
+                        TempData["Error"] = "Impossibile eliminare: la fattura collegata è già stata incassata (totalmente o parzialmente).";
+                        return RedirectToAction(nameof(SpesePratiche), new { anno });
+                    }
+                }
+
                 // Salva l'id della scadenza prima di eliminare la spesa
                 var scadenzaId = spesa.ScadenzaFatturazioneId;
 
-                // Le spese pratiche sono SEMPRE cancellabili
+                // La spesa è cancellabile solo se la scadenza è ancora Aperta e non incassata
                 _context.SpesePratiche.Remove(spesa);
                 await _context.SaveChangesAsync();
 
@@ -618,7 +640,7 @@ namespace StudioCG.Web.Controllers
                     }
                     else
                     {
-                        TempData["Success"] = "Spesa pratica eliminata.";
+                TempData["Success"] = "Spesa pratica eliminata.";
                     }
                 }
                 else
@@ -782,7 +804,7 @@ namespace StudioCG.Web.Controllers
                 }
 
                 // Gli accessi clienti sono SEMPRE modificabili
-                
+
                 int scadenzaId;
                 
                 // Se è richiesta una nuova scadenza, la creiamo
@@ -849,7 +871,9 @@ namespace StudioCG.Web.Controllers
         {
             try
             {
-                var accesso = await _context.AccessiClienti.FindAsync(id);
+                var accesso = await _context.AccessiClienti
+                    .Include(a => a.ScadenzaFatturazione)
+                    .FirstOrDefaultAsync(a => a.Id == id);
 
                 if (accesso == null)
                 {
@@ -857,10 +881,30 @@ namespace StudioCG.Web.Controllers
                     return RedirectToAction(nameof(AccessiClienti), new { anno });
                 }
 
+                // Verifica se l'accesso è collegato a una scadenza già fatturata o incassata
+                if (accesso.ScadenzaFatturazione != null)
+                {
+                    if (accesso.ScadenzaFatturazione.Stato == StatoScadenza.Proforma)
+                    {
+                        TempData["Error"] = "Impossibile eliminare: l'accesso è in una scadenza in stato Proforma.";
+                        return RedirectToAction(nameof(AccessiClienti), new { anno });
+                    }
+                    if (accesso.ScadenzaFatturazione.Stato == StatoScadenza.Fatturata)
+                    {
+                        TempData["Error"] = "Impossibile eliminare: l'accesso è già stato fatturato.";
+                        return RedirectToAction(nameof(AccessiClienti), new { anno });
+                    }
+                    if (accesso.ScadenzaFatturazione.StatoIncasso != StatoIncasso.DaIncassare)
+                    {
+                        TempData["Error"] = "Impossibile eliminare: la fattura collegata è già stata incassata (totalmente o parzialmente).";
+                        return RedirectToAction(nameof(AccessiClienti), new { anno });
+                    }
+                }
+
                 // Salva l'id della scadenza prima di eliminare l'accesso
                 var scadenzaId = accesso.ScadenzaFatturazioneId;
 
-                // Gli accessi clienti sono SEMPRE cancellabili
+                // L'accesso è cancellabile solo se la scadenza è ancora Aperta e non incassata
                 _context.AccessiClienti.Remove(accesso);
                 await _context.SaveChangesAsync();
 
@@ -882,7 +926,7 @@ namespace StudioCG.Web.Controllers
                 }
                 else
                 {
-                    TempData["Success"] = "Accesso eliminato.";
+                TempData["Success"] = "Accesso eliminato.";
                 }
             }
             catch (Exception ex)
@@ -1121,7 +1165,9 @@ namespace StudioCG.Web.Controllers
         {
             try
             {
-                var fc = await _context.FattureCloud.FindAsync(id);
+                var fc = await _context.FattureCloud
+                    .Include(f => f.ScadenzaFatturazione)
+                    .FirstOrDefaultAsync(f => f.Id == id);
 
                 if (fc == null)
                 {
@@ -1129,8 +1175,27 @@ namespace StudioCG.Web.Controllers
                     return RedirectToAction(nameof(FattureCloud), new { anno });
                 }
 
-                // Fatture Cloud sono SEMPRE cancellabili
+                // Verifica se la FT Cloud è collegata a una scadenza già fatturata o incassata
+                if (fc.ScadenzaFatturazione != null)
+                {
+                    if (fc.ScadenzaFatturazione.Stato == StatoScadenza.Proforma)
+                    {
+                        TempData["Error"] = "Impossibile eliminare: la FT Cloud è in una scadenza in stato Proforma.";
+                        return RedirectToAction(nameof(FattureCloud), new { anno });
+                    }
+                    if (fc.ScadenzaFatturazione.Stato == StatoScadenza.Fatturata)
+                    {
+                        TempData["Error"] = "Impossibile eliminare: la FT Cloud è già stata fatturata.";
+                        return RedirectToAction(nameof(FattureCloud), new { anno });
+                    }
+                    if (fc.ScadenzaFatturazione.StatoIncasso != StatoIncasso.DaIncassare)
+                    {
+                        TempData["Error"] = "Impossibile eliminare: la fattura collegata è già stata incassata (totalmente o parzialmente).";
+                        return RedirectToAction(nameof(FattureCloud), new { anno });
+                    }
+                }
 
+                // La FT Cloud è cancellabile solo se la scadenza è ancora Aperta e non incassata
                 _context.FattureCloud.Remove(fc);
                 await _context.SaveChangesAsync();
 
@@ -1278,7 +1343,9 @@ namespace StudioCG.Web.Controllers
         {
             try
             {
-                var b = await _context.BilanciCEE.FindAsync(id);
+                var b = await _context.BilanciCEE
+                    .Include(x => x.ScadenzaFatturazione)
+                    .FirstOrDefaultAsync(x => x.Id == id);
 
                 if (b == null)
                 {
@@ -1286,8 +1353,27 @@ namespace StudioCG.Web.Controllers
                     return RedirectToAction(nameof(BilanciCEE), new { anno });
                 }
 
-                // Bilanci CEE sono SEMPRE cancellabili
+                // Verifica se il Bilancio è collegato a una scadenza già fatturata o incassata
+                if (b.ScadenzaFatturazione != null)
+                {
+                    if (b.ScadenzaFatturazione.Stato == StatoScadenza.Proforma)
+                    {
+                        TempData["Error"] = "Impossibile eliminare: il Bilancio CEE è in una scadenza in stato Proforma.";
+                        return RedirectToAction(nameof(BilanciCEE), new { anno });
+                    }
+                    if (b.ScadenzaFatturazione.Stato == StatoScadenza.Fatturata)
+                    {
+                        TempData["Error"] = "Impossibile eliminare: il Bilancio CEE è già stato fatturato.";
+                        return RedirectToAction(nameof(BilanciCEE), new { anno });
+                    }
+                    if (b.ScadenzaFatturazione.StatoIncasso != StatoIncasso.DaIncassare)
+                    {
+                        TempData["Error"] = "Impossibile eliminare: la fattura collegata è già stata incassata (totalmente o parzialmente).";
+                        return RedirectToAction(nameof(BilanciCEE), new { anno });
+                    }
+                }
 
+                // Il Bilancio CEE è cancellabile solo se la scadenza è ancora Aperta e non incassata
                 _context.BilanciCEE.Remove(b);
                 await _context.SaveChangesAsync();
 
