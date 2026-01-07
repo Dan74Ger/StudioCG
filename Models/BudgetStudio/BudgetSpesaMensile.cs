@@ -33,6 +33,10 @@ namespace StudioCG.Web.Models.BudgetStudio
         [Display(Name = "Note")]
         public string? Note { get; set; }
 
+        [StringLength(100)]
+        [Display(Name = "Formula")]
+        public string? Formula { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? UpdatedAt { get; set; }
     }

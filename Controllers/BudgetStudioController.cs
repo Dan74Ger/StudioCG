@@ -265,6 +265,7 @@ namespace StudioCG.Web.Controllers
                     pagata = false,
                     metodoPagamento = (int?)null,
                     note = (string?)null,
+                    formula = (string?)null,
                     metodoPagamentoDefault = (int)voce.MetodoPagamentoDefault
                 });
             }
@@ -280,6 +281,7 @@ namespace StudioCG.Web.Controllers
                 pagata = cell.Pagata,
                 metodoPagamento = (int?)cell.MetodoPagamento,
                 note = cell.Note,
+                formula = cell.Formula,
                 metodoPagamentoDefault = (int)(cell.VoceSpesaBudget?.MetodoPagamentoDefault ?? MetodoPagamentoBudget.Bonifico)
             });
         }
@@ -287,7 +289,7 @@ namespace StudioCG.Web.Controllers
         // POST: /BudgetStudio/SaveBudgetCell (inline)
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SaveBudgetCell(int voceId, int anno, int mese, string importo)
+        public async Task<IActionResult> SaveBudgetCell(int voceId, int anno, int mese, string importo, string? formula = null)
         {
             try
             {
@@ -300,9 +302,17 @@ namespace StudioCG.Web.Controllers
                 var cell = await _context.BudgetSpeseMensili
                     .FirstOrDefaultAsync(x => x.VoceSpesaBudgetId == voceId && x.Anno == anno && x.Mese == mese);
 
+                // Determina se la formula va salvata (solo se contiene operatori matematici)
+                string? formulaDaSalvare = null;
+                if (!string.IsNullOrWhiteSpace(formula) && 
+                    (formula.Contains('+') || formula.Contains('-') || formula.Contains('*') || formula.Contains('/')))
+                {
+                    formulaDaSalvare = formula.Trim();
+                }
+
                 if (cell == null)
                 {
-                    if (importoDec == 0m)
+                    if (importoDec == 0m && string.IsNullOrWhiteSpace(formulaDaSalvare))
                         return Json(new { ok = true });
 
                     cell = new BudgetSpesaMensile
@@ -311,6 +321,7 @@ namespace StudioCG.Web.Controllers
                         Anno = anno,
                         Mese = mese,
                         Importo = importoDec,
+                        Formula = formulaDaSalvare,
                         Pagata = false,
                         MetodoPagamento = null,
                         Note = null,
@@ -321,13 +332,14 @@ namespace StudioCG.Web.Controllers
                 }
                 else
                 {
-                    if (importoDec == 0m && !cell.Pagata && cell.MetodoPagamento == null && string.IsNullOrWhiteSpace(cell.Note))
+                    if (importoDec == 0m && !cell.Pagata && cell.MetodoPagamento == null && string.IsNullOrWhiteSpace(cell.Note) && string.IsNullOrWhiteSpace(formulaDaSalvare))
                     {
                         _context.BudgetSpeseMensili.Remove(cell);
                     }
                     else
                     {
                         cell.Importo = importoDec;
+                        cell.Formula = formulaDaSalvare;
                         cell.UpdatedAt = DateTime.Now;
                     }
                 }

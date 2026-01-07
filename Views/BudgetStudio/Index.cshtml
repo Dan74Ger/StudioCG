@@ -112,6 +112,23 @@
         background: transparent;
     }
 
+    /* Indicatore formula - triangolino blu in alto a destra */
+    td:has(.budget-cell[data-formula]:not([data-formula=""])) {
+        position: relative;
+    }
+    td:has(.budget-cell[data-formula]:not([data-formula=""]))::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        width: 0;
+        height: 0;
+        border-style: solid;
+        border-width: 0 8px 8px 0;
+        border-color: transparent #3b82f6 transparent transparent;
+        pointer-events: none;
+    }
+
     /* Celle pagate - verde chiaro */
     td.cell-pagata {
         background-color: #d4edda !important;
@@ -688,6 +705,7 @@
                                                    data-mese="@m"
                                                    data-pagata="@(isPagata ? "true" : "false")"
                                                    data-macroid="@macro.Id"
+                                                   data-formula="@(cell?.Formula ?? "")"
                                                    placeholder="0"
                                                    onclick="event.stopPropagation();" />
                                         </td>
@@ -740,6 +758,7 @@
                                                    data-anno="@Model.Anno"
                                                    data-mese="@m"
                                                    data-pagata="@(isPagata ? "true" : "false")"
+                                                   data-formula="@(cell?.Formula ?? "")"
                                                    placeholder="0" />
                                         </td>
                                     }
@@ -1355,9 +1374,34 @@
     };
 
     // Funzione per parsare un valore formattato italiano (1.234 -> 1234)
+    // Supporta anche formule matematiche (es. 2.263+1000 -> 3263)
+    // Formato italiano: punti = migliaia, virgole = decimali
     function parseItalianNumber(str) {
         if (!str || str.trim() === '') return 0;
-        // Rimuove punti delle migliaia e sostituisce virgola con punto per decimali
+        
+        // Se contiene operatori matematici, prova a valutare come formula
+        if (/[+\-*/]/.test(str)) {
+            try {
+                // FORMATO ITALIANO:
+                // 1. Rimuove punti delle migliaia (2.263 -> 2263)
+                // 2. Sostituisce virgole con punti decimali (2,5 -> 2.5)
+                let expr = str.replace(/\s/g, '');
+                expr = expr.replace(/\./g, '');  // Rimuove punti migliaia
+                expr = expr.replace(/,/g, '.');  // Virgole -> punti decimali
+                
+                // Verifica che contenga solo caratteri validi
+                if (/^[\d+\-*/().]+$/.test(expr)) {
+                    const result = new Function('return ' + expr)();
+                    if (!isNaN(result) && isFinite(result)) {
+                        return result;
+                    }
+                }
+            } catch (e) {
+                // Se fallisce, continua con il parsing normale
+            }
+        }
+        
+        // Parsing normale: rimuove punti delle migliaia e sostituisce virgola con punto
         return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
     }
 
@@ -1452,6 +1496,42 @@
         return input ? input.value : '';
     }
 
+    // Valuta una formula matematica (supporta +, -, *, /)
+    // Gestisce formato italiano: punti = migliaia, virgole = decimali
+    function evalFormula(formulaStr) {
+        if (!formulaStr || formulaStr.trim() === '') return 0;
+        
+        // Rimuove spazi
+        let expr = formulaStr.replace(/\s/g, '');
+        
+        // FORMATO ITALIANO:
+        // 1. Prima rimuove i punti delle migliaia (2.263 -> 2263)
+        // 2. Poi sostituisce le virgole con punti per i decimali (2,5 -> 2.5)
+        expr = expr.replace(/\./g, '');  // Rimuove punti migliaia
+        expr = expr.replace(/,/g, '.');  // Virgole -> punti decimali
+        
+        // Verifica che contenga solo caratteri validi (numeri, operatori, punti decimali)
+        if (!/^[\d+\-*/().]+$/.test(expr)) {
+            // Se non è un'espressione valida, prova a parsare come numero
+            return parseItalianNumber(formulaStr);
+        }
+        
+        try {
+            // Usa Function per valutare l'espressione in modo sicuro
+            const result = new Function('return ' + expr)();
+            return isNaN(result) || !isFinite(result) ? 0 : result;
+        } catch (e) {
+            console.warn('Errore valutazione formula:', e);
+            return parseItalianNumber(formulaStr);
+        }
+    }
+
+    // Verifica se una stringa contiene operatori matematici
+    function hasFormulaOperators(str) {
+        if (!str) return false;
+        return /[+\-*/]/.test(str);
+    }
+
     // Inline save on blur + aggiornamento totali in tempo reale
     document.querySelectorAll('.budget-cell').forEach(inp => {
         // Aggiorna totali quando l'utente digita
@@ -1459,17 +1539,48 @@
             updateAllTotals();
         });
 
-        // Formatta il valore quando esce dalla cella
+        // Focus: mostra la formula (se esiste)
+        inp.addEventListener('focus', function () {
+            const formula = this.getAttribute('data-formula');
+            if (formula && formula.trim() !== '') {
+                // Mostra la formula invece del valore calcolato
+                this.value = formula;
+                // Seleziona tutto il testo per facilitare la modifica
+                this.select();
+            }
+        });
+
+        // Blur: calcola la formula, mostra il risultato e salva
         inp.addEventListener('blur', async function () {
             const voceId = this.getAttribute('data-voceid');
             const anno = this.getAttribute('data-anno');
             const mese = this.getAttribute('data-mese');
             
-            // Parsa e riformatta il valore
-            const numValue = parseItalianNumber(this.value);
+            const inputValue = this.value.trim();
+            let numValue = 0;
+            let formula = '';
+            
+            // Verifica se l'input contiene operatori (è una formula)
+            if (hasFormulaOperators(inputValue)) {
+                // È una formula - calcola il risultato
+                numValue = evalFormula(inputValue);
+                formula = inputValue; // Salva la formula originale
+            } else {
+                // È un numero semplice
+                numValue = parseItalianNumber(inputValue);
+                formula = ''; // Nessuna formula da salvare
+            }
+            
+            // Aggiorna data-formula con la nuova formula (o vuota se numero semplice)
+            this.setAttribute('data-formula', formula);
+            
+            // Mostra il valore calcolato formattato nella cella
             this.value = numValue === 0 ? '' : formatItalianNumber(numValue);
             
-            // Invia al server
+            // Aggiorna i totali
+            updateAllTotals();
+            
+            // Invia al server (importo calcolato + formula originale)
             const importo = numValue.toString().replace('.', ',');
 
             const form = new URLSearchParams();
@@ -1477,6 +1588,9 @@
             form.append('anno', anno);
             form.append('mese', mese);
             form.append('importo', importo);
+            if (formula) {
+                form.append('formula', formula);
+            }
             form.append('__RequestVerificationToken', getAntiForgery());
 
             const res = await fetch('@Url.Action("SaveBudgetCell", "BudgetStudio")', {
