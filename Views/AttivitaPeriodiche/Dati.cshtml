@@ -1239,7 +1239,9 @@ function cancellaTuttiDati(clienteAttivitaId, nomeCliente) {
 }
 
 function cancellaPeriodo(clienteAttivitaId, numeroPeriodo, etichettaPeriodo) {
-    if (!confirm(`Cancellare i dati di "${etichettaPeriodo}"?`)) {
+    // Avvisa che verranno cancellati anche i periodi successivi
+    var messaggio = `Cancellare i dati da "${etichettaPeriodo}" in poi?\n\n⚠️ ATTENZIONE: Verranno cancellati anche TUTTI i periodi successivi!`;
+    if (!confirm(messaggio)) {
         return;
     }
     
@@ -1254,7 +1256,7 @@ function cancellaPeriodo(clienteAttivitaId, numeroPeriodo, etichettaPeriodo) {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            alert(`Dati di ${etichettaPeriodo} cancellati! La pagina verrà ricaricata.`);
+            alert(data.message + '! La pagina verrà ricaricata.');
             location.reload();
         } else {
             alert('Errore: ' + (data.error || 'Errore sconosciuto'));

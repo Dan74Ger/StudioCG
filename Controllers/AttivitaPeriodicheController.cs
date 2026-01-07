@@ -1056,7 +1056,10 @@ namespace StudioCG.Web.Controllers
         }
 
         // POST: AttivitaPeriodiche/CancellaDati (AJAX)
-        // Cancella i dati di un singolo periodo o tutti i periodi
+        // Cancella i dati di un singolo periodo E TUTTI I PERIODI SUCCESSIVI (a cascata)
+        // Es: Se cancello il 1° trimestre, cancella anche 2°, 3°, 4° trimestre
+        //     Se cancello il 2° trimestre, cancella anche 3°, 4° trimestre (lascia il 1°)
+        // DOPO LA CANCELLAZIONE: Ricalcola i riporti dal periodo precedente per riportare i dati corretti
         [HttpPost]
         public async Task<IActionResult> CancellaDati([FromBody] CancellaDatiRequest? request)
         {
@@ -1067,12 +1070,18 @@ namespace StudioCG.Web.Controllers
 
             var clienteAttivita = await _context.ClientiAttivitaPeriodiche
                 .Include(c => c.ValoriPeriodi)
+                .Include(c => c.TipoPeriodo)
+                    .ThenInclude(t => t!.Campi.Where(c => c.IsActive))
+                        .ThenInclude(c => c.Regole.Where(r => r.IsActive))
                 .FirstOrDefaultAsync(c => c.Id == request.ClienteAttivitaId);
 
             if (clienteAttivita == null)
             {
                 return Json(new { success = false, error = "Cliente non trovato" });
             }
+
+            int periodiCancellati = 0;
+            int periodoPrecedente = 0; // Per sapere da dove ricalcolare i riporti
 
             if (request.NumeroPeriodo == 0)
             {
@@ -1082,25 +1091,56 @@ namespace StudioCG.Web.Controllers
                     periodo.Valori = "{}";
                     periodo.ValoriCalcolati = "{}";
                     periodo.DataAggiornamento = DateTime.Now;
+                    periodiCancellati++;
                 }
             }
             else
             {
-                // Cancella solo il periodo specificato
-                var periodo = clienteAttivita.ValoriPeriodi.FirstOrDefault(v => v.NumeroPeriodo == request.NumeroPeriodo);
-                if (periodo != null)
+                // Cancella il periodo specificato E TUTTI I PERIODI SUCCESSIVI (a cascata)
+                // Es: Se cancello periodo 2, cancello anche 3, 4, 5... ecc.
+                var periodiDaCancellare = clienteAttivita.ValoriPeriodi
+                    .Where(v => v.NumeroPeriodo >= request.NumeroPeriodo)
+                    .ToList();
+                
+                foreach (var periodo in periodiDaCancellare)
                 {
                     periodo.Valori = "{}";
                     periodo.ValoriCalcolati = "{}";
                     periodo.DataAggiornamento = DateTime.Now;
+                    periodiCancellati++;
                 }
+
+                // Salva il periodo precedente per il ricalcolo riporti
+                periodoPrecedente = request.NumeroPeriodo - 1;
             }
 
             await _context.SaveChangesAsync();
 
+            // DOPO LA CANCELLAZIONE: Ricalcola i riporti A CASCATA dal periodo precedente fino all'ultimo
+            // Es: Se cancello dal periodo 2, ricalcola: P1 → riporta a P2 → calcola P2 → riporta a P3 → calcola P3 → riporta a P4 → calcola P4
+            if (periodoPrecedente > 0 && clienteAttivita.TipoPeriodo != null)
+            {
+                int numeroPeriodi = clienteAttivita.TipoPeriodo.NumeroPeriodi;
+                
+                // Ricalcola i campi calcolati del periodo precedente (per avere i valori aggiornati)
+                await RicalcolaCampiAsync(request.ClienteAttivitaId, periodoPrecedente);
+
+                // Ciclo a cascata: per ogni periodo dal cancellato fino all'ultimo
+                for (int p = request.NumeroPeriodo; p <= numeroPeriodi; p++)
+                {
+                    // Applica i riporti dal periodo precedente al periodo corrente
+                    await ApplicaRiportiAsync(request.ClienteAttivitaId, p - 1);
+                    
+                    // Ricalcola i campi calcolati del periodo corrente
+                    await RicalcolaCampiAsync(request.ClienteAttivitaId, p);
+                }
+            }
+
             var messaggio = request.NumeroPeriodo == 0 
                 ? "Tutti i dati cancellati" 
-                : $"Dati del periodo {request.NumeroPeriodo} cancellati";
+                : periodiCancellati > 1
+                    ? $"Dati dal periodo {request.NumeroPeriodo} in poi cancellati ({periodiCancellati} periodi) - Riporti ricalcolati"
+                    : $"Dati del periodo {request.NumeroPeriodo} cancellati - Riporti ricalcolati";
 
             return Json(new { success = true, message = messaggio });
         }
