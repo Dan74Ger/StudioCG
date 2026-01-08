@@ -382,6 +382,12 @@ namespace StudioCG.Web.Controllers
                 soggetto.Email = model.Email;
                 soggetto.Telefono = model.Telefono;
                 soggetto.QuotaPercentuale = model.QuotaPercentuale;
+                
+                // Documento di identità
+                soggetto.DocumentoNumero = model.DocumentoNumero;
+                soggetto.DocumentoRilasciatoDa = model.DocumentoRilasciatoDa;
+                soggetto.DocumentoDataRilascio = model.DocumentoDataRilascio;
+                soggetto.DocumentoScadenza = model.DocumentoScadenza;
 
                 await _context.SaveChangesAsync();
                 TempData["Success"] = "Soggetto aggiornato con successo.";
@@ -1412,6 +1418,78 @@ namespace StudioCG.Web.Controllers
             }
 
             return RedirectToAction(nameof(CampiCustom));
+        }
+
+        // ===== API per ricerca e copia dati =====
+
+        /// <summary>
+        /// Cerca clienti PF/DI per copiare dati quando si crea un soggetto
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> SearchClientiPerCopia(string q)
+        {
+            if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
+                return Json(new List<object>());
+
+            var clienti = await _context.Clienti
+                .Where(c => c.IsActive && c.RagioneSociale.Contains(q))
+                .OrderBy(c => c.RagioneSociale)
+                .Take(15)
+                .Select(c => new
+                {
+                    id = c.Id,
+                    ragioneSociale = c.RagioneSociale,
+                    tipoSoggetto = c.TipoSoggetto ?? "",
+                    codiceFiscale = c.CodiceFiscale ?? "",
+                    indirizzo = c.Indirizzo ?? "",
+                    citta = c.Citta ?? "",
+                    provincia = c.Provincia ?? "",
+                    cap = c.CAP ?? "",
+                    email = c.Email ?? "",
+                    telefono = c.Telefono ?? ""
+                })
+                .ToListAsync();
+
+            return Json(clienti);
+        }
+
+        /// <summary>
+        /// Cerca soggetti (di tutti i clienti) per copiare dati quando si crea un nuovo cliente
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> SearchSoggettiPerCopia(string q)
+        {
+            if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
+                return Json(new List<object>());
+
+            var soggetti = await _context.ClientiSoggetti
+                .Include(s => s.Cliente)
+                .Where(s => (s.Nome + " " + s.Cognome).Contains(q) || 
+                           s.Cognome.Contains(q) || 
+                           s.Nome.Contains(q) ||
+                           (s.CodiceFiscale != null && s.CodiceFiscale.Contains(q)))
+                .OrderBy(s => s.Cognome)
+                .ThenBy(s => s.Nome)
+                .Take(15)
+                .Select(s => new
+                {
+                    id = s.Id,
+                    nome = s.Nome,
+                    cognome = s.Cognome,
+                    nomeCompleto = s.Cognome + " " + s.Nome,
+                    tipoSoggetto = s.TipoSoggetto.ToString(),
+                    clienteNome = s.Cliente != null ? s.Cliente.RagioneSociale : "",
+                    codiceFiscale = s.CodiceFiscale ?? "",
+                    indirizzo = s.Indirizzo ?? "",
+                    citta = s.Citta ?? "",
+                    provincia = s.Provincia ?? "",
+                    cap = s.CAP ?? "",
+                    email = s.Email ?? "",
+                    telefono = s.Telefono ?? ""
+                })
+                .ToListAsync();
+
+            return Json(soggetti);
         }
     }
 
