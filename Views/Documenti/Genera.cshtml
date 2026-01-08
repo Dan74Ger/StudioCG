@@ -1,209 +1,397 @@
 @{
-    ViewData["Title"] = "Genera Documento";
+    ViewData["Title"] = "Genera Documenti";
     var templates = ViewBag.Templates as List<StudioCG.Web.Models.Documenti.TemplateDocumento>;
     var clienti = ViewBag.Clienti as dynamic;
 }
 
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="fas fa-file-export me-2"></i>Genera Documento</h2>
-        <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="fas fa-file-export me-2"></i>Genera Documenti</h4>
+        <a href="@Url.Action("Index")" class="btn btn-outline-secondary btn-sm">
             <i class="fas fa-arrow-left me-1"></i>Dashboard
         </a>
     </div>
 
     @if (TempData["Info"] != null)
     {
-        <div class="alert alert-info alert-dismissible fade show">
+        <div class="alert alert-info alert-dismissible fade show py-2">
             <i class="fas fa-info-circle me-2"></i>@TempData["Info"]
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     }
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show py-2">
+            <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show py-2">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
 
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fas fa-magic me-2"></i>Wizard Generazione</h5>
-                </div>
-                <div class="card-body">
-                    <form asp-action="GeneraDocumento" method="post">
-                        @Html.AntiForgeryToken()
-
-                        <!-- Step 1: Seleziona Template -->
-                        <div class="mb-4">
-                            <label class="form-label fw-bold">
-                                <span class="badge bg-primary rounded-pill me-2">1</span>
-                                Seleziona Template
-                            </label>
-                            @if (templates != null && templates.Any())
-                            {
-                                <select name="templateId" id="templateSelect" class="form-select form-select-lg" required>
-                                    <option value="">-- Scegli un template --</option>
-                                    @foreach (var cat in templates.Select(t => t.Categoria).Distinct())
-                                    {
-                                        <optgroup label="@cat">
-                                            @foreach (var t in templates.Where(x => x.Categoria == cat))
-                                            {
-                                                <option value="@t.Id" data-richiede-mandato="@t.RichiestaMandato.ToString().ToLower()">
-                                                    @t.Nome
-                                                </option>
-                                            }
-                                        </optgroup>
-                                    }
-                                </select>
-                            }
-                            else
-                            {
-                                <div class="alert alert-warning">
-                                    <i class="fas fa-exclamation-triangle me-2"></i>
-                                    Nessun template disponibile. <a href="@Url.Action("TemplateEditor")">Creane uno</a>
-                                </div>
-                            }
-                        </div>
-
-                        <!-- Step 2: Seleziona Cliente -->
-                        <div class="mb-4">
-                            <label class="form-label fw-bold">
-                                <span class="badge bg-primary rounded-pill me-2">2</span>
-                                Seleziona Cliente
-                            </label>
-                            <select name="clienteId" id="clienteSelect" class="form-select form-select-lg" required>
-                                <option value="">-- Scegli un cliente --</option>
-                                @if (clienti != null)
+    <form id="formGenera" asp-action="GeneraDocumentiMultipli" method="post">
+        @Html.AntiForgeryToken()
+        
+        <div class="row g-3">
+            <!-- Colonna sinistra: Template + Clienti -->
+            <div class="col-lg-6">
+                <!-- Template -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white py-2">
+                        <span class="badge bg-light text-primary rounded-pill me-2">1</span>
+                        <strong>Seleziona Template</strong>
+                    </div>
+                    <div class="card-body py-2">
+                        @if (templates != null && templates.Any())
+                        {
+                            <select name="templateId" id="templateSelect" class="form-select" required>
+                                <option value="">-- Scegli un template --</option>
+                                @foreach (var cat in templates.Select(t => t.Categoria).Distinct())
                                 {
-                                    @foreach (var c in clienti)
-                                    {
-                                        <option value="@c.Id">@c.RagioneSociale</option>
-                                    }
+                                    <optgroup label="@cat">
+                                        @foreach (var t in templates.Where(x => x.Categoria == cat))
+                                        {
+                                            <option value="@t.Id">@t.Nome</option>
+                                        }
+                                    </optgroup>
                                 }
                             </select>
-                        </div>
-
-                        <!-- Step 3: Seleziona Mandato (se richiesto) -->
-                        <div class="mb-4" id="mandatoSection" style="display: none;">
-                            <label class="form-label fw-bold">
-                                <span class="badge bg-warning text-dark rounded-pill me-2">3</span>
-                                Seleziona Mandato
-                            </label>
-                            <select name="mandatoId" id="mandatoSelect" class="form-select form-select-lg">
-                                <option value="">-- Seleziona mandato (carica dopo cliente) --</option>
-                            </select>
-                            <small class="text-muted">Il template richiede la selezione di un mandato</small>
-                        </div>
-
-                        <!-- Step 4: Formato Output -->
-                        <div class="mb-4">
-                            <label class="form-label fw-bold">
-                                <span class="badge bg-primary rounded-pill me-2">4</span>
-                                Formato Output
-                            </label>
-                            <div class="btn-group w-100" role="group">
-                                <input type="radio" class="btn-check" name="tipoOutput" id="outputPdf" value="0" checked>
-                                <label class="btn btn-outline-danger" for="outputPdf">
-                                    <i class="fas fa-file-pdf fa-2x d-block mb-1"></i>
-                                    PDF
-                                </label>
-                                <input type="radio" class="btn-check" name="tipoOutput" id="outputWord" value="1">
-                                <label class="btn btn-outline-primary" for="outputWord">
-                                    <i class="fas fa-file-word fa-2x d-block mb-1"></i>
-                                    Word
-                                </label>
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning mb-0 py-2">
+                                Nessun template disponibile. <a href="@Url.Action("TemplateEditor")">Creane uno</a>
                             </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Clienti -->
+                <div class="card">
+                    <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge bg-light text-primary rounded-pill me-2">2</span>
+                            <strong>Seleziona Cliente/i</strong>
                         </div>
-
-                        <hr />
-
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-success btn-lg">
-                                <i class="fas fa-magic me-2"></i>Genera Documento
+                        <span id="clientiCount" class="badge bg-light text-dark">0 selezionati</span>
+                    </div>
+                    <div class="card-body p-2">
+                        <!-- Ricerca e azioni -->
+                        <div class="input-group input-group-sm mb-2">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" id="searchClienti" class="form-control" placeholder="Cerca cliente...">
+                            <button type="button" class="btn btn-outline-success" id="btnSelectAll">
+                                <i class="fas fa-check-double"></i> Tutti
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="btnDeselectAll">
+                                <i class="fas fa-times"></i> Nessuno
                             </button>
                         </div>
-                    </form>
+                        
+                        <!-- Lista clienti - 8 righe visibili (320px) -->
+                        <div class="border rounded" id="clientiList" style="height: 320px; overflow-y: auto;">
+                            @if (clienti != null)
+                            {
+                                @foreach (var c in clienti)
+                                {
+                                    <div class="cliente-item d-flex align-items-center px-3 py-2 border-bottom" 
+                                         data-nome="@c.RagioneSociale.ToString().ToLower()">
+                                        <input class="form-check-input cliente-checkbox me-3" type="checkbox" 
+                                               name="clienteIds" value="@c.Id" id="cliente_@c.Id"
+                                               style="width: 20px; height: 20px; cursor: pointer;">
+                                        <label class="form-check-label flex-grow-1 mb-0" for="cliente_@c.Id" 
+                                               style="cursor: pointer; font-size: 14px;">
+                                            @c.RagioneSociale
+                                        </label>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Anteprima -->
-            <div class="card mt-4" id="previewSection" style="display: none;">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0"><i class="fas fa-eye me-2"></i>Anteprima Documento</h5>
+            <!-- Colonna destra: Formato + Opzioni + Pulsante -->
+            <div class="col-lg-6">
+                <!-- Formato Output -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white py-2">
+                        <span class="badge bg-light text-primary rounded-pill me-2">3</span>
+                        <strong>Formato Output</strong>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="tipoOutput" id="outputPdf" value="0" checked>
+                            <label class="btn btn-outline-danger py-3" for="outputPdf">
+                                <i class="fas fa-file-pdf fa-2x d-block mb-1"></i>
+                                PDF
+                            </label>
+                            <input type="radio" class="btn-check" name="tipoOutput" id="outputWord" value="1">
+                            <label class="btn btn-outline-primary py-3" for="outputWord">
+                                <i class="fas fa-file-word fa-2x d-block mb-1"></i>
+                                Word
+                            </label>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body p-0">
-                    <iframe id="previewFrame" style="width: 100%; height: 500px; border: none;"></iframe>
+
+                <!-- Opzioni Output -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white py-2">
+                        <span class="badge bg-light text-primary rounded-pill me-2">4</span>
+                        <strong>Opzioni Output</strong>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <div class="card h-100 opzione-card" id="cardDownload">
+                                    <div class="card-body text-center py-3">
+                                        <input type="checkbox" class="form-check-input opzione-output" 
+                                               name="scaricaZip" id="scaricaZip" value="true" checked
+                                               style="width: 22px; height: 22px;">
+                                        <label for="scaricaZip" class="d-block mt-2" style="cursor: pointer;">
+                                            <i class="fas fa-download fa-lg text-success"></i>
+                                            <div class="fw-bold small mt-1">Scarica ZIP</div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="card h-100 opzione-card" id="cardArchivio">
+                                    <div class="card-body text-center py-3">
+                                        <input type="checkbox" class="form-check-input opzione-output" 
+                                               name="salvaArchivio" id="salvaArchivio" value="true" checked
+                                               style="width: 22px; height: 22px;">
+                                        <label for="salvaArchivio" class="d-block mt-2" style="cursor: pointer;">
+                                            <i class="fas fa-archive fa-lg text-primary"></i>
+                                            <div class="fw-bold small mt-1">Salva Archivio</div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Riepilogo compatto + Pulsante -->
+                <div class="card">
+                    <div class="card-header bg-secondary text-white py-2">
+                        <i class="fas fa-list-check me-2"></i><strong>Riepilogo</strong>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="row small mb-2">
+                            <div class="col-4"><strong>Template:</strong></div>
+                            <div class="col-8" id="riepilogoTemplate">-</div>
+                        </div>
+                        <div class="row small mb-2">
+                            <div class="col-4"><strong>Clienti:</strong></div>
+                            <div class="col-8" id="riepilogoClienti">0 selezionati</div>
+                        </div>
+                        <div class="row small mb-3">
+                            <div class="col-4"><strong>Output:</strong></div>
+                            <div class="col-8">
+                                <span id="riepilogoFormato" class="badge bg-danger">PDF</span>
+                                <span id="riepilogoOutput"></span>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success btn-lg w-100" id="btnGenera" disabled>
+                            <i class="fas fa-magic me-2"></i>
+                            <span id="btnGeneraText">Genera Documenti</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    </form>
 </div>
+
+<style>
+    .cliente-item {
+        transition: background-color 0.15s ease;
+    }
+    .cliente-item:hover {
+        background-color: #e9ecef;
+    }
+    .cliente-item:has(.cliente-checkbox:checked) {
+        background-color: #d1e7dd;
+    }
+    .cliente-item:has(.cliente-checkbox:checked):hover {
+        background-color: #badbcc;
+    }
+    .opzione-card {
+        transition: all 0.2s ease;
+        border: 2px solid #dee2e6;
+    }
+    .opzione-card:has(.opzione-output:checked) {
+        border-color: #198754;
+        background-color: #f8fff9;
+    }
+    #clientiList::-webkit-scrollbar {
+        width: 8px;
+    }
+    #clientiList::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+    #clientiList::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+    }
+    #clientiList::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+</style>
 
 @section Scripts {
 <script>
-    var templateSelect = document.getElementById('templateSelect');
-    var clienteSelect = document.getElementById('clienteSelect');
-    var mandatoSelect = document.getElementById('mandatoSelect');
-    var mandatoSection = document.getElementById('mandatoSection');
-    var previewFrame = document.getElementById('previewFrame');
-    var previewSection = document.getElementById('previewSection');
-
-    templateSelect.addEventListener('change', function() {
-        var selected = this.options[this.selectedIndex];
-        var richiestaMandato = selected.getAttribute('data-richiede-mandato') === 'true';
-        mandatoSection.style.display = richiestaMandato ? 'block' : 'none';
-        updatePreview();
+document.addEventListener('DOMContentLoaded', function() {
+    const templateSelect = document.getElementById('templateSelect');
+    const clienteCheckboxes = document.querySelectorAll('.cliente-checkbox');
+    const searchInput = document.getElementById('searchClienti');
+    const btnSelectAll = document.getElementById('btnSelectAll');
+    const btnDeselectAll = document.getElementById('btnDeselectAll');
+    const btnGenera = document.getElementById('btnGenera');
+    const btnGeneraText = document.getElementById('btnGeneraText');
+    const clientiCountBadge = document.getElementById('clientiCount');
+    const scaricaZipCheckbox = document.getElementById('scaricaZip');
+    const salvaArchivioCheckbox = document.getElementById('salvaArchivio');
+    const formGenera = document.getElementById('formGenera');
+    
+    // Ricerca clienti
+    searchInput.addEventListener('input', function() {
+        const search = this.value.toLowerCase();
+        document.querySelectorAll('.cliente-item').forEach(item => {
+            const nome = item.getAttribute('data-nome');
+            item.style.display = nome.includes(search) ? '' : 'none';
+        });
     });
-
-    clienteSelect.addEventListener('change', function() {
-        var clienteId = this.value;
-        if (clienteId) {
-            // Carica mandati del cliente
-            fetch('@Url.Action("GetMandatiCliente")/' + clienteId)
-                .then(response => response.json())
-                .then(data => {
-                    mandatoSelect.innerHTML = '<option value="">-- Seleziona mandato --</option>';
-                    data.forEach(function(m) {
-                        var opt = document.createElement('option');
-                        opt.value = m.id;
-                        opt.textContent = m.oggetto + ' (' + m.importoAnnuo + ' €)';
-                        mandatoSelect.appendChild(opt);
-                    });
-                });
-        }
-        updatePreview();
+    
+    // Seleziona tutti (solo visibili)
+    btnSelectAll.addEventListener('click', function() {
+        document.querySelectorAll('.cliente-item:not([style*="display: none"]) .cliente-checkbox').forEach(cb => {
+            cb.checked = true;
+        });
+        updateUI();
     });
-
-    mandatoSelect.addEventListener('change', updatePreview);
-
-    function updatePreview() {
-        var templateId = templateSelect.value;
-        var clienteId = clienteSelect.value;
-        var mandatoId = mandatoSelect.value;
-
-        if (templateId && clienteId) {
-            previewSection.style.display = 'block';
-            var url = '@Url.Action("Anteprima")?templateId=' + templateId + '&clienteId=' + clienteId;
-            if (mandatoId) url += '&mandatoId=' + mandatoId;
-            
-            fetch(url)
-                .then(response => response.text())
-                .then(html => {
-                    previewFrame.srcdoc = `
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                            <style>
-                                body { font-family: Arial, sans-serif; font-size: 11pt; padding: 20px; }
-                                table { border-collapse: collapse; width: 100%; }
-                                td, th { border: 1px solid #ddd; padding: 8px; }
-                            </style>
-                        </head>
-                        <body>${html}</body>
-                        </html>
-                    `;
-                });
-        } else {
-            previewSection.style.display = 'none';
+    
+    // Deseleziona tutti
+    btnDeselectAll.addEventListener('click', function() {
+        clienteCheckboxes.forEach(cb => cb.checked = false);
+        updateUI();
+    });
+    
+    // Aggiorna UI quando cambia selezione clienti
+    clienteCheckboxes.forEach(cb => {
+        cb.addEventListener('change', updateUI);
+    });
+    
+    // Aggiorna UI quando cambia template
+    templateSelect.addEventListener('change', updateUI);
+    
+    // Aggiorna UI quando cambiano opzioni output
+    scaricaZipCheckbox.addEventListener('change', function() {
+        validateOutputOptions();
+        updateUI();
+    });
+    salvaArchivioCheckbox.addEventListener('change', function() {
+        validateOutputOptions();
+        updateUI();
+    });
+    
+    // Aggiorna UI quando cambia formato
+    document.querySelectorAll('input[name="tipoOutput"]').forEach(radio => {
+        radio.addEventListener('change', updateUI);
+    });
+    
+    // Validazione almeno un'opzione output
+    function validateOutputOptions() {
+        if (!scaricaZipCheckbox.checked && !salvaArchivioCheckbox.checked) {
+            scaricaZipCheckbox.checked = true;
         }
     }
+    
+    function updateUI() {
+        const selectedClienti = document.querySelectorAll('.cliente-checkbox:checked');
+        const count = selectedClienti.length;
+        const templateSelected = templateSelect.value !== '';
+        const hasOutput = scaricaZipCheckbox.checked || salvaArchivioCheckbox.checked;
+        
+        // Contatore clienti
+        clientiCountBadge.textContent = count + ' selezionati';
+        clientiCountBadge.className = 'badge ' + (count > 0 ? 'bg-success' : 'bg-light text-dark');
+        
+        // Pulsante genera
+        btnGenera.disabled = !(templateSelected && count > 0 && hasOutput);
+        if (count > 1) {
+            btnGeneraText.textContent = `Genera ${count} Documenti`;
+        } else if (count === 1) {
+            btnGeneraText.textContent = 'Genera 1 Documento';
+        } else {
+            btnGeneraText.textContent = 'Genera Documenti';
+        }
+        
+        // Riepilogo
+        document.getElementById('riepilogoTemplate').textContent = templateSelected 
+            ? templateSelect.options[templateSelect.selectedIndex].text 
+            : '-';
+        document.getElementById('riepilogoClienti').textContent = count + ' selezionati';
+        
+        // Formato
+        const isPdf = document.getElementById('outputPdf').checked;
+        const formatoBadge = document.getElementById('riepilogoFormato');
+        formatoBadge.textContent = isPdf ? 'PDF' : 'Word';
+        formatoBadge.className = 'badge ' + (isPdf ? 'bg-danger' : 'bg-primary');
+        
+        // Output badges
+        let outputHtml = '';
+        if (scaricaZipCheckbox.checked) {
+            outputHtml += '<span class="badge bg-success ms-1">ZIP</span>';
+        }
+        if (salvaArchivioCheckbox.checked) {
+            outputHtml += '<span class="badge bg-info ms-1">Archivio</span>';
+        }
+        document.getElementById('riepilogoOutput').innerHTML = outputHtml;
+    }
+    
+    // Submit form con loading
+    formGenera.addEventListener('submit', function(e) {
+        const selectedCount = document.querySelectorAll('.cliente-checkbox:checked').length;
+        if (selectedCount === 0) {
+            e.preventDefault();
+            alert('Seleziona almeno un cliente');
+            return;
+        }
+        
+        if (!scaricaZipCheckbox.checked && !salvaArchivioCheckbox.checked) {
+            e.preventDefault();
+            alert('Seleziona almeno un\'opzione di output');
+            return;
+        }
+        
+        btnGenera.disabled = true;
+        btnGeneraText.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generazione...';
+        
+        // Reset pulsante dopo il download (il browser scarica il file senza ricaricare la pagina)
+        // Timeout basato sul numero di clienti: ~2 sec per cliente + 3 sec base
+        const timeoutMs = Math.max(5000, selectedCount * 2000 + 3000);
+        setTimeout(function() {
+            btnGenera.disabled = false;
+            btnGeneraText.innerHTML = '<i class="fas fa-check me-2"></i>Completato! Genera altri';
+            // Dopo altri 3 secondi, torna al testo normale
+            setTimeout(function() {
+                updateUI();
+            }, 3000);
+        }, timeoutMs);
+    });
+    
+    // Inizializza UI
+    updateUI();
+});
 </script>
 }
-

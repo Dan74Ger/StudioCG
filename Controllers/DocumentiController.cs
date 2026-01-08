@@ -469,6 +469,112 @@ namespace StudioCG.Web.Controllers
             }
         }
 
+        // POST: /Documenti/GeneraDocumentiMultipli - Genera documenti per più clienti
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> GeneraDocumentiMultipli(int templateId, int[] clienteIds, TipoOutputDocumento tipoOutput, bool scaricaZip = true, bool salvaArchivio = true)
+        {
+            if (clienteIds == null || clienteIds.Length == 0)
+            {
+                TempData["Error"] = "Seleziona almeno un cliente";
+                return RedirectToAction(nameof(Genera));
+            }
+
+            if (!scaricaZip && !salvaArchivio)
+            {
+                TempData["Error"] = "Seleziona almeno un'opzione di output";
+                return RedirectToAction(nameof(Genera));
+            }
+
+            try
+            {
+                var username = User.Identity?.Name;
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+                var userId = user?.Id ?? 0;
+
+                var documentiGenerati = new List<(string NomeFile, byte[] Contenuto, string ContentType)>();
+                var errori = new List<string>();
+
+                foreach (var clienteId in clienteIds)
+                {
+                    try
+                    {
+                        if (salvaArchivio)
+                        {
+                            // Genera e salva in archivio
+                            var documento = await _generatorService.GeneraDocumentoAsync(
+                                templateId, clienteId, null, tipoOutput, userId);
+                            documentiGenerati.Add((documento.NomeFile, documento.Contenuto, documento.ContentType));
+                        }
+                        else
+                        {
+                            // Genera solo per download (senza salvare)
+                            var documento = await _generatorService.GeneraDocumentoSenzaSalvareAsync(
+                                templateId, clienteId, null, tipoOutput);
+                            documentiGenerati.Add((documento.NomeFile, documento.Contenuto, documento.ContentType));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        var cliente = await _context.Clienti.FindAsync(clienteId);
+                        errori.Add($"{cliente?.RagioneSociale ?? $"Cliente {clienteId}"}: {ex.Message}");
+                    }
+                }
+
+                if (documentiGenerati.Count == 0)
+                {
+                    TempData["Error"] = "Nessun documento generato. Errori: " + string.Join("; ", errori);
+                    return RedirectToAction(nameof(Genera));
+                }
+
+                // Se ci sono errori parziali, segnalali
+                if (errori.Count > 0)
+                {
+                    TempData["Info"] = $"Generati {documentiGenerati.Count} documenti. Errori: {string.Join("; ", errori)}";
+                }
+                else
+                {
+                    TempData["Success"] = $"Generati {documentiGenerati.Count} documenti con successo!";
+                }
+
+                // Se solo salvataggio in archivio (senza download)
+                if (!scaricaZip)
+                {
+                    return RedirectToAction(nameof(Archivio));
+                }
+
+                // Se un solo documento, scarica direttamente
+                if (documentiGenerati.Count == 1)
+                {
+                    var doc = documentiGenerati[0];
+                    return File(doc.Contenuto, doc.ContentType, doc.NomeFile);
+                }
+
+                // Più documenti: crea ZIP
+                using var zipStream = new MemoryStream();
+                using (var archive = new System.IO.Compression.ZipArchive(zipStream, System.IO.Compression.ZipArchiveMode.Create, true))
+                {
+                    foreach (var doc in documentiGenerati)
+                    {
+                        var entry = archive.CreateEntry(doc.NomeFile, System.IO.Compression.CompressionLevel.Optimal);
+                        using var entryStream = entry.Open();
+                        await entryStream.WriteAsync(doc.Contenuto);
+                    }
+                }
+
+                var template = await _context.TemplateDocumenti.FindAsync(templateId);
+                var zipFileName = $"{template?.Nome ?? "Documenti"}_{DateTime.Now:yyyyMMdd_HHmmss}.zip";
+
+                return File(zipStream.ToArray(), "application/zip", zipFileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Errore generazione documenti multipli");
+                TempData["Error"] = $"Errore: {ex.Message}";
+                return RedirectToAction(nameof(Genera));
+            }
+        }
+
         // GET: /Documenti/Anteprima
         [HttpGet]
         public async Task<IActionResult> Anteprima(int templateId, int clienteId, int? mandatoId)
@@ -505,40 +611,118 @@ namespace StudioCG.Web.Controllers
 
         #region Archivio
 
-        // GET: /Documenti/Archivio - Mostra cartelle clienti
-        public async Task<IActionResult> Archivio(string? search)
+        // GET: /Documenti/Archivio - Lista documenti con filtri
+        public async Task<IActionResult> Archivio(int? clienteId, int? templateId, DateTime? dataDa, DateTime? dataA)
         {
-            // Raggruppa i documenti per cliente
-            var cartelleClienti = await _context.DocumentiGenerati
+            var query = _context.DocumentiGenerati
                 .Include(d => d.Cliente)
-                .GroupBy(d => new { d.ClienteId, d.Cliente!.RagioneSociale })
-                .Select(g => new CartellaClienteViewModel
-                {
-                    ClienteId = g.Key.ClienteId,
-                    NomeCliente = g.Key.RagioneSociale,
-                    NumeroDocumenti = g.Count(),
-                    UltimoDocumento = g.Max(d => d.GeneratoIl),
-                    PrimoDocumento = g.Min(d => d.GeneratoIl)
-                })
+                .Include(d => d.TemplateDocumento)
+                .AsQueryable();
+
+            // Filtri
+            if (clienteId.HasValue)
+                query = query.Where(d => d.ClienteId == clienteId.Value);
+
+            if (templateId.HasValue)
+                query = query.Where(d => d.TemplateDocumentoId == templateId.Value);
+
+            if (dataDa.HasValue)
+                query = query.Where(d => d.GeneratoIl >= dataDa.Value);
+
+            if (dataA.HasValue)
+                query = query.Where(d => d.GeneratoIl <= dataA.Value.AddDays(1));
+
+            var documenti = await query
+                .OrderByDescending(d => d.GeneratoIl)
                 .ToListAsync();
 
-            // Filtro ricerca
-            if (!string.IsNullOrWhiteSpace(search))
+            // Per i filtri dropdown
+            ViewBag.Clienti = await _context.Clienti
+                .Where(c => c.IsActive)
+                .OrderBy(c => c.RagioneSociale)
+                .Select(c => new { c.Id, c.RagioneSociale })
+                .ToListAsync();
+
+            ViewBag.Templates = await _context.TemplateDocumenti
+                .Where(t => t.IsActive)
+                .OrderBy(t => t.Nome)
+                .Select(t => new { t.Id, t.Nome })
+                .ToListAsync();
+
+            ViewBag.FiltroCliente = clienteId;
+            ViewBag.FiltroTemplate = templateId;
+            ViewBag.FiltroDataDa = dataDa;
+            ViewBag.FiltroDataA = dataA;
+
+            return View(documenti);
+        }
+
+        // GET: /Documenti/DownloadZipDocumenti - Scarica ZIP dei documenti selezionati
+        [HttpGet]
+        public async Task<IActionResult> DownloadZipDocumenti([FromQuery] int[] ids)
+        {
+            if (ids == null || ids.Length == 0)
             {
-                cartelleClienti = cartelleClienti
-                    .Where(c => c.NomeCliente.Contains(search, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
+                TempData["Error"] = "Nessun documento selezionato";
+                return RedirectToAction(nameof(Archivio));
             }
 
-            // Ordina per nome cliente
-            cartelleClienti = cartelleClienti
-                .OrderBy(c => c.NomeCliente)
-                .ToList();
+            var documenti = await _context.DocumentiGenerati
+                .Where(d => ids.Contains(d.Id))
+                .ToListAsync();
 
-            ViewBag.Search = search;
-            ViewBag.TotaleDocumenti = cartelleClienti.Sum(c => c.NumeroDocumenti);
+            if (documenti.Count == 0)
+            {
+                TempData["Error"] = "Nessun documento trovato";
+                return RedirectToAction(nameof(Archivio));
+            }
 
-            return View(cartelleClienti);
+            // Se un solo documento, scarica direttamente
+            if (documenti.Count == 1)
+            {
+                var doc = documenti[0];
+                return File(doc.Contenuto, doc.ContentType, doc.NomeFile);
+            }
+
+            // Più documenti: crea ZIP
+            using var zipStream = new MemoryStream();
+            using (var archive = new System.IO.Compression.ZipArchive(zipStream, System.IO.Compression.ZipArchiveMode.Create, true))
+            {
+                foreach (var doc in documenti)
+                {
+                    var entry = archive.CreateEntry(doc.NomeFile, System.IO.Compression.CompressionLevel.Optimal);
+                    using var entryStream = entry.Open();
+                    await entryStream.WriteAsync(doc.Contenuto);
+                }
+            }
+
+            var zipFileName = $"Documenti_Archivio_{DateTime.Now:yyyyMMdd_HHmmss}.zip";
+            return File(zipStream.ToArray(), "application/zip", zipFileName);
+        }
+
+        // POST: /Documenti/DeleteDocumentiMultipli - Elimina documenti selezionati
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteDocumentiMultipli(int[] documentoIds)
+        {
+            if (documentoIds == null || documentoIds.Length == 0)
+            {
+                TempData["Error"] = "Nessun documento selezionato.";
+                return RedirectToAction(nameof(Archivio));
+            }
+
+            var documenti = await _context.DocumentiGenerati
+                .Where(d => documentoIds.Contains(d.Id))
+                .ToListAsync();
+
+            if (documenti.Any())
+            {
+                _context.DocumentiGenerati.RemoveRange(documenti);
+                await _context.SaveChangesAsync();
+                TempData["Success"] = $"{documenti.Count} documento/i eliminato/i con successo!";
+            }
+
+            return RedirectToAction(nameof(Archivio));
         }
 
         // GET: /Documenti/ArchivioCliente/{clienteId} - Mostra documenti di un cliente
@@ -656,34 +840,6 @@ namespace StudioCG.Web.Controllers
             return RedirectToAction(nameof(ArchivioCliente), new { clienteId });
         }
 
-        // POST: /Documenti/DeleteDocumentiMultipli
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteDocumentiMultipli(int[] ids, int? returnClienteId)
-        {
-            if (ids == null || ids.Length == 0)
-            {
-                TempData["Error"] = "Nessun documento selezionato.";
-                if (returnClienteId.HasValue)
-                    return RedirectToAction(nameof(ArchivioCliente), new { clienteId = returnClienteId.Value });
-                return RedirectToAction(nameof(Archivio));
-            }
-
-            var documenti = await _context.DocumentiGenerati
-                .Where(d => ids.Contains(d.Id))
-                .ToListAsync();
-
-            if (documenti.Any())
-            {
-                _context.DocumentiGenerati.RemoveRange(documenti);
-                await _context.SaveChangesAsync();
-                TempData["Success"] = $"{documenti.Count} documento/i eliminato/i con successo!";
-            }
-
-            if (returnClienteId.HasValue)
-                return RedirectToAction(nameof(ArchivioCliente), new { clienteId = returnClienteId.Value });
-            return RedirectToAction(nameof(Archivio));
-        }
 
         // GET: /Documenti/ControlloAntiriciclaggio
         public async Task<IActionResult> ControlloAntiriciclaggio(string? searchCliente, string? statoScadenza)

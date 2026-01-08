@@ -1,8 +1,13 @@
-@model List<StudioCG.Web.Controllers.CartellaClienteViewModel>
+@model List<StudioCG.Web.Models.Documenti.DocumentoGenerato>
 @{
     ViewData["Title"] = "Archivio Documenti";
+    var clienti = ViewBag.Clienti as IEnumerable<dynamic>;
+    var templates = ViewBag.Templates as IEnumerable<dynamic>;
+    var filtroCliente = ViewBag.FiltroCliente as int?;
+    var filtroTemplate = ViewBag.FiltroTemplate as int?;
+    var filtroDataDa = ViewBag.FiltroDataDa as DateTime?;
+    var filtroDataA = ViewBag.FiltroDataA as DateTime?;
     var search = ViewBag.Search as string;
-    var totaleDocumenti = ViewBag.TotaleDocumenti as int? ?? 0;
 }
 
 <div class="container-fluid">
@@ -10,8 +15,7 @@
         <div>
             <h2><i class="fas fa-archive me-2"></i>Archivio Documenti</h2>
             <small class="text-muted">
-                <i class="fas fa-folder me-1"></i>@Model.Count cartelle cliente &bull; 
-                <i class="fas fa-file me-1"></i>@totaleDocumenti documenti totali
+                <i class="fas fa-file me-1"></i>@Model.Count documenti in archivio
             </small>
         </div>
         <div>
@@ -34,7 +38,6 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     }
-
     @if (TempData["Error"] != null)
     {
         <div class="alert alert-danger alert-dismissible fade show">
@@ -43,89 +46,157 @@
         </div>
     }
 
-    <!-- Ricerca -->
+    <!-- Filtri -->
     <div class="card mb-4">
         <div class="card-body">
             <form method="get" class="row g-3 align-items-end">
-                <div class="col-md-10">
-                    <label class="form-label"><i class="fas fa-search me-1"></i>Cerca cliente</label>
-                    <input type="text" name="search" class="form-control" placeholder="Inserisci il nome del cliente..." value="@search" />
+                <div class="col-md-3">
+                    <label class="form-label"><i class="fas fa-user me-1"></i>Cliente</label>
+                    <select name="clienteId" class="form-select">
+                        <option value="">-- Tutti i clienti --</option>
+                        @if (clienti != null)
+                        {
+                            @foreach (var c in clienti)
+                            {
+                                <option value="@c.Id" selected="@(filtroCliente == c.Id)">@c.RagioneSociale</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label"><i class="fas fa-file-alt me-1"></i>Template</label>
+                    <select name="templateId" class="form-select">
+                        <option value="">-- Tutti i template --</option>
+                        @if (templates != null)
+                        {
+                            @foreach (var t in templates)
+                            {
+                                <option value="@t.Id" selected="@(filtroTemplate == t.Id)">@t.Nome</option>
+                            }
+                        }
+                    </select>
                 </div>
                 <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-search me-1"></i>Cerca
-                    </button>
+                    <label class="form-label"><i class="fas fa-calendar me-1"></i>Data da</label>
+                    <input type="date" name="dataDa" class="form-control" value="@(filtroDataDa?.ToString("yyyy-MM-dd"))" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label"><i class="fas fa-calendar me-1"></i>Data a</label>
+                    <input type="date" name="dataA" class="form-control" value="@(filtroDataA?.ToString("yyyy-MM-dd"))" />
+                </div>
+                <div class="col-md-2">
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-fill">
+                            <i class="fas fa-filter me-1"></i>Filtra
+                        </button>
+                        <a href="@Url.Action("Archivio")" class="btn btn-outline-secondary" title="Rimuovi filtri">
+                            <i class="fas fa-times"></i>
+                        </a>
+                    </div>
                 </div>
             </form>
-            @if (!string.IsNullOrEmpty(search))
-            {
-                <div class="mt-2">
-                    <a href="@Url.Action("Archivio")" class="btn btn-sm btn-outline-secondary">
-                        <i class="fas fa-times me-1"></i>Rimuovi filtro
-                    </a>
-                </div>
-            }
         </div>
     </div>
 
-    <!-- Lista Cartelle Clienti -->
+    <!-- Lista Documenti -->
     <div class="card">
         @if (Model.Any())
         {
-            <!-- Barra azioni multi-selezione -->
-            <div class="card-header bg-light d-flex justify-content-between align-items-center py-3">
+            <!-- Barra azioni -->
+            <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
                 <div class="d-flex align-items-center gap-3">
-                    <div class="d-flex align-items-center">
-                        <input type="checkbox" id="selectAll" class="form-check-input checkbox-nero m-0" title="Seleziona tutte">
-                        <label class="form-check-label ms-2" for="selectAll" style="cursor: pointer;">Seleziona tutte</label>
+                    <div class="form-check">
+                        <input type="checkbox" id="selectAll" class="form-check-input" style="width: 20px; height: 20px;">
+                        <label class="form-check-label ms-1" for="selectAll" style="cursor: pointer;">Seleziona tutti</label>
                     </div>
                     <span id="selectedCount" class="text-muted small"></span>
                 </div>
-                <button type="button" id="btnDeleteSelected" class="btn btn-danger btn-sm" style="display: none;">
-                    <i class="fas fa-trash me-1"></i>Elimina cartelle (<span id="deleteCount">0</span>)
-                </button>
+                <div id="bulkActions" style="display: none;">
+                    <button type="button" id="btnDownloadZip" class="btn btn-success btn-sm me-2">
+                        <i class="fas fa-download me-1"></i>Scarica ZIP (<span id="downloadCount">0</span>)
+                    </button>
+                    <button type="button" id="btnDeleteSelected" class="btn btn-danger btn-sm">
+                        <i class="fas fa-trash me-1"></i>Elimina (<span id="deleteCount">0</span>)
+                    </button>
+                </div>
             </div>
         }
         <div class="card-body p-0">
             @if (Model.Any())
             {
-                <form id="formDeleteCartelle" asp-action="DeleteCartelleClienti" method="post">
+                <form id="formBulkAction" method="post">
                     @Html.AntiForgeryToken()
-                    <div class="row g-3 p-3">
-                        @foreach (var cartella in Model)
-                        {
-                            <div class="col-lg-3 col-md-4 col-sm-6">
-                                <div class="card h-100 border cartella-cliente position-relative" style="transition: all 0.2s ease;">
-                                    <!-- Checkbox selezione -->
-                                    <div class="position-absolute top-0 start-0 m-2 z-1">
-                                        <div class="form-check">
-                                            <input type="checkbox" name="clienteIds" value="@cartella.ClienteId" 
-                                                   class="form-check-input checkbox-nero cartella-checkbox" 
-                                                   id="cartella_@cartella.ClienteId"
-                                                   onclick="event.stopPropagation();">
-                                        </div>
-                                    </div>
-                                    <a href="@Url.Action("ArchivioCliente", new { clienteId = cartella.ClienteId })" class="text-decoration-none cartella-link">
-                                        <div class="card-body text-center pt-4">
-                                            <div class="mb-3">
-                                                <i class="fas fa-folder fa-4x text-warning"></i>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 40px;"></th>
+                                    <th style="width: 120px;">
+                                        <i class="fas fa-calendar me-1"></i>Data
+                                    </th>
+                                    <th>
+                                        <i class="fas fa-user me-1"></i>Cliente
+                                    </th>
+                                    <th>
+                                        <i class="fas fa-file-alt me-1"></i>Template
+                                    </th>
+                                    <th>
+                                        <i class="fas fa-file me-1"></i>Nome File
+                                    </th>
+                                    <th style="width: 80px;" class="text-center">Tipo</th>
+                                    <th style="width: 120px;" class="text-center">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var doc in Model)
+                                {
+                                    <tr>
+                                        <td class="align-middle">
+                                            <input type="checkbox" class="form-check-input doc-checkbox" 
+                                                   name="documentoIds" value="@doc.Id" 
+                                                   style="width: 18px; height: 18px;">
+                                        </td>
+                                        <td class="align-middle">
+                                            <span class="text-nowrap">@doc.GeneratoIl.ToString("dd/MM/yyyy")</span>
+                                            <br><small class="text-muted">@doc.GeneratoIl.ToString("HH:mm")</small>
+                                        </td>
+                                        <td class="align-middle">
+                                            <strong>@doc.Cliente?.RagioneSociale</strong>
+                                        </td>
+                                        <td class="align-middle">
+                                            @doc.TemplateDocumento?.Nome
+                                        </td>
+                                        <td class="align-middle">
+                                            <span class="text-truncate d-inline-block" style="max-width: 300px;" title="@doc.NomeFile">
+                                                @doc.NomeFile
+                                            </span>
+                                        </td>
+                                        <td class="align-middle text-center">
+                                            @if (doc.TipoOutput == StudioCG.Web.Models.Documenti.TipoOutputDocumento.PDF)
+                                            {
+                                                <span class="badge bg-danger"><i class="fas fa-file-pdf me-1"></i>PDF</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-primary"><i class="fas fa-file-word me-1"></i>Word</span>
+                                            }
+                                        </td>
+                                        <td class="align-middle text-center">
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="@Url.Action("DownloadDocumento", new { id = doc.Id })" 
+                                                   class="btn btn-outline-success" title="Scarica">
+                                                    <i class="fas fa-download"></i>
+                                                </a>
+                                                <button type="button" class="btn btn-outline-danger btn-delete-single" 
+                                                        data-id="@doc.Id" data-nome="@doc.NomeFile" title="Elimina">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
                                             </div>
-                                            <h6 class="card-title text-dark mb-2 text-truncate" title="@cartella.NomeCliente">
-                                                @cartella.NomeCliente
-                                            </h6>
-                                            <div class="text-muted small">
-                                                <span class="badge bg-secondary">
-                                                    <i class="fas fa-file me-1"></i>@cartella.NumeroDocumenti documento/i
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div class="card-footer bg-light small text-muted">
-                                            <i class="fas fa-clock me-1"></i>Ultimo: @cartella.UltimoDocumento.ToString("dd/MM/yyyy")
-                                        </div>
-                                    </a>
-                                </div>
-                            </div>
-                        }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
                     </div>
                 </form>
             }
@@ -133,11 +204,11 @@
             {
                 <div class="text-center py-5 text-muted">
                     <i class="fas fa-folder-open fa-3x mb-3"></i>
-                    @if (!string.IsNullOrEmpty(search))
+                    @if (filtroCliente.HasValue || filtroTemplate.HasValue || filtroDataDa.HasValue || filtroDataA.HasValue)
                     {
-                        <p>Nessun cliente trovato con il nome "<strong>@search</strong>".</p>
+                        <p>Nessun documento trovato con i filtri selezionati.</p>
                         <a href="@Url.Action("Archivio")" class="btn btn-outline-secondary">
-                            <i class="fas fa-times me-1"></i>Rimuovi filtro
+                            <i class="fas fa-times me-1"></i>Rimuovi filtri
                         </a>
                     }
                     else
@@ -153,109 +224,94 @@
     </div>
 </div>
 
-<style>
-    .cartella-cliente:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-        border-color: #ffc107 !important;
-    }
-    .cartella-cliente:hover .fa-folder {
-        transform: scale(1.1);
-        transition: transform 0.2s ease;
-    }
-    .cartella-cliente.selected {
-        border: 3px solid #212529 !important;
-        box-shadow: 0 0 10px rgba(0,0,0,0.3);
-    }
-    
-    /* Checkbox nero ben visibile */
-    .checkbox-nero {
-        width: 22px;
-        height: 22px;
-        border: 3px solid #212529 !important;
-        background-color: #fff;
-        cursor: pointer;
-    }
-    .checkbox-nero:checked {
-        background-color: #212529 !important;
-        border-color: #212529 !important;
-    }
-    .checkbox-nero:focus {
-        box-shadow: 0 0 0 0.25rem rgba(33, 37, 41, 0.25);
-    }
-    
-    .z-1 {
-        z-index: 10;
-    }
-</style>
+<!-- Form nascosto per eliminazione singola -->
+<form id="formDeleteSingle" asp-action="DeleteDocumento" method="post" style="display: none;">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="id" id="deleteDocId" />
+</form>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const selectAllCheckbox = document.getElementById('selectAll');
-    const cartellaCheckboxes = document.querySelectorAll('.cartella-checkbox');
+    const docCheckboxes = document.querySelectorAll('.doc-checkbox');
+    const bulkActions = document.getElementById('bulkActions');
+    const btnDownloadZip = document.getElementById('btnDownloadZip');
     const btnDeleteSelected = document.getElementById('btnDeleteSelected');
+    const downloadCountSpan = document.getElementById('downloadCount');
     const deleteCountSpan = document.getElementById('deleteCount');
     const selectedCountSpan = document.getElementById('selectedCount');
-    const formDeleteCartelle = document.getElementById('formDeleteCartelle');
+    const formBulkAction = document.getElementById('formBulkAction');
     
-    // Gestione Seleziona tutte
+    // Seleziona tutti
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', function() {
-            cartellaCheckboxes.forEach(cb => {
-                cb.checked = this.checked;
-                updateCardStyle(cb);
-            });
-            updateSelectionCount();
+            docCheckboxes.forEach(cb => cb.checked = this.checked);
+            updateSelectionUI();
         });
     }
     
-    // Gestione singole checkbox
-    cartellaCheckboxes.forEach(cb => {
-        cb.addEventListener('change', function() {
-            updateCardStyle(this);
-            updateSelectionCount();
-        });
+    // Singole checkbox
+    docCheckboxes.forEach(cb => {
+        cb.addEventListener('change', updateSelectionUI);
     });
     
-    function updateCardStyle(checkbox) {
-        const card = checkbox.closest('.cartella-cliente');
-        if (checkbox.checked) {
-            card.classList.add('selected');
-        } else {
-            card.classList.remove('selected');
-        }
-    }
-    
-    function updateSelectionCount() {
-        const checkedCount = document.querySelectorAll('.cartella-checkbox:checked').length;
-        const totalCount = cartellaCheckboxes.length;
+    function updateSelectionUI() {
+        const checkedCount = document.querySelectorAll('.doc-checkbox:checked').length;
+        const totalCount = docCheckboxes.length;
         
         if (checkedCount > 0) {
-            btnDeleteSelected.style.display = 'inline-block';
+            bulkActions.style.display = 'block';
+            downloadCountSpan.textContent = checkedCount;
             deleteCountSpan.textContent = checkedCount;
-            selectedCountSpan.textContent = `${checkedCount} di ${totalCount} selezionate`;
+            selectedCountSpan.textContent = `${checkedCount} di ${totalCount} selezionati`;
         } else {
-            btnDeleteSelected.style.display = 'none';
+            bulkActions.style.display = 'none';
             selectedCountSpan.textContent = '';
         }
         
-        // Aggiorna stato "Seleziona tutte"
+        // Aggiorna stato "Seleziona tutti"
         if (selectAllCheckbox) {
             selectAllCheckbox.checked = checkedCount === totalCount && totalCount > 0;
             selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < totalCount;
         }
     }
     
-    // Elimina cartelle selezionate
+    // Scarica ZIP
+    if (btnDownloadZip) {
+        btnDownloadZip.addEventListener('click', function() {
+            const selectedIds = Array.from(document.querySelectorAll('.doc-checkbox:checked')).map(cb => cb.value);
+            if (selectedIds.length === 0) return;
+            
+            // Redirect to download endpoint
+            const params = selectedIds.map(id => 'ids=' + id).join('&');
+            window.location.href = '@Url.Action("DownloadZipDocumenti")?' + params;
+        });
+    }
+    
+    // Elimina selezionati
     if (btnDeleteSelected) {
         btnDeleteSelected.addEventListener('click', function() {
-            const checkedCount = document.querySelectorAll('.cartella-checkbox:checked').length;
+            const checkedCount = document.querySelectorAll('.doc-checkbox:checked').length;
             if (checkedCount === 0) return;
             
-            if (confirm(`⚠️ ATTENZIONE!\n\nStai per eliminare ${checkedCount} cartella/e e TUTTI i documenti al loro interno.\n\nQuesta azione non può essere annullata.\n\nContinuare?`)) {
-                formDeleteCartelle.submit();
+            if (confirm(`Eliminare ${checkedCount} documento/i?\n\nQuesta azione non può essere annullata.`)) {
+                formBulkAction.action = '@Url.Action("DeleteDocumentiMultipli")';
+                formBulkAction.submit();
             }
         });
     }
+    
+    // Elimina singolo
+    document.querySelectorAll('.btn-delete-single').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            const nome = this.getAttribute('data-nome');
+            
+            if (confirm(`Eliminare il documento "${nome}"?`)) {
+                document.getElementById('deleteDocId').value = id;
+                document.getElementById('formDeleteSingle').submit();
+            }
+        });
+    });
 });
 </script>

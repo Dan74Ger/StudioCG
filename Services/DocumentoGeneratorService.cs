@@ -125,6 +125,78 @@ namespace StudioCG.Web.Services
         }
 
         /// <summary>
+        /// Genera un documento senza salvarlo nel database (per download diretto ZIP)
+        /// </summary>
+        public async Task<(string NomeFile, byte[] Contenuto, string ContentType)> GeneraDocumentoSenzaSalvareAsync(
+            int templateId,
+            int clienteId,
+            int? mandatoId,
+            TipoOutputDocumento tipoOutput)
+        {
+            // Carica template
+            var template = await _context.TemplateDocumenti.FindAsync(templateId);
+            if (template == null)
+                throw new ArgumentException("Template non trovato");
+
+            // Carica cliente con soggetti
+            var cliente = await _context.Clienti
+                .Include(c => c.Soggetti)
+                .FirstOrDefaultAsync(c => c.Id == clienteId);
+            if (cliente == null)
+                throw new ArgumentException("Cliente non trovato");
+
+            // Carica mandato se richiesto, altrimenti prende l'ultimo mandato attivo del cliente
+            MandatoCliente? mandato = null;
+            if (mandatoId.HasValue)
+            {
+                mandato = await _context.MandatiClienti.FindAsync(mandatoId.Value);
+            }
+            else
+            {
+                mandato = await _context.MandatiClienti
+                    .Where(m => m.ClienteId == clienteId && m.IsActive)
+                    .OrderByDescending(m => m.Anno)
+                    .FirstOrDefaultAsync();
+            }
+
+            // Carica configurazione studio
+            var studio = await _context.ConfigurazioniStudio.FirstOrDefaultAsync();
+
+            // Sostituisci i campi in tutte le sezioni
+            var intestazioneCompilata = !string.IsNullOrEmpty(template.Intestazione) 
+                ? SostituisciCampi(template.Intestazione, studio, cliente, mandato) 
+                : null;
+            var contenutoCompilato = SostituisciCampi(template.Contenuto, studio, cliente, mandato);
+            var piePaginaCompilato = !string.IsNullOrEmpty(template.PiePagina) 
+                ? SostituisciCampi(template.PiePagina, studio, cliente, mandato) 
+                : null;
+
+            // Genera il file
+            byte[] fileBytes;
+            string contentType;
+            string estensione;
+
+            if (tipoOutput == TipoOutputDocumento.PDF)
+            {
+                fileBytes = GeneraPdf(intestazioneCompilata, contenutoCompilato, piePaginaCompilato, studio);
+                contentType = "application/pdf";
+                estensione = ".pdf";
+            }
+            else
+            {
+                fileBytes = GeneraWord(intestazioneCompilata, contenutoCompilato, piePaginaCompilato, studio);
+                contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                estensione = ".docx";
+            }
+
+            // Crea nome file
+            var nomeFile = $"{template.Nome}_{cliente.RagioneSociale}_{DateTime.Now:yyyyMMdd_HHmmss}{estensione}";
+            nomeFile = SanitizeFileName(nomeFile);
+
+            return (nomeFile, fileBytes, contentType);
+        }
+
+        /// <summary>
         /// Sostituisce tutti i campi dinamici nel contenuto
         /// </summary>
         private string SostituisciCampi(string contenuto, ConfigurazioneStudio? studio, Cliente cliente, MandatoCliente? mandato)
