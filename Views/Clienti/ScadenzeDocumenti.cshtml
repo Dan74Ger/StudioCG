@@ -1,4 +1,4 @@
-@model List<StudioCG.Web.Models.ClienteSoggetto>
+@model List<StudioCG.Web.Models.ScadenzaDocumentoViewModel>
 @using StudioCG.Web.Models
 @{
     ViewData["Title"] = "Scadenze Documenti Identità";
@@ -9,7 +9,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h4 class="mb-1"><i class="fas fa-id-card me-2"></i>Scadenze Documenti Identità</h4>
-        <p class="text-muted mb-0">Gestione scadenze documenti per tutti i soggetti</p>
+        <p class="text-muted mb-0">Gestione scadenze documenti per tutti i soggetti e clienti (PF, DI, PROF)</p>
     </div>
     <div>
         <a asp-action="Index" class="btn btn-outline-secondary">
@@ -64,7 +64,7 @@
         <div class="card bg-primary text-white">
             <div class="card-body text-center py-2">
                 <h3 class="mb-0">@ViewBag.TotaleSoggetti</h3>
-                <small>Totale Soggetti</small>
+                <small>Totale</small>
             </div>
         </div>
     </div>
@@ -90,14 +90,18 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small">Tipo Soggetto</label>
-                    <select name="tipoSoggetto" class="form-select form-select-sm">
+                    <select name="tipoFiltro" class="form-select form-select-sm">
                         <option value="">-- Tutti --</option>
-                        <option value="@((int)TipoSoggetto.LegaleRappresentante)" 
-                                selected="@(ViewBag.TipoSoggetto != null && (int)ViewBag.TipoSoggetto == 0)">Legale Rappresentante</option>
-                        <option value="@((int)TipoSoggetto.Consigliere)" 
-                                selected="@(ViewBag.TipoSoggetto != null && (int)ViewBag.TipoSoggetto == 1)">Consigliere</option>
-                        <option value="@((int)TipoSoggetto.Socio)" 
-                                selected="@(ViewBag.TipoSoggetto != null && (int)ViewBag.TipoSoggetto == 2)">Socio</option>
+                        <optgroup label="Soggetti">
+                            <option value="LegaleRappresentante" selected="@(ViewBag.TipoFiltro == "LegaleRappresentante")">Legale Rappresentante</option>
+                            <option value="Consigliere" selected="@(ViewBag.TipoFiltro == "Consigliere")">Consigliere</option>
+                            <option value="Socio" selected="@(ViewBag.TipoFiltro == "Socio")">Socio</option>
+                        </optgroup>
+                        <optgroup label="Clienti">
+                            <option value="PF" selected="@(ViewBag.TipoFiltro == "PF")">PF - Persona Fisica</option>
+                            <option value="DI" selected="@(ViewBag.TipoFiltro == "DI")">DI - Ditta Individuale</option>
+                            <option value="PROF" selected="@(ViewBag.TipoFiltro == "PROF")">PROF - Professionista</option>
+                        </optgroup>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -141,7 +145,7 @@
         <a asp-action="ExportScadenzeExcel" 
            asp-route-searchNome="@ViewBag.SearchNome"
            asp-route-searchCliente="@ViewBag.SearchCliente"
-           asp-route-tipoSoggetto="@ViewBag.TipoSoggetto"
+           asp-route-tipoFiltro="@ViewBag.TipoFiltro"
            asp-route-statoScadenza="@ViewBag.StatoScadenza"
            asp-route-giorniAvviso="@ViewBag.GiorniAvviso"
            class="btn btn-success btn-sm">
@@ -176,21 +180,21 @@
                             </td>
                         </tr>
                     }
-                    @foreach (var soggetto in Model)
+                    @foreach (var item in Model)
                     {
                         var statoClass = "";
                         var statoBadge = "";
                         var statoIcon = "";
                         
-                        if (soggetto.DocumentoScadenza.HasValue)
+                        if (item.DocumentoScadenza.HasValue)
                         {
-                            if (soggetto.DocumentoScadenza.Value < oggi)
+                            if (item.DocumentoScadenza.Value < oggi)
                             {
                                 statoClass = "table-danger";
                                 statoBadge = "bg-danger";
                                 statoIcon = "fas fa-exclamation-circle";
                             }
-                            else if (soggetto.DocumentoScadenza.Value <= dataAvviso)
+                            else if (item.DocumentoScadenza.Value <= dataAvviso)
                             {
                                 statoClass = "table-warning";
                                 statoBadge = "bg-warning text-dark";
@@ -217,36 +221,29 @@
                                 </span>
                             </td>
                             <td>
-                                <a asp-action="Details" asp-route-id="@soggetto.ClienteId" class="text-decoration-none">
-                                    @soggetto.Cliente?.RagioneSociale
+                                <a asp-action="@(item.IsCliente ? "Edit" : "Details")" asp-route-id="@item.ClienteId" class="text-decoration-none">
+                                    @item.ClienteNome
                                 </a>
-                            </td>
-                            <td>
-                                @switch (soggetto.TipoSoggetto)
+                                @if (item.IsCliente)
                                 {
-                                    case TipoSoggetto.LegaleRappresentante:
-                                        <span class="badge bg-primary">Legale Rapp.</span>
-                                        break;
-                                    case TipoSoggetto.Consigliere:
-                                        <span class="badge bg-info">Consigliere</span>
-                                        break;
-                                    case TipoSoggetto.Socio:
-                                        <span class="badge bg-success">Socio</span>
-                                        break;
+                                    <i class="fas fa-user-circle text-muted ms-1" title="Cliente diretto"></i>
                                 }
                             </td>
-                            <td><strong>@soggetto.Cognome</strong></td>
-                            <td>@soggetto.Nome</td>
-                            <td><code>@soggetto.CodiceFiscale</code></td>
-                            <td>@(soggetto.DocumentoNumero ?? "-")</td>
-                            <td>@(soggetto.DocumentoDataRilascio?.ToString("dd/MM/yyyy") ?? "-")</td>
-                            <td>@(soggetto.DocumentoRilasciatoDa ?? "-")</td>
                             <td>
-                                @if (soggetto.DocumentoScadenza.HasValue)
+                                <span class="badge @item.TipoBadgeClass">@item.TipoLabel</span>
+                            </td>
+                            <td><strong>@item.Cognome</strong></td>
+                            <td>@item.Nome</td>
+                            <td><code>@item.CodiceFiscale</code></td>
+                            <td>@(item.DocumentoNumero ?? "-")</td>
+                            <td>@(item.DocumentoDataRilascio?.ToString("dd/MM/yyyy") ?? "-")</td>
+                            <td>@(item.DocumentoRilasciatoDa ?? "-")</td>
+                            <td>
+                                @if (item.DocumentoScadenza.HasValue)
                                 {
-                                    var giorniRimanenti = (soggetto.DocumentoScadenza.Value - oggi).Days;
+                                    var giorniRimanenti = (item.DocumentoScadenza.Value - oggi).Days;
                                     <strong class="@(giorniRimanenti < 0 ? "text-danger" : giorniRimanenti <= 30 ? "text-warning" : "text-success")">
-                                        @soggetto.DocumentoScadenza.Value.ToString("dd/MM/yyyy")
+                                        @item.DocumentoScadenza.Value.ToString("dd/MM/yyyy")
                                     </strong>
                                     <br>
                                     <small class="@(giorniRimanenti < 0 ? "text-danger" : giorniRimanenti <= 30 ? "text-warning" : "text-muted")">
@@ -270,10 +267,20 @@
                                 }
                             </td>
                             <td>
-                                <a asp-action="EditSoggetto" asp-route-id="@soggetto.Id" 
-                                   class="btn btn-sm btn-outline-primary" title="Modifica">
-                                    <i class="fas fa-edit"></i>
-                                </a>
+                                @if (item.IsCliente)
+                                {
+                                    <a asp-action="Edit" asp-route-id="@item.Id" 
+                                       class="btn btn-sm btn-outline-primary" title="Modifica Cliente">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                }
+                                else
+                                {
+                                    <a asp-action="EditSoggetto" asp-route-id="@item.Id" 
+                                       class="btn btn-sm btn-outline-primary" title="Modifica Soggetto">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                }
                             </td>
                         </tr>
                     }
@@ -292,14 +299,22 @@
     <a asp-action="ScadenzeDocumenti" asp-route-statoScadenza="inScadenza" class="btn btn-sm btn-outline-warning me-1">
         <i class="fas fa-exclamation-triangle me-1"></i>In Scadenza
     </a>
-    <a asp-action="ScadenzeDocumenti" asp-route-tipoSoggetto="0" class="btn btn-sm btn-outline-primary me-1">
+    <a asp-action="ScadenzeDocumenti" asp-route-tipoFiltro="LegaleRappresentante" class="btn btn-sm btn-outline-primary me-1">
         <i class="fas fa-user-tie me-1"></i>Legali Rapp.
     </a>
-    <a asp-action="ScadenzeDocumenti" asp-route-tipoSoggetto="1" class="btn btn-sm btn-outline-info me-1">
+    <a asp-action="ScadenzeDocumenti" asp-route-tipoFiltro="Consigliere" class="btn btn-sm btn-outline-info me-1">
         <i class="fas fa-users me-1"></i>Consiglieri
     </a>
-    <a asp-action="ScadenzeDocumenti" asp-route-tipoSoggetto="2" class="btn btn-sm btn-outline-success me-1">
+    <a asp-action="ScadenzeDocumenti" asp-route-tipoFiltro="Socio" class="btn btn-sm btn-outline-success me-1">
         <i class="fas fa-handshake me-1"></i>Soci
     </a>
+    <a asp-action="ScadenzeDocumenti" asp-route-tipoFiltro="PF" class="btn btn-sm btn-outline-dark me-1">
+        <i class="fas fa-user me-1"></i>PF
+    </a>
+    <a asp-action="ScadenzeDocumenti" asp-route-tipoFiltro="DI" class="btn btn-sm btn-outline-warning me-1">
+        <i class="fas fa-store me-1"></i>DI
+    </a>
+    <a asp-action="ScadenzeDocumenti" asp-route-tipoFiltro="PROF" class="btn btn-sm btn-outline-secondary me-1">
+        <i class="fas fa-briefcase me-1"></i>PROF
+    </a>
 </div>
-

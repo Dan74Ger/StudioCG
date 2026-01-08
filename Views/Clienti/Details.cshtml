@@ -847,7 +847,11 @@
                                             'data-provincia="' + escapeHtml(c.provincia) + '" ' +
                                             'data-cap="' + escapeHtml(c.cap) + '" ' +
                                             'data-email="' + escapeHtml(c.email) + '" ' +
-                                            'data-telefono="' + escapeHtml(c.telefono) + '">' +
+                                            'data-telefono="' + escapeHtml(c.telefono) + '" ' +
+                                            'data-doc-numero="' + escapeHtml(c.documentoNumero) + '" ' +
+                                            'data-doc-rilasciato="' + escapeHtml(c.documentoRilasciatoDa) + '" ' +
+                                            'data-doc-data="' + (c.documentoDataRilascio ? c.documentoDataRilascio.split('T')[0] : '') + '" ' +
+                                            'data-doc-scadenza="' + (c.documentoScadenza ? c.documentoScadenza.split('T')[0] : '') + '">' +
                                             '<strong>' + escapeHtml(c.ragioneSociale) + '</strong>' + tipoLabel +
                                             (c.codiceFiscale ? '<br><small class="text-muted">CF: ' + c.codiceFiscale + '</small>' : '') +
                                             '</div>';
@@ -879,6 +883,12 @@
                                         form.querySelector('input[name="CAP"]').value = this.getAttribute('data-cap') || '';
                                         form.querySelector('input[name="Email"]').value = this.getAttribute('data-email') || '';
                                         form.querySelector('input[name="Telefono"]').value = this.getAttribute('data-telefono') || '';
+                                        
+                                        // Copia dati documento identità
+                                        form.querySelector('input[name="DocumentoNumero"]').value = this.getAttribute('data-doc-numero') || '';
+                                        form.querySelector('input[name="DocumentoRilasciatoDa"]').value = this.getAttribute('data-doc-rilasciato') || '';
+                                        form.querySelector('input[name="DocumentoDataRilascio"]').value = this.getAttribute('data-doc-data') || '';
+                                        form.querySelector('input[name="DocumentoScadenza"]').value = this.getAttribute('data-doc-scadenza') || '';
                                         
                                         // Nascondi risultati e pulisci input
                                         searchClienteResults.style.display = 'none';

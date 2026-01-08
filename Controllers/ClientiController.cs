@@ -651,170 +651,326 @@ namespace StudioCG.Web.Controllers
         // GET: Clienti/ScadenzeDocumenti
         public async Task<IActionResult> ScadenzeDocumenti(
             string? searchNome, 
-            TipoSoggetto? tipoSoggetto, 
+            string? tipoFiltro,  // "LegaleRappresentante", "Consigliere", "Socio", "PF", "DI", "PROF"
             string? statoScadenza,
             string? searchCliente,
             int? giorniAvviso)
         {
             // Valori di default
             giorniAvviso ??= 30;
+            var oggi = DateTime.Today;
+            var dataAvviso = oggi.AddDays(giorniAvviso.Value);
             
-            // Query base: tutti i soggetti con documento
-            var query = _context.ClientiSoggetti
+            var risultati = new List<ScadenzaDocumentoViewModel>();
+            
+            // === 1. Carica Soggetti (Legale Rapp., Consigliere, Socio) ===
+            var querySoggetti = _context.ClientiSoggetti
                 .Include(s => s.Cliente)
                 .Where(s => s.Cliente != null && s.Cliente.IsActive)
                 .AsQueryable();
-
-            // Filtro per nome/cognome
+            
+            var soggetti = await querySoggetti.ToListAsync();
+            foreach (var s in soggetti)
+            {
+                var tipoLabel = s.TipoSoggetto switch
+                {
+                    TipoSoggetto.LegaleRappresentante => "Legale Rapp.",
+                    TipoSoggetto.Consigliere => "Consigliere",
+                    TipoSoggetto.Socio => "Socio",
+                    _ => "Altro"
+                };
+                var tipoBadge = s.TipoSoggetto switch
+                {
+                    TipoSoggetto.LegaleRappresentante => "bg-primary",
+                    TipoSoggetto.Consigliere => "bg-info",
+                    TipoSoggetto.Socio => "bg-success",
+                    _ => "bg-secondary"
+                };
+                
+                risultati.Add(new ScadenzaDocumentoViewModel
+                {
+                    Id = s.Id,
+                    IsCliente = false,
+                    ClienteId = s.ClienteId,
+                    ClienteNome = s.Cliente?.RagioneSociale ?? "",
+                    TipoLabel = tipoLabel,
+                    TipoBadgeClass = tipoBadge,
+                    Cognome = s.Cognome,
+                    Nome = s.Nome,
+                    CodiceFiscale = s.CodiceFiscale,
+                    DocumentoNumero = s.DocumentoNumero,
+                    DocumentoDataRilascio = s.DocumentoDataRilascio,
+                    DocumentoRilasciatoDa = s.DocumentoRilasciatoDa,
+                    DocumentoScadenza = s.DocumentoScadenza
+                });
+            }
+            
+            // === 2. Carica Clienti PF, DI, PROF ===
+            var tipiClienteConDocumento = new[] { "PF", "DI", "PROF" };
+            var queryClienti = _context.Clienti
+                .Where(c => c.IsActive && c.TipoSoggetto != null && tipiClienteConDocumento.Contains(c.TipoSoggetto.ToUpper()))
+                .AsQueryable();
+            
+            var clienti = await queryClienti.ToListAsync();
+            foreach (var c in clienti)
+            {
+                var tipo = c.TipoSoggetto?.ToUpper() ?? "PF";
+                var tipoBadge = tipo switch
+                {
+                    "PF" => "bg-dark",
+                    "DI" => "bg-warning text-dark",
+                    "PROF" => "bg-purple",
+                    _ => "bg-secondary"
+                };
+                
+                // Prova a separare nome/cognome dalla ragione sociale
+                var parti = c.RagioneSociale.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+                var cognome = parti.Length > 0 ? parti[0] : "";
+                var nome = parti.Length > 1 ? parti[1] : "";
+                
+                risultati.Add(new ScadenzaDocumentoViewModel
+                {
+                    Id = c.Id,
+                    IsCliente = true,
+                    ClienteId = c.Id,
+                    ClienteNome = c.RagioneSociale,
+                    TipoLabel = tipo,
+                    TipoBadgeClass = tipoBadge,
+                    Cognome = cognome,
+                    Nome = nome,
+                    CodiceFiscale = c.CodiceFiscale,
+                    DocumentoNumero = c.DocumentoNumero,
+                    DocumentoDataRilascio = c.DocumentoDataRilascio,
+                    DocumentoRilasciatoDa = c.DocumentoRilasciatoDa,
+                    DocumentoScadenza = c.DocumentoScadenza
+                });
+            }
+            
+            // === Applica Filtri ===
+            
+            // Filtro per nome/cognome/CF
             if (!string.IsNullOrWhiteSpace(searchNome))
             {
                 var searchLower = searchNome.ToLower();
-                query = query.Where(s => 
-                    (s.Nome != null && s.Nome.ToLower().Contains(searchLower)) ||
-                    (s.Cognome != null && s.Cognome.ToLower().Contains(searchLower)) ||
-                    (s.CodiceFiscale != null && s.CodiceFiscale.ToLower().Contains(searchLower)));
+                risultati = risultati.Where(r => 
+                    (r.Nome != null && r.Nome.ToLower().Contains(searchLower)) ||
+                    (r.Cognome != null && r.Cognome.ToLower().Contains(searchLower)) ||
+                    (r.CodiceFiscale != null && r.CodiceFiscale.ToLower().Contains(searchLower)) ||
+                    (r.ClienteNome.ToLower().Contains(searchLower))).ToList();
             }
-
-            // Filtro per tipo soggetto
-            if (tipoSoggetto.HasValue)
+            
+            // Filtro per tipo
+            if (!string.IsNullOrWhiteSpace(tipoFiltro))
             {
-                query = query.Where(s => s.TipoSoggetto == tipoSoggetto.Value);
+                risultati = risultati.Where(r => 
+                    r.TipoLabel.Equals(tipoFiltro, StringComparison.OrdinalIgnoreCase) ||
+                    (tipoFiltro == "LegaleRappresentante" && r.TipoLabel == "Legale Rapp.") ||
+                    (tipoFiltro == "Consigliere" && r.TipoLabel == "Consigliere") ||
+                    (tipoFiltro == "Socio" && r.TipoLabel == "Socio")
+                ).ToList();
             }
-
+            
             // Filtro per cliente
             if (!string.IsNullOrWhiteSpace(searchCliente))
             {
                 var clienteLower = searchCliente.ToLower();
-                query = query.Where(s => s.Cliente != null && s.Cliente.RagioneSociale.ToLower().Contains(clienteLower));
+                risultati = risultati.Where(r => r.ClienteNome.ToLower().Contains(clienteLower)).ToList();
             }
-
-            // Filtro per stato scadenza
-            var oggi = DateTime.Today;
-            var dataAvviso = oggi.AddDays(giorniAvviso.Value);
             
+            // Filtro per stato scadenza
             if (!string.IsNullOrWhiteSpace(statoScadenza))
             {
                 switch (statoScadenza)
                 {
                     case "scaduti":
-                        query = query.Where(s => s.DocumentoScadenza.HasValue && s.DocumentoScadenza.Value < oggi);
+                        risultati = risultati.Where(r => r.DocumentoScadenza.HasValue && r.DocumentoScadenza.Value < oggi).ToList();
                         break;
                     case "inScadenza":
-                        query = query.Where(s => s.DocumentoScadenza.HasValue && 
-                                                  s.DocumentoScadenza.Value >= oggi && 
-                                                  s.DocumentoScadenza.Value <= dataAvviso);
+                        risultati = risultati.Where(r => r.DocumentoScadenza.HasValue && 
+                                                          r.DocumentoScadenza.Value >= oggi && 
+                                                          r.DocumentoScadenza.Value <= dataAvviso).ToList();
                         break;
                     case "validi":
-                        query = query.Where(s => s.DocumentoScadenza.HasValue && s.DocumentoScadenza.Value > dataAvviso);
+                        risultati = risultati.Where(r => r.DocumentoScadenza.HasValue && r.DocumentoScadenza.Value > dataAvviso).ToList();
                         break;
                     case "senzaScadenza":
-                        query = query.Where(s => !s.DocumentoScadenza.HasValue);
+                        risultati = risultati.Where(r => !r.DocumentoScadenza.HasValue).ToList();
                         break;
                     case "conDocumento":
-                        query = query.Where(s => !string.IsNullOrEmpty(s.DocumentoNumero));
+                        risultati = risultati.Where(r => !string.IsNullOrEmpty(r.DocumentoNumero)).ToList();
                         break;
                 }
             }
-
-            // Ordinamento: prima scaduti, poi in scadenza, poi gli altri
-            var soggetti = await query
-                .OrderBy(s => s.DocumentoScadenza.HasValue ? 0 : 1)
-                .ThenBy(s => s.DocumentoScadenza)
-                .ThenBy(s => s.Cliente!.RagioneSociale)
-                .ThenBy(s => s.Cognome)
-                .ToListAsync();
-
-            // Statistiche
+            
+            // Ordinamento
+            risultati = risultati
+                .OrderBy(r => r.DocumentoScadenza.HasValue ? 0 : 1)
+                .ThenBy(r => r.DocumentoScadenza)
+                .ThenBy(r => r.ClienteNome)
+                .ThenBy(r => r.Cognome)
+                .ToList();
+            
+            // === Statistiche (su tutti i record, non filtrati) ===
             var tuttiSoggetti = await _context.ClientiSoggetti
                 .Include(s => s.Cliente)
                 .Where(s => s.Cliente != null && s.Cliente.IsActive)
                 .ToListAsync();
-
-            ViewBag.TotaleScaduti = tuttiSoggetti.Count(s => s.DocumentoScadenza.HasValue && s.DocumentoScadenza.Value < oggi);
-            ViewBag.TotaleInScadenza = tuttiSoggetti.Count(s => s.DocumentoScadenza.HasValue && 
-                                                                 s.DocumentoScadenza.Value >= oggi && 
-                                                                 s.DocumentoScadenza.Value <= dataAvviso);
-            ViewBag.TotaleValidi = tuttiSoggetti.Count(s => s.DocumentoScadenza.HasValue && s.DocumentoScadenza.Value > dataAvviso);
-            ViewBag.TotaleSenzaScadenza = tuttiSoggetti.Count(s => !s.DocumentoScadenza.HasValue);
-            ViewBag.TotaleConDocumento = tuttiSoggetti.Count(s => !string.IsNullOrEmpty(s.DocumentoNumero));
-            ViewBag.TotaleSoggetti = tuttiSoggetti.Count;
+            var tuttiClienti = await _context.Clienti
+                .Where(c => c.IsActive && c.TipoSoggetto != null && tipiClienteConDocumento.Contains(c.TipoSoggetto.ToUpper()))
+                .ToListAsync();
+            
+            var tuttiRecords = new List<(DateTime? Scadenza, string? NumDoc)>();
+            tuttiRecords.AddRange(tuttiSoggetti.Select(s => (s.DocumentoScadenza, s.DocumentoNumero)));
+            tuttiRecords.AddRange(tuttiClienti.Select(c => (c.DocumentoScadenza, c.DocumentoNumero)));
+            
+            ViewBag.TotaleScaduti = tuttiRecords.Count(r => r.Scadenza.HasValue && r.Scadenza.Value < oggi);
+            ViewBag.TotaleInScadenza = tuttiRecords.Count(r => r.Scadenza.HasValue && 
+                                                                 r.Scadenza.Value >= oggi && 
+                                                                 r.Scadenza.Value <= dataAvviso);
+            ViewBag.TotaleValidi = tuttiRecords.Count(r => r.Scadenza.HasValue && r.Scadenza.Value > dataAvviso);
+            ViewBag.TotaleSenzaScadenza = tuttiRecords.Count(r => !r.Scadenza.HasValue);
+            ViewBag.TotaleConDocumento = tuttiRecords.Count(r => !string.IsNullOrEmpty(r.NumDoc));
+            ViewBag.TotaleSoggetti = tuttiRecords.Count;
 
             // Parametri di ricerca per mantenere i filtri
             ViewBag.SearchNome = searchNome;
-            ViewBag.TipoSoggetto = tipoSoggetto;
+            ViewBag.TipoFiltro = tipoFiltro;
             ViewBag.StatoScadenza = statoScadenza;
             ViewBag.SearchCliente = searchCliente;
             ViewBag.GiorniAvviso = giorniAvviso;
             ViewBag.Oggi = oggi;
             ViewBag.DataAvviso = dataAvviso;
 
-            return View(soggetti);
+            return View(risultati);
         }
 
         // GET: Clienti/ExportScadenzeExcel
         public async Task<IActionResult> ExportScadenzeExcel(
             string? searchNome, 
-            TipoSoggetto? tipoSoggetto, 
+            string? tipoFiltro, 
             string? statoScadenza,
             string? searchCliente,
             int? giorniAvviso)
         {
             giorniAvviso ??= 30;
+            var oggi = DateTime.Today;
+            var dataAvviso = oggi.AddDays(giorniAvviso.Value);
             
-            var query = _context.ClientiSoggetti
+            var risultati = new List<ScadenzaDocumentoViewModel>();
+            
+            // === 1. Carica Soggetti ===
+            var soggetti = await _context.ClientiSoggetti
                 .Include(s => s.Cliente)
                 .Where(s => s.Cliente != null && s.Cliente.IsActive)
-                .AsQueryable();
-
-            // Applica gli stessi filtri della vista
+                .ToListAsync();
+            
+            foreach (var s in soggetti)
+            {
+                var tipoLabel = s.TipoSoggetto switch
+                {
+                    TipoSoggetto.LegaleRappresentante => "Legale Rapp.",
+                    TipoSoggetto.Consigliere => "Consigliere",
+                    TipoSoggetto.Socio => "Socio",
+                    _ => "Altro"
+                };
+                
+                risultati.Add(new ScadenzaDocumentoViewModel
+                {
+                    Id = s.Id,
+                    IsCliente = false,
+                    ClienteId = s.ClienteId,
+                    ClienteNome = s.Cliente?.RagioneSociale ?? "",
+                    TipoLabel = tipoLabel,
+                    Cognome = s.Cognome,
+                    Nome = s.Nome,
+                    CodiceFiscale = s.CodiceFiscale,
+                    DocumentoNumero = s.DocumentoNumero,
+                    DocumentoDataRilascio = s.DocumentoDataRilascio,
+                    DocumentoRilasciatoDa = s.DocumentoRilasciatoDa,
+                    DocumentoScadenza = s.DocumentoScadenza
+                });
+            }
+            
+            // === 2. Carica Clienti PF, DI, PROF ===
+            var tipiClienteConDocumento = new[] { "PF", "DI", "PROF" };
+            var clienti = await _context.Clienti
+                .Where(c => c.IsActive && c.TipoSoggetto != null && tipiClienteConDocumento.Contains(c.TipoSoggetto.ToUpper()))
+                .ToListAsync();
+            
+            foreach (var c in clienti)
+            {
+                var tipo = c.TipoSoggetto?.ToUpper() ?? "PF";
+                var parti = c.RagioneSociale.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+                
+                risultati.Add(new ScadenzaDocumentoViewModel
+                {
+                    Id = c.Id,
+                    IsCliente = true,
+                    ClienteId = c.Id,
+                    ClienteNome = c.RagioneSociale,
+                    TipoLabel = tipo,
+                    Cognome = parti.Length > 0 ? parti[0] : "",
+                    Nome = parti.Length > 1 ? parti[1] : "",
+                    CodiceFiscale = c.CodiceFiscale,
+                    DocumentoNumero = c.DocumentoNumero,
+                    DocumentoDataRilascio = c.DocumentoDataRilascio,
+                    DocumentoRilasciatoDa = c.DocumentoRilasciatoDa,
+                    DocumentoScadenza = c.DocumentoScadenza
+                });
+            }
+            
+            // === Applica Filtri ===
             if (!string.IsNullOrWhiteSpace(searchNome))
             {
                 var searchLower = searchNome.ToLower();
-                query = query.Where(s => 
-                    (s.Nome != null && s.Nome.ToLower().Contains(searchLower)) ||
-                    (s.Cognome != null && s.Cognome.ToLower().Contains(searchLower)));
+                risultati = risultati.Where(r => 
+                    (r.Nome != null && r.Nome.ToLower().Contains(searchLower)) ||
+                    (r.Cognome != null && r.Cognome.ToLower().Contains(searchLower)) ||
+                    (r.CodiceFiscale != null && r.CodiceFiscale.ToLower().Contains(searchLower)) ||
+                    (r.ClienteNome.ToLower().Contains(searchLower))).ToList();
             }
-
-            if (tipoSoggetto.HasValue)
+            
+            if (!string.IsNullOrWhiteSpace(tipoFiltro))
             {
-                query = query.Where(s => s.TipoSoggetto == tipoSoggetto.Value);
+                risultati = risultati.Where(r => 
+                    r.TipoLabel.Equals(tipoFiltro, StringComparison.OrdinalIgnoreCase) ||
+                    (tipoFiltro == "LegaleRappresentante" && r.TipoLabel == "Legale Rapp.")
+                ).ToList();
             }
-
+            
             if (!string.IsNullOrWhiteSpace(searchCliente))
             {
                 var clienteLower = searchCliente.ToLower();
-                query = query.Where(s => s.Cliente != null && s.Cliente.RagioneSociale.ToLower().Contains(clienteLower));
+                risultati = risultati.Where(r => r.ClienteNome.ToLower().Contains(clienteLower)).ToList();
             }
-
-            var oggi = DateTime.Today;
-            var dataAvviso = oggi.AddDays(giorniAvviso.Value);
             
             if (!string.IsNullOrWhiteSpace(statoScadenza))
             {
                 switch (statoScadenza)
                 {
                     case "scaduti":
-                        query = query.Where(s => s.DocumentoScadenza.HasValue && s.DocumentoScadenza.Value < oggi);
+                        risultati = risultati.Where(r => r.DocumentoScadenza.HasValue && r.DocumentoScadenza.Value < oggi).ToList();
                         break;
                     case "inScadenza":
-                        query = query.Where(s => s.DocumentoScadenza.HasValue && 
-                                                  s.DocumentoScadenza.Value >= oggi && 
-                                                  s.DocumentoScadenza.Value <= dataAvviso);
+                        risultati = risultati.Where(r => r.DocumentoScadenza.HasValue && 
+                                                          r.DocumentoScadenza.Value >= oggi && 
+                                                          r.DocumentoScadenza.Value <= dataAvviso).ToList();
                         break;
                     case "validi":
-                        query = query.Where(s => s.DocumentoScadenza.HasValue && s.DocumentoScadenza.Value > dataAvviso);
+                        risultati = risultati.Where(r => r.DocumentoScadenza.HasValue && r.DocumentoScadenza.Value > dataAvviso).ToList();
                         break;
                     case "senzaScadenza":
-                        query = query.Where(s => !s.DocumentoScadenza.HasValue);
+                        risultati = risultati.Where(r => !r.DocumentoScadenza.HasValue).ToList();
                         break;
                 }
             }
-
-            var soggetti = await query
-                .OrderBy(s => s.DocumentoScadenza.HasValue ? 0 : 1)
-                .ThenBy(s => s.DocumentoScadenza)
-                .ThenBy(s => s.Cliente!.RagioneSociale)
-                .ToListAsync();
+            
+            // Ordinamento
+            risultati = risultati
+                .OrderBy(r => r.DocumentoScadenza.HasValue ? 0 : 1)
+                .ThenBy(r => r.DocumentoScadenza)
+                .ThenBy(r => r.ClienteNome)
+                .ToList();
 
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add("Scadenze Documenti");
@@ -830,28 +986,28 @@ namespace StudioCG.Web.Controllers
 
             // Dati
             int row = 2;
-            foreach (var s in soggetti)
+            foreach (var r in risultati)
             {
                 var stato = "N/D";
-                if (s.DocumentoScadenza.HasValue)
+                if (r.DocumentoScadenza.HasValue)
                 {
-                    if (s.DocumentoScadenza.Value < oggi)
+                    if (r.DocumentoScadenza.Value < oggi)
                         stato = "SCADUTO";
-                    else if (s.DocumentoScadenza.Value <= dataAvviso)
+                    else if (r.DocumentoScadenza.Value <= dataAvviso)
                         stato = "IN SCADENZA";
                     else
                         stato = "VALIDO";
                 }
 
-                worksheet.Cell(row, 1).Value = s.Cliente?.RagioneSociale ?? "";
-                worksheet.Cell(row, 2).Value = GetTipoSoggettoDisplay(s.TipoSoggetto);
-                worksheet.Cell(row, 3).Value = s.Cognome ?? "";
-                worksheet.Cell(row, 4).Value = s.Nome ?? "";
-                worksheet.Cell(row, 5).Value = s.CodiceFiscale ?? "";
-                worksheet.Cell(row, 6).Value = s.DocumentoNumero ?? "";
-                worksheet.Cell(row, 7).Value = s.DocumentoDataRilascio?.ToString("dd/MM/yyyy") ?? "";
-                worksheet.Cell(row, 8).Value = s.DocumentoRilasciatoDa ?? "";
-                worksheet.Cell(row, 9).Value = s.DocumentoScadenza?.ToString("dd/MM/yyyy") ?? "";
+                worksheet.Cell(row, 1).Value = r.ClienteNome;
+                worksheet.Cell(row, 2).Value = r.TipoLabel;
+                worksheet.Cell(row, 3).Value = r.Cognome ?? "";
+                worksheet.Cell(row, 4).Value = r.Nome ?? "";
+                worksheet.Cell(row, 5).Value = r.CodiceFiscale ?? "";
+                worksheet.Cell(row, 6).Value = r.DocumentoNumero ?? "";
+                worksheet.Cell(row, 7).Value = r.DocumentoDataRilascio?.ToString("dd/MM/yyyy") ?? "";
+                worksheet.Cell(row, 8).Value = r.DocumentoRilasciatoDa ?? "";
+                worksheet.Cell(row, 9).Value = r.DocumentoScadenza?.ToString("dd/MM/yyyy") ?? "";
                 worksheet.Cell(row, 10).Value = stato;
 
                 // Colora in base allo stato
@@ -1446,7 +1602,11 @@ namespace StudioCG.Web.Controllers
                     provincia = c.Provincia ?? "",
                     cap = c.CAP ?? "",
                     email = c.Email ?? "",
-                    telefono = c.Telefono ?? ""
+                    telefono = c.Telefono ?? "",
+                    documentoNumero = c.DocumentoNumero ?? "",
+                    documentoRilasciatoDa = c.DocumentoRilasciatoDa ?? "",
+                    documentoDataRilascio = c.DocumentoDataRilascio,
+                    documentoScadenza = c.DocumentoScadenza
                 })
                 .ToListAsync();
 
@@ -1485,7 +1645,11 @@ namespace StudioCG.Web.Controllers
                     provincia = s.Provincia ?? "",
                     cap = s.CAP ?? "",
                     email = s.Email ?? "",
-                    telefono = s.Telefono ?? ""
+                    telefono = s.Telefono ?? "",
+                    documentoNumero = s.DocumentoNumero ?? "",
+                    documentoRilasciatoDa = s.DocumentoRilasciatoDa ?? "",
+                    documentoDataRilascio = s.DocumentoDataRilascio,
+                    documentoScadenza = s.DocumentoScadenza
                 })
                 .ToListAsync();
 

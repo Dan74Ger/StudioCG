@@ -10,7 +10,22 @@
         <h5 class="mb-0"><i class="fas fa-user-edit me-2"></i>Modifica Soggetto</h5>
     </div>
     <div class="card-body">
-        <form asp-action="EditSoggetto" method="post">
+        <!-- Ricerca clienti PF/DI/PROF per copiare dati -->
+        <div class="card bg-light mb-4">
+            <div class="card-body py-3">
+                <label class="form-label"><i class="fas fa-search text-success me-1"></i>Copia dati da Cliente esistente (PF/DI/PROF)</label>
+                <div class="position-relative">
+                    <input type="text" id="searchClienteInput" class="form-control" 
+                           placeholder="Cerca per nome o codice fiscale (min 2 caratteri)..." autocomplete="off" />
+                    <div id="searchClienteResults" class="position-absolute w-100 bg-white border rounded shadow-sm" 
+                         style="display: none; z-index: 1050; max-height: 250px; overflow-y: auto;">
+                    </div>
+                </div>
+                <small class="form-text text-muted">Cerca tra i clienti Persona Fisica, Ditta Individuale o Professionista</small>
+            </div>
+        </div>
+
+        <form asp-action="EditSoggetto" method="post" id="formEditSoggetto">
             <input type="hidden" asp-for="Id" />
             <input type="hidden" asp-for="ClienteId" />
             <input type="hidden" asp-for="DisplayOrder" />
@@ -128,9 +143,118 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
+        // Toggle campo quota per socio
         document.getElementById('tipoSoggettoSelect').addEventListener('change', function() {
             document.getElementById('quotaField').style.display = (this.value === '@((int)TipoSoggetto.Socio)') ? 'block' : 'none';
         });
+        
+        // ===== Ricerca clienti PF/DI/PROF =====
+        var searchClienteInput = document.getElementById('searchClienteInput');
+        var searchClienteResults = document.getElementById('searchClienteResults');
+        var searchTimeout = null;
+        
+        if (searchClienteInput) {
+            searchClienteInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                var query = this.value.trim();
+                
+                if (query.length < 2) {
+                    searchClienteResults.style.display = 'none';
+                    return;
+                }
+                
+                searchTimeout = setTimeout(function() {
+                    fetch('@Url.Action("SearchClientiPerCopia")?q=' + encodeURIComponent(query))
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.length === 0) {
+                                searchClienteResults.innerHTML = '<div class="p-2 text-muted small">Nessun risultato</div>';
+                            } else {
+                                var html = '';
+                                data.forEach(function(c) {
+                                    var tipoLabel = c.tipoSoggetto ? ' <span class="badge bg-secondary">' + c.tipoSoggetto + '</span>' : '';
+                                    html += '<div class="search-result-item p-2 border-bottom" style="cursor: pointer;" ' +
+                                            'data-nome="' + escapeHtml(c.ragioneSociale) + '" ' +
+                                            'data-cf="' + escapeHtml(c.codiceFiscale) + '" ' +
+                                            'data-indirizzo="' + escapeHtml(c.indirizzo) + '" ' +
+                                            'data-citta="' + escapeHtml(c.citta) + '" ' +
+                                            'data-provincia="' + escapeHtml(c.provincia) + '" ' +
+                                            'data-cap="' + escapeHtml(c.cap) + '" ' +
+                                            'data-email="' + escapeHtml(c.email) + '" ' +
+                                            'data-telefono="' + escapeHtml(c.telefono) + '" ' +
+                                            'data-doc-numero="' + escapeHtml(c.documentoNumero) + '" ' +
+                                            'data-doc-rilasciato="' + escapeHtml(c.documentoRilasciatoDa) + '" ' +
+                                            'data-doc-data="' + (c.documentoDataRilascio ? c.documentoDataRilascio.split('T')[0] : '') + '" ' +
+                                            'data-doc-scadenza="' + (c.documentoScadenza ? c.documentoScadenza.split('T')[0] : '') + '">' +
+                                            '<strong>' + escapeHtml(c.ragioneSociale) + '</strong>' + tipoLabel +
+                                            (c.codiceFiscale ? '<br><small class="text-muted">CF: ' + c.codiceFiscale + '</small>' : '') +
+                                            '</div>';
+                                });
+                                searchClienteResults.innerHTML = html;
+                                
+                                // Click handler per risultati
+                                searchClienteResults.querySelectorAll('.search-result-item').forEach(function(item) {
+                                    item.addEventListener('click', function() {
+                                        var form = document.getElementById('formEditSoggetto');
+                                        var nomeCompleto = this.getAttribute('data-nome') || '';
+                                        
+                                        // Dividi nome/cognome (prende ultima parola come nome, resto cognome)
+                                        var parti = nomeCompleto.trim().split(/\s+/);
+                                        var nome = '', cognome = '';
+                                        if (parti.length >= 2) {
+                                            nome = parti[parti.length - 1]; // Ultima parola = nome
+                                            cognome = parti.slice(0, -1).join(' '); // Resto = cognome
+                                        } else {
+                                            cognome = nomeCompleto;
+                                        }
+                                        
+                                        form.querySelector('input[name="Nome"]').value = nome;
+                                        form.querySelector('input[name="Cognome"]').value = cognome;
+                                        form.querySelector('input[name="CodiceFiscale"]').value = this.getAttribute('data-cf') || '';
+                                        form.querySelector('input[name="Indirizzo"]').value = this.getAttribute('data-indirizzo') || '';
+                                        form.querySelector('input[name="Citta"]').value = this.getAttribute('data-citta') || '';
+                                        form.querySelector('input[name="Provincia"]').value = this.getAttribute('data-provincia') || '';
+                                        form.querySelector('input[name="CAP"]').value = this.getAttribute('data-cap') || '';
+                                        form.querySelector('input[name="Email"]').value = this.getAttribute('data-email') || '';
+                                        form.querySelector('input[name="Telefono"]').value = this.getAttribute('data-telefono') || '';
+                                        
+                                        // Copia dati documento identità
+                                        form.querySelector('input[name="DocumentoNumero"]').value = this.getAttribute('data-doc-numero') || '';
+                                        form.querySelector('input[name="DocumentoRilasciatoDa"]').value = this.getAttribute('data-doc-rilasciato') || '';
+                                        form.querySelector('input[name="DocumentoDataRilascio"]').value = this.getAttribute('data-doc-data') || '';
+                                        form.querySelector('input[name="DocumentoScadenza"]').value = this.getAttribute('data-doc-scadenza') || '';
+                                        
+                                        // Nascondi risultati e pulisci input
+                                        searchClienteResults.style.display = 'none';
+                                        searchClienteInput.value = '';
+                                        searchClienteInput.classList.add('border-success');
+                                        setTimeout(() => searchClienteInput.classList.remove('border-success'), 1500);
+                                    });
+                                });
+                            }
+                            searchClienteResults.style.display = 'block';
+                        })
+                        .catch(err => {
+                            searchClienteResults.innerHTML = '<div class="p-2 text-danger small">Errore ricerca</div>';
+                            searchClienteResults.style.display = 'block';
+                        });
+                }, 300);
+            });
+            
+            // Nascondi risultati quando si clicca fuori
+            document.addEventListener('click', function(e) {
+                if (!searchClienteInput.contains(e.target) && !searchClienteResults.contains(e.target)) {
+                    searchClienteResults.style.display = 'none';
+                }
+            });
+        }
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
     </script>
 }
 

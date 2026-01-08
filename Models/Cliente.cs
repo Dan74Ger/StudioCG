@@ -50,6 +50,21 @@ namespace StudioCG.Web.Models
         [Display(Name = "Tipo Soggetto")]
         public string? TipoSoggetto { get; set; }
 
+        // Documento di identità (per PF, DI, PROF)
+        [StringLength(50)]
+        [Display(Name = "Numero Documento")]
+        public string? DocumentoNumero { get; set; }
+
+        [StringLength(100)]
+        [Display(Name = "Rilasciato da")]
+        public string? DocumentoRilasciatoDa { get; set; }
+
+        [Display(Name = "Data Rilascio")]
+        public DateTime? DocumentoDataRilascio { get; set; }
+
+        [Display(Name = "Scadenza Documento")]
+        public DateTime? DocumentoScadenza { get; set; }
+
         [Display(Name = "Attivo")]
         public bool IsActive { get; set; } = true;
 

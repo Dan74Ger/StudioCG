@@ -96,6 +96,32 @@
                 <textarea asp-for="Note" class="form-control" rows="3" placeholder="Note aggiuntive..."></textarea>
             </div>
 
+            <!-- Documento Identità (visibile per PF, DI, PROF) -->
+            <div id="sezioneDocumento" style="display: none;">
+                <hr class="my-4">
+                <h6 class="text-primary mb-3"><i class="fas fa-id-card me-2"></i>Documento di Identità</h6>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="DocumentoNumero" class="form-label"></label>
+                        <input asp-for="DocumentoNumero" class="form-control" placeholder="Es. CA12345AB" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="DocumentoRilasciatoDa" class="form-label"></label>
+                        <input asp-for="DocumentoRilasciatoDa" class="form-control" placeholder="Es. Comune di Milano" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="DocumentoDataRilascio" class="form-label"></label>
+                        <input asp-for="DocumentoDataRilascio" class="form-control" type="date" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="DocumentoScadenza" class="form-label"></label>
+                        <input asp-for="DocumentoScadenza" class="form-control" type="date" />
+                    </div>
+                </div>
+            </div>
+
             @if (ViewBag.CampiCustom != null && ((IEnumerable<StudioCG.Web.Models.CampoCustomCliente>)ViewBag.CampiCustom).Any())
             {
                 <hr class="my-4">
@@ -201,6 +227,22 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
+        // ===== Gestione visibilità sezione documento =====
+        var tipoSoggettoInput = document.querySelector('input[name="TipoSoggetto"]');
+        var sezioneDocumento = document.getElementById('sezioneDocumento');
+        var tipiConDocumento = ['PF', 'DI', 'PROF'];
+        
+        function aggiornaVisibilitaDocumento() {
+            if (!tipoSoggettoInput || !sezioneDocumento) return;
+            var tipo = (tipoSoggettoInput.value || '').toUpperCase();
+            sezioneDocumento.style.display = tipiConDocumento.includes(tipo) ? '' : 'none';
+        }
+        
+        if (tipoSoggettoInput) {
+            tipoSoggettoInput.addEventListener('input', aggiornaVisibilitaDocumento);
+            tipoSoggettoInput.addEventListener('change', aggiornaVisibilitaDocumento);
+        }
+        
         // ===== Ricerca tra tutti i soggetti =====
         var searchSoggettoInput = document.getElementById('searchSoggettoInput');
         var searchSoggettoResults = document.getElementById('searchSoggettoResults');
@@ -235,7 +277,11 @@
                                             'data-provincia="' + escapeHtml(s.provincia) + '" ' +
                                             'data-cap="' + escapeHtml(s.cap) + '" ' +
                                             'data-email="' + escapeHtml(s.email) + '" ' +
-                                            'data-telefono="' + escapeHtml(s.telefono) + '">' +
+                                            'data-telefono="' + escapeHtml(s.telefono) + '" ' +
+                                            'data-doc-numero="' + escapeHtml(s.documentoNumero) + '" ' +
+                                            'data-doc-rilasciato="' + escapeHtml(s.documentoRilasciatoDa) + '" ' +
+                                            'data-doc-data="' + (s.documentoDataRilascio ? s.documentoDataRilascio.split('T')[0] : '') + '" ' +
+                                            'data-doc-scadenza="' + (s.documentoScadenza ? s.documentoScadenza.split('T')[0] : '') + '">' +
                                             '<strong>' + escapeHtml(s.nomeCompleto) + '</strong> ' + tipoLabel +
                                             '<br><small class="text-muted">di ' + escapeHtml(s.clienteNome) + '</small>' +
                                             (s.codiceFiscale ? '<br><small class="text-muted">CF: ' + s.codiceFiscale + '</small>' : '') +
@@ -270,9 +316,23 @@
                                         if (emailInput) emailInput.value = this.getAttribute('data-email') || '';
                                         if (telInput) telInput.value = this.getAttribute('data-telefono') || '';
                                         
+                                        // Copia dati documento
+                                        var docNumero = document.querySelector('input[name="DocumentoNumero"]');
+                                        var docRilasciato = document.querySelector('input[name="DocumentoRilasciatoDa"]');
+                                        var docData = document.querySelector('input[name="DocumentoDataRilascio"]');
+                                        var docScadenza = document.querySelector('input[name="DocumentoScadenza"]');
+                                        
+                                        if (docNumero) docNumero.value = this.getAttribute('data-doc-numero') || '';
+                                        if (docRilasciato) docRilasciato.value = this.getAttribute('data-doc-rilasciato') || '';
+                                        if (docData) docData.value = this.getAttribute('data-doc-data') || '';
+                                        if (docScadenza) docScadenza.value = this.getAttribute('data-doc-scadenza') || '';
+                                        
                                         // Suggerisci tipo soggetto PF
                                         var tipoInput = document.querySelector('input[name="TipoSoggetto"]');
                                         if (tipoInput && !tipoInput.value) tipoInput.value = 'PF';
+                                        
+                                        // Mostra sezione documento
+                                        aggiornaVisibilitaDocumento();
                                         
                                         // Nascondi risultati e pulisci input
                                         searchSoggettoResults.style.display = 'none';
