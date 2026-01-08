@@ -115,14 +115,21 @@
                         <option value="conDocumento" selected="@(ViewBag.StatoScadenza == "conDocumento")">📄 Con Documento</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label small">Giorni Avviso</label>
+                <div class="col-md-1">
+                    <label class="form-label small">Gg Avviso</label>
                     <select name="giorniAvviso" class="form-select form-select-sm">
-                        <option value="7" selected="@(ViewBag.GiorniAvviso == 7)">7 giorni</option>
-                        <option value="15" selected="@(ViewBag.GiorniAvviso == 15)">15 giorni</option>
-                        <option value="30" selected="@(ViewBag.GiorniAvviso == 30)">30 giorni</option>
-                        <option value="60" selected="@(ViewBag.GiorniAvviso == 60)">60 giorni</option>
-                        <option value="90" selected="@(ViewBag.GiorniAvviso == 90)">90 giorni</option>
+                        <option value="7" selected="@(ViewBag.GiorniAvviso == 7)">7</option>
+                        <option value="15" selected="@(ViewBag.GiorniAvviso == 15)">15</option>
+                        <option value="30" selected="@(ViewBag.GiorniAvviso == 30)">30</option>
+                        <option value="60" selected="@(ViewBag.GiorniAvviso == 60)">60</option>
+                        <option value="90" selected="@(ViewBag.GiorniAvviso == 90)">90</option>
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label small">Ordina</label>
+                    <select name="ordinamento" class="form-select form-select-sm">
+                        <option value="alfabetico" selected="@(ViewBag.Ordinamento == "alfabetico")">A-Z</option>
+                        <option value="scadenza" selected="@(ViewBag.Ordinamento == "scadenza")">Scadenza</option>
                     </select>
                 </div>
                 <div class="col-md-2 d-flex align-items-end">
@@ -148,6 +155,7 @@
            asp-route-tipoFiltro="@ViewBag.TipoFiltro"
            asp-route-statoScadenza="@ViewBag.StatoScadenza"
            asp-route-giorniAvviso="@ViewBag.GiorniAvviso"
+           asp-route-ordinamento="@ViewBag.Ordinamento"
            class="btn btn-success btn-sm">
             <i class="fas fa-file-excel me-1"></i>Esporta Excel
         </a>

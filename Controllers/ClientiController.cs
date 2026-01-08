@@ -267,6 +267,12 @@ namespace StudioCG.Web.Controllers
                 cliente.TipoSoggetto = model.TipoSoggetto;
                 cliente.Note = model.Note;
                 cliente.IsActive = model.IsActive;
+                
+                // Documento di identità (per PF, DI, PROF)
+                cliente.DocumentoNumero = model.DocumentoNumero;
+                cliente.DocumentoRilasciatoDa = model.DocumentoRilasciatoDa;
+                cliente.DocumentoDataRilascio = model.DocumentoDataRilascio;
+                cliente.DocumentoScadenza = model.DocumentoScadenza;
 
                 await _context.SaveChangesAsync();
 
@@ -654,10 +660,12 @@ namespace StudioCG.Web.Controllers
             string? tipoFiltro,  // "LegaleRappresentante", "Consigliere", "Socio", "PF", "DI", "PROF"
             string? statoScadenza,
             string? searchCliente,
-            int? giorniAvviso)
+            int? giorniAvviso,
+            string? ordinamento)  // "alfabetico" o "scadenza"
         {
             // Valori di default
             giorniAvviso ??= 30;
+            ordinamento ??= "alfabetico";
             var oggi = DateTime.Today;
             var dataAvviso = oggi.AddDays(giorniAvviso.Value);
             
@@ -802,13 +810,24 @@ namespace StudioCG.Web.Controllers
                 }
             }
             
-            // Ordinamento
-            risultati = risultati
-                .OrderBy(r => r.DocumentoScadenza.HasValue ? 0 : 1)
-                .ThenBy(r => r.DocumentoScadenza)
-                .ThenBy(r => r.ClienteNome)
-                .ThenBy(r => r.Cognome)
-                .ToList();
+            // Ordinamento in base al parametro
+            if (ordinamento == "scadenza")
+            {
+                risultati = risultati
+                    .OrderBy(r => r.DocumentoScadenza.HasValue ? 0 : 1)
+                    .ThenBy(r => r.DocumentoScadenza)
+                    .ThenBy(r => r.ClienteNome)
+                    .ThenBy(r => r.Cognome)
+                    .ToList();
+            }
+            else // alfabetico (default)
+            {
+                risultati = risultati
+                    .OrderBy(r => r.ClienteNome)
+                    .ThenBy(r => r.Cognome)
+                    .ThenBy(r => r.Nome)
+                    .ToList();
+            }
             
             // === Statistiche (su tutti i record, non filtrati) ===
             var tuttiSoggetti = await _context.ClientiSoggetti
@@ -838,6 +857,7 @@ namespace StudioCG.Web.Controllers
             ViewBag.StatoScadenza = statoScadenza;
             ViewBag.SearchCliente = searchCliente;
             ViewBag.GiorniAvviso = giorniAvviso;
+            ViewBag.Ordinamento = ordinamento;
             ViewBag.Oggi = oggi;
             ViewBag.DataAvviso = dataAvviso;
 
@@ -850,9 +870,11 @@ namespace StudioCG.Web.Controllers
             string? tipoFiltro, 
             string? statoScadenza,
             string? searchCliente,
-            int? giorniAvviso)
+            int? giorniAvviso,
+            string? ordinamento)
         {
             giorniAvviso ??= 30;
+            ordinamento ??= "alfabetico";
             var oggi = DateTime.Today;
             var dataAvviso = oggi.AddDays(giorniAvviso.Value);
             
@@ -965,12 +987,24 @@ namespace StudioCG.Web.Controllers
                 }
             }
             
-            // Ordinamento
-            risultati = risultati
-                .OrderBy(r => r.DocumentoScadenza.HasValue ? 0 : 1)
-                .ThenBy(r => r.DocumentoScadenza)
-                .ThenBy(r => r.ClienteNome)
-                .ToList();
+            // Ordinamento in base al parametro
+            if (ordinamento == "scadenza")
+            {
+                risultati = risultati
+                    .OrderBy(r => r.DocumentoScadenza.HasValue ? 0 : 1)
+                    .ThenBy(r => r.DocumentoScadenza)
+                    .ThenBy(r => r.ClienteNome)
+                    .ThenBy(r => r.Cognome)
+                    .ToList();
+            }
+            else // alfabetico (default)
+            {
+                risultati = risultati
+                    .OrderBy(r => r.ClienteNome)
+                    .ThenBy(r => r.Cognome)
+                    .ThenBy(r => r.Nome)
+                    .ToList();
+            }
 
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add("Scadenze Documenti");
