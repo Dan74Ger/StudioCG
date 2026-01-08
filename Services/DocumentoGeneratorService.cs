@@ -1142,7 +1142,7 @@ namespace StudioCG.Web.Services
                 lastIndex = match.Index + match.Length;
             }
 
-            // Aggiungi testo dopo l'ultima tabella
+            // Aggiungi testo dopo l'ultima tabella (o tutto il testo se non ci sono tabelle)
             if (lastIndex < html.Length)
             {
                 var textAfter = html.Substring(lastIndex);
@@ -1156,20 +1156,6 @@ namespace StudioCG.Web.Services
                         {
                             parts.Add(new ContentPart { IsTable = false, Text = para.Trim() });
                         }
-                    }
-                }
-            }
-
-            // Se non ci sono tabelle, tratta tutto come testo
-            if (matches.Count == 0)
-            {
-                var cleanText = RimuoviTagHtml(html).Trim();
-                var paragraphs = cleanText.Split(new[] { "\n\n", "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (var para in paragraphs)
-                {
-                    if (!string.IsNullOrWhiteSpace(para))
-                    {
-                        parts.Add(new ContentPart { IsTable = false, Text = para.Trim() });
                     }
                 }
             }
