@@ -748,7 +748,6 @@ namespace StudioCG.Web.Controllers
             // Intestazioni
             int col = 1;
             worksheet.Cell(1, col++).Value = "Cliente";
-            worksheet.Cell(1, col++).Value = "Cod. Ateco";
             worksheet.Cell(1, col++).Value = "Stato";
             
             var campi = attivitaAnnuale.AttivitaTipo?.Campi.OrderBy(c => c.DisplayOrder).ToList() ?? new List<AttivitaCampo>();
@@ -771,7 +770,6 @@ namespace StudioCG.Web.Controllers
             {
                 col = 1;
                 worksheet.Cell(row, col++).Value = ca.Cliente?.RagioneSociale ?? "";
-                worksheet.Cell(row, col++).Value = ca.Cliente?.CodiceAteco ?? "";
                 
                 // Stato - usa stato dinamico se disponibile, altrimenti legacy
                 var statoText = ca.StatoAttivitaTipoNav?.Nome ?? ca.Stato switch
@@ -822,7 +820,7 @@ namespace StudioCG.Web.Controllers
             }
 
             // Centra tutte le celle dati
-            var totalCols = 3 + campi.Count + 1; // Cliente, Ateco, Stato + campi + Note
+            var totalCols = 2 + campi.Count + 1; // Cliente, Stato + campi + Note
             if (row > 2)
             {
                 var dataRange = worksheet.Range(2, 1, row - 1, totalCols);

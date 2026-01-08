@@ -55,7 +55,7 @@ namespace StudioCG.Web.Controllers
         // POST: AttivitaTipi/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(AttivitaTipo model)
+        public async Task<IActionResult> Create(AttivitaTipo model, bool creaStatiDefault = true)
         {
             if (await _context.AttivitaTipi.AnyAsync(t => t.Nome == model.Nome))
             {
@@ -97,10 +97,17 @@ namespace StudioCG.Web.Controllers
                     await _context.SaveChangesAsync();
                 }
 
-                // Crea stati di default per la nuova attività
-                await CreaStatiDefault(model.Id);
-
-                TempData["Success"] = $"Tipo attività '{model.Nome}' creato. Ora aggiungi i campi e gli stati.";
+                // Crea stati di default solo se richiesto
+                if (creaStatiDefault)
+                {
+                    await CreaStatiDefault(model.Id);
+                    TempData["Success"] = $"Tipo attività '{model.Nome}' creato con stati di default. Ora aggiungi i campi.";
+                }
+                else
+                {
+                    TempData["Success"] = $"Tipo attività '{model.Nome}' creato. Ricorda di configurare gli stati manualmente.";
+                }
+                
                 return RedirectToAction(nameof(Campi), new { id = model.Id });
             }
             return View(model);
@@ -341,6 +348,20 @@ namespace StudioCG.Web.Controllers
                 return RedirectToAction(nameof(Campi), new { id = model.AttivitaTipoId });
             }
 
+            // Gestione Campo Cliente
+            if (model.FieldType == AttivitaFieldType.CampoCliente)
+            {
+                if (string.IsNullOrEmpty(model.CampoClienteRif))
+                {
+                    TempData["Error"] = "Seleziona un campo del cliente.";
+                    return RedirectToAction(nameof(Campi), new { id = model.AttivitaTipoId });
+                }
+                // I campi cliente sono sempre non obbligatori (sola lettura)
+                model.IsRequired = false;
+                model.IsCalculated = false;
+                model.Formula = null;
+            }
+
             // Validazione formula per campi calcolati
             if (model.IsCalculated)
             {
@@ -376,7 +397,7 @@ namespace StudioCG.Web.Controllers
         // POST: AttivitaTipi/UpdateCampo
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateCampo(int id, string label, int fieldType, bool isRequired, bool showInList, bool isCalculated, string? formula, int columnWidth = 0)
+        public async Task<IActionResult> UpdateCampo(int id, string label, int fieldType, bool isRequired, bool showInList, bool isCalculated, string? formula, int columnWidth = 0, string? campoClienteRif = null)
         {
             var campo = await _context.AttivitaCampi.FindAsync(id);
             if (campo == null) return NotFound();
@@ -391,6 +412,20 @@ namespace StudioCG.Web.Controllers
             {
                 TempData["Error"] = "Esiste già un campo con un nome simile.";
                 return RedirectToAction(nameof(Campi), new { id = tipoId });
+            }
+
+            // Gestione Campo Cliente
+            if ((AttivitaFieldType)fieldType == AttivitaFieldType.CampoCliente)
+            {
+                if (string.IsNullOrEmpty(campoClienteRif))
+                {
+                    TempData["Error"] = "Seleziona un campo del cliente.";
+                    return RedirectToAction(nameof(Campi), new { id = tipoId });
+                }
+                // I campi cliente sono sempre non obbligatori (sola lettura)
+                isRequired = false;
+                isCalculated = false;
+                formula = null;
             }
 
             // Validazione formula per campi calcolati
@@ -420,6 +455,7 @@ namespace StudioCG.Web.Controllers
             campo.IsCalculated = isCalculated;
             campo.Formula = isCalculated ? formula : null;
             campo.ColumnWidth = columnWidth;
+            campo.CampoClienteRif = (AttivitaFieldType)fieldType == AttivitaFieldType.CampoCliente ? campoClienteRif : null;
 
             await _context.SaveChangesAsync();
             TempData["Success"] = $"Campo '{label}' aggiornato.";

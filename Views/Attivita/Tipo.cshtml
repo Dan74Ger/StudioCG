@@ -190,28 +190,31 @@
         else
         {
             var campiVisibili = Model.AttivitaTipo?.Campi.Where(c => c.ShowInList).OrderBy(c => c.DisplayOrder).ToList() ?? new List<AttivitaCampo>();
-            var numColonne = 4 + campiVisibili.Count; // Cliente, Ateco, Stato, Azioni + campi
+            var numColonne = 3 + campiVisibili.Count; // Cliente, Stato, Azioni + campi
             
             <div class="table-responsive" style="overflow: visible;">
                 <table class="table table-hover mb-0" style="table-layout: fixed;">
                     <thead>
                         <tr>
                             <th style="width: 250px;">Cliente</th>
-                            <th style="width: 100px;">Cod. Ateco</th>
                             <th style="width: 160px; padding-right: 15px;">Stato</th>
-                            @foreach (var campo in campiVisibili)
-                            {
-                                var widthStyle = campo.ColumnWidth > 0 
-                                    ? $"width: {campo.ColumnWidth}px; min-width: {campo.ColumnWidth}px; max-width: {campo.ColumnWidth}px;" 
-                                    : "min-width: 100px;";
-                                <th class="text-center" style="@widthStyle white-space: normal; word-wrap: break-word; padding-left: 10px;" data-campo-name="@campo.Name">
-                                    @campo.Label
-                                    @if (campo.IsCalculated)
-                                    {
-                                        <i class="fas fa-calculator text-warning ms-1" title="Calcolato"></i>
-                                    }
-                                </th>
-                            }
+@foreach (var campo in campiVisibili)
+                                            {
+                                                var widthStyle = campo.ColumnWidth > 0 
+                                                    ? $"width: {campo.ColumnWidth}px; min-width: {campo.ColumnWidth}px; max-width: {campo.ColumnWidth}px;" 
+                                                    : "min-width: 100px;";
+                                                <th class="text-center" style="@widthStyle white-space: normal; word-wrap: break-word; padding-left: 10px;" data-campo-name="@campo.Name">
+                                                    @campo.Label
+                                                    @if (campo.FieldType == AttivitaFieldType.CampoCliente)
+                                                    {
+                                                        <i class="fas fa-user text-success ms-1" title="Campo dal Cliente: @campo.CampoClienteRif"></i>
+                                                    }
+                                                    else if (campo.IsCalculated)
+                                                    {
+                                                        <i class="fas fa-calculator text-warning ms-1" title="Calcolato"></i>
+                                                    }
+                                                </th>
+                                            }
                             <th style="width: 100px;" class="text-end">Azioni</th>
                         </tr>
                     </thead>
@@ -225,7 +228,6 @@
                                         <strong>@ca.Cliente?.RagioneSociale</strong>
                                     </a>
                                 </td>
-                                <td><code class="small">@ca.Cliente?.CodiceAteco</code></td>
                                 <td style="padding-right: 15px;">
                                     <!-- Dropdown stato inline -->
                                     <div class="dropdown stato-dropdown-container">
@@ -262,7 +264,32 @@
                                     var cellWidth = campo.ColumnWidth > 0 ? $"width: {campo.ColumnWidth}px; max-width: {campo.ColumnWidth}px;" : "";
                                     var inputWidth = campo.ColumnWidth > 0 ? $"width: {campo.ColumnWidth - 10}px;" : "width: 100%; min-width: 80px;";
                                     <td class="text-center p-1" style="@cellWidth padding-left: 10px;">
-                                        @if (campo.IsCalculated)
+                                        @if (campo.FieldType == AttivitaFieldType.CampoCliente)
+                                        {
+                                            // Campo Cliente: mostra valore automatico dal cliente (sola lettura)
+                                            var valoreCampoCliente = "-";
+                                            if (ca.Cliente != null && !string.IsNullOrEmpty(campo.CampoClienteRif))
+                                            {
+                                                var prop = ca.Cliente.GetType().GetProperty(campo.CampoClienteRif);
+                                                if (prop != null)
+                                                {
+                                                    var val = prop.GetValue(ca.Cliente);
+                                                    if (val != null)
+                                                    {
+                                                        if (val is DateTime dtVal)
+                                                            valoreCampoCliente = dtVal.ToString("dd/MM/yyyy");
+                                                        else
+                                                            valoreCampoCliente = val.ToString() ?? "-";
+                                                    }
+                                                }
+                                            }
+                                            <span class="badge bg-light text-dark border" 
+                                                  style="font-size: 0.85rem; display: inline-block; @inputWidth"
+                                                  title="@campo.CampoClienteRif dal cliente">
+                                                <i class="fas fa-user text-success me-1"></i>@valoreCampoCliente
+                                            </span>
+                                        }
+                                        else if (campo.IsCalculated)
                                         {
                                             // Campo calcolato: mostra valore non editabile
                                             var valoreCalcolato = FormulaCalculatorService.CalcolaPerClienteAttivita(campo, ca, campiVisibili);
@@ -386,7 +413,6 @@
                                     <tr>
                                         <th style="width: 40px;"></th>
                                         <th>Ragione Sociale</th>
-                                        <th style="width: 120px;">Cod. Ateco</th>
                                     </tr>
                                 </thead>
                                 <tbody id="listaClientiBody">
@@ -404,7 +430,6 @@
                                                     @cliente.RagioneSociale
                                                 </label>
                                             </td>
-                                            <td><code class="small">@cliente.CodiceAteco</code></td>
                                         </tr>
                                     }
                                 </tbody>

@@ -56,6 +56,12 @@
                                             <i class="fas fa-calculator me-1"></i>Calcolato
                                         </span>
                                     }
+                                    else if (campo.FieldType == AttivitaFieldType.CampoCliente)
+                                    {
+                                        <span class="badge bg-success ms-2" title="Campo automatico dal cliente: @campo.CampoClienteRif">
+                                            <i class="fas fa-user me-1"></i>@campo.CampoClienteRif
+                                        </span>
+                                    }
                                     else
                                     {
                                         <span class="badge bg-primary ms-2">
@@ -135,19 +141,56 @@
                     <div class="row mb-3">
                         <div class="col-8">
                             <label class="form-label">Tipo Campo</label>
-                            <select name="FieldType" class="form-select">
+                            <select name="FieldType" class="form-select" id="fieldTypeSelect" onchange="toggleCampoClienteSection()">
                                 <option value="@((int)AttivitaFieldType.Text)">Testo</option>
                                 <option value="@((int)AttivitaFieldType.LongText)">Testo Lungo</option>
                                 <option value="@((int)AttivitaFieldType.Number)">Numero</option>
                                 <option value="@((int)AttivitaFieldType.Decimal)">Decimale</option>
                                 <option value="@((int)AttivitaFieldType.Date)">Data</option>
                                 <option value="@((int)AttivitaFieldType.Boolean)">Sì/No</option>
+                                <option value="@((int)AttivitaFieldType.CampoCliente)">📋 Campo Cliente (auto)</option>
                             </select>
                         </div>
                         <div class="col-4">
                             <label class="form-label">Larghezza</label>
                             <input type="number" name="ColumnWidth" class="form-control" value="0" min="0" max="500" placeholder="Auto" title="0 = Auto, altrimenti px" />
                         </div>
+                    </div>
+
+                    <!-- Sezione Campo Cliente -->
+                    <div id="campoClienteSection" style="display: none;" class="mb-3">
+                        <label class="form-label">Campo del Cliente da mostrare *</label>
+                        <select name="CampoClienteRif" class="form-select" id="campoClienteSelect">
+                            <option value="">-- Seleziona Campo --</option>
+                            <optgroup label="Dati Anagrafici">
+                                <option value="RagioneSociale">Ragione Sociale</option>
+                                <option value="CodiceFiscale">Codice Fiscale</option>
+                                <option value="PartitaIVA">Partita IVA</option>
+                                <option value="TipoSoggetto">Tipo Soggetto (PF/DI/SP/SC/PROF)</option>
+                            </optgroup>
+                            <optgroup label="Indirizzo">
+                                <option value="Indirizzo">Indirizzo</option>
+                                <option value="Citta">Città</option>
+                                <option value="Provincia">Provincia</option>
+                                <option value="CAP">CAP</option>
+                            </optgroup>
+                            <optgroup label="Contatti">
+                                <option value="Email">Email</option>
+                                <option value="PEC">PEC</option>
+                                <option value="Telefono">Telefono</option>
+                            </optgroup>
+                            <optgroup label="Altri Dati">
+                                <option value="CodiceAteco">Codice Ateco</option>
+                                <option value="Note">Note</option>
+                            </optgroup>
+                            <optgroup label="Documento Identità">
+                                <option value="DocumentoNumero">Numero Documento</option>
+                                <option value="DocumentoRilasciatoDa">Rilasciato da</option>
+                                <option value="DocumentoDataRilascio">Data Rilascio Documento</option>
+                                <option value="DocumentoScadenza">Scadenza Documento</option>
+                            </optgroup>
+                        </select>
+                        <small class="text-muted">Questo campo mostrerà automaticamente il valore dal cliente associato (sola lettura)</small>
                     </div>
 
                     <div class="row mb-3">
@@ -228,7 +271,7 @@
 
                         <div class="mb-3">
                             <label class="form-label">Tipo Campo</label>
-                            <select name="fieldType" class="form-select">
+                            <select name="fieldType" class="form-select" id="fieldTypeSelect-@campo.Id" onchange="toggleCampoClienteSectionEdit(@campo.Id)">
                                 @{
                                     var fieldTypes = new[] {
                                         (AttivitaFieldType.Text, "Testo"),
@@ -236,7 +279,8 @@
                                         (AttivitaFieldType.Number, "Numero"),
                                         (AttivitaFieldType.Decimal, "Decimale"),
                                         (AttivitaFieldType.Date, "Data"),
-                                        (AttivitaFieldType.Boolean, "Sì/No")
+                                        (AttivitaFieldType.Boolean, "Sì/No"),
+                                        (AttivitaFieldType.CampoCliente, "📋 Campo Cliente (auto)")
                                     };
                                 }
                                 @foreach (var (ft, label) in fieldTypes)
@@ -251,6 +295,33 @@
                                     }
                                 }
                             </select>
+                        </div>
+
+                        <!-- Sezione Campo Cliente per modifica -->
+                        <div id="campoClienteSection-@campo.Id" style="display: @(campo.FieldType == AttivitaFieldType.CampoCliente ? "block" : "none");" class="mb-3">
+                            <label class="form-label">Campo del Cliente da mostrare</label>
+                            <select name="campoClienteRif" class="form-select" id="campoClienteSelect-@campo.Id">
+                                <option value="">-- Seleziona Campo --</option>
+                                @{
+                                    var campiClienteOpts = new[] {
+                                        ("Dati Anagrafici", new[] { ("RagioneSociale", "Ragione Sociale"), ("CodiceFiscale", "Codice Fiscale"), ("PartitaIVA", "Partita IVA"), ("TipoSoggetto", "Tipo Soggetto") }),
+                                        ("Indirizzo", new[] { ("Indirizzo", "Indirizzo"), ("Citta", "Città"), ("Provincia", "Provincia"), ("CAP", "CAP") }),
+                                        ("Contatti", new[] { ("Email", "Email"), ("PEC", "PEC"), ("Telefono", "Telefono") }),
+                                        ("Altri Dati", new[] { ("CodiceAteco", "Codice Ateco"), ("Note", "Note") }),
+                                        ("Documento Identità", new[] { ("DocumentoNumero", "Numero Documento"), ("DocumentoRilasciatoDa", "Rilasciato da"), ("DocumentoDataRilascio", "Data Rilascio"), ("DocumentoScadenza", "Scadenza Documento") })
+                                    };
+                                }
+                                @foreach (var (group, opts) in campiClienteOpts)
+                                {
+                                    <optgroup label="@group">
+                                        @foreach (var (val, lbl) in opts)
+                                        {
+                                            <option value="@val" selected="@(campo.CampoClienteRif == val)">@lbl</option>
+                                        }
+                                    </optgroup>
+                                }
+                            </select>
+                            <small class="text-muted">Questo campo mostrerà automaticamente il valore dal cliente associato (sola lettura)</small>
                         </div>
 
                         <div class="row mb-3">
@@ -372,6 +443,30 @@
 
 @section Scripts {
 <script>
+    // Toggle sezione Campo Cliente
+    function toggleCampoClienteSection() {
+        var fieldTypeSelect = document.getElementById('fieldTypeSelect');
+        var campoClienteSection = document.getElementById('campoClienteSection');
+        var campoClienteSelect = document.getElementById('campoClienteSelect');
+        var formulaCheckbox = document.getElementById('isCalculated');
+        var formulaSection = document.getElementById('formulaSection');
+        
+        if (fieldTypeSelect.value === '@((int)AttivitaFieldType.CampoCliente)') {
+            campoClienteSection.style.display = 'block';
+            campoClienteSelect.required = true;
+            // Nascondi la sezione formula (non compatibile)
+            if (formulaCheckbox) {
+                formulaCheckbox.checked = false;
+                formulaCheckbox.disabled = true;
+            }
+            if (formulaSection) formulaSection.style.display = 'none';
+        } else {
+            campoClienteSection.style.display = 'none';
+            campoClienteSelect.required = false;
+            if (formulaCheckbox) formulaCheckbox.disabled = false;
+        }
+    }
+
     // Toggle sezione formula nel form nuovo campo
     function toggleFormulaSection() {
         var checkbox = document.getElementById('isCalculated');
@@ -425,6 +520,30 @@
         input.value = textBefore + '[' + nomeCampo + ']' + textAfter;
         input.focus();
         input.selectionStart = input.selectionEnd = cursorPos + nomeCampo.length + 2;
+    }
+
+    // Toggle sezione Campo Cliente nel modal di modifica
+    function toggleCampoClienteSectionEdit(campoId) {
+        var fieldTypeSelect = document.getElementById('fieldTypeSelect-' + campoId);
+        var campoClienteSection = document.getElementById('campoClienteSection-' + campoId);
+        var campoClienteSelect = document.getElementById('campoClienteSelect-' + campoId);
+        var formulaCheckbox = document.getElementById('isCalculated-' + campoId);
+        var formulaSection = document.getElementById('formulaSection-' + campoId);
+        
+        if (fieldTypeSelect.value === '@((int)AttivitaFieldType.CampoCliente)') {
+            campoClienteSection.style.display = 'block';
+            campoClienteSelect.required = true;
+            // Nascondi la sezione formula (non compatibile)
+            if (formulaCheckbox) {
+                formulaCheckbox.checked = false;
+                formulaCheckbox.disabled = true;
+            }
+            if (formulaSection) formulaSection.style.display = 'none';
+        } else {
+            campoClienteSection.style.display = 'none';
+            campoClienteSelect.required = false;
+            if (formulaCheckbox) formulaCheckbox.disabled = false;
+        }
     }
 </script>
 }

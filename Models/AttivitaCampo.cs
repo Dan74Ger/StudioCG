@@ -21,7 +21,10 @@ namespace StudioCG.Web.Models
         Date = 4,
 
         [Display(Name = "Sì/No")]
-        Boolean = 5
+        Boolean = 5,
+
+        [Display(Name = "Campo Cliente")]
+        CampoCliente = 6
     }
 
     public class AttivitaCampo
@@ -74,6 +77,14 @@ namespace StudioCG.Web.Models
         /// </summary>
         [Display(Name = "Larghezza (px)")]
         public int ColumnWidth { get; set; } = 0;
+
+        /// <summary>
+        /// Riferimento al campo del cliente (per FieldType = CampoCliente).
+        /// Es: "CodiceFiscale", "PartitaIVA", "Indirizzo", etc.
+        /// </summary>
+        [StringLength(50)]
+        [Display(Name = "Campo Cliente")]
+        public string? CampoClienteRif { get; set; }
 
         // Navigation property
         [ForeignKey("AttivitaTipoId")]
