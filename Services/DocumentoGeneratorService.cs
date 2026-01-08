@@ -872,32 +872,104 @@ namespace StudioCG.Web.Services
                     }
                 }
 
-                // Aggiungi piè di pagina se presente
+                // Crea Footer Part per numeri di pagina
+                var footerPart = mainPart.AddNewPart<FooterPart>();
+                var footerId = mainPart.GetIdOfPart(footerPart);
+                
+                // Crea il contenuto del footer
+                var footer = new Footer();
+                
+                // Se c'è un footer personalizzato, aggiungi prima il testo (senza tag pagina)
                 if (!string.IsNullOrEmpty(footerPlain))
                 {
-                    body.AppendChild(new Paragraph()); // Spazio
                     foreach (var line in footerPlain.Split('\n'))
                     {
                         if (!string.IsNullOrWhiteSpace(line))
                         {
-                            var footerPara = new Paragraph();
-                            var footerRun = new Run();
-                            var footerProps = new RunProperties();
-                            footerProps.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
-                            footerProps.AppendChild(new FontSize { Val = "18" }); // 9pt
-                            footerRun.AppendChild(footerProps);
-                            footerRun.AppendChild(new Text(line.Trim()) { Space = SpaceProcessingModeValues.Preserve });
-                            footerPara.AppendChild(footerRun);
-                            // Centra il paragrafo
-                            var paraProps = new ParagraphProperties();
-                            paraProps.AppendChild(new Justification { Val = JustificationValues.Center });
-                            footerPara.PrependChild(paraProps);
-                            body.AppendChild(footerPara);
+                            var lineText = line.Trim();
+                            // Salta le righe con tag di paginazione (le gestiremo dopo)
+                            if (lineText.Contains("{{Pagina}}") || lineText.Contains("{{TotalePagine}}") || lineText.Contains("{{PaginaDi}}"))
+                                continue;
+                                
+                            var footerTextPara = new Paragraph();
+                            var footerTextProps = new ParagraphProperties();
+                            footerTextProps.AppendChild(new Justification { Val = JustificationValues.Center });
+                            footerTextPara.AppendChild(footerTextProps);
+                            
+                            var footerTextRun = new Run();
+                            var footerTextRunProps = new RunProperties();
+                            footerTextRunProps.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
+                            footerTextRunProps.AppendChild(new FontSize { Val = "18" }); // 9pt
+                            footerTextRun.AppendChild(footerTextRunProps);
+                            footerTextRun.AppendChild(new Text(lineText) { Space = SpaceProcessingModeValues.Preserve });
+                            footerTextPara.AppendChild(footerTextRun);
+                            footer.AppendChild(footerTextPara);
                         }
                     }
                 }
+                
+                // Aggiungi sempre "Pagina X di Y" nel footer
+                var footerPara = new Paragraph();
+                var footerParaProps = new ParagraphProperties();
+                footerParaProps.AppendChild(new Justification { Val = JustificationValues.Center });
+                footerPara.AppendChild(footerParaProps);
+                
+                // "Pagina "
+                var runPagina = new Run();
+                var runPaginaProps = new RunProperties();
+                runPaginaProps.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
+                runPaginaProps.AppendChild(new FontSize { Val = "18" });
+                runPagina.AppendChild(runPaginaProps);
+                runPagina.AppendChild(new Text("Pagina ") { Space = SpaceProcessingModeValues.Preserve });
+                footerPara.AppendChild(runPagina);
+                
+                // Campo PAGE (numero pagina corrente)
+                var runPageField = new Run();
+                var runPageFieldProps = new RunProperties();
+                runPageFieldProps.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
+                runPageFieldProps.AppendChild(new FontSize { Val = "18" });
+                runPageField.AppendChild(runPageFieldProps);
+                runPageField.AppendChild(new FieldChar { FieldCharType = FieldCharValues.Begin });
+                footerPara.AppendChild(runPageField);
+                
+                var runPageInstr = new Run();
+                runPageInstr.AppendChild(new FieldCode(" PAGE ") { Space = SpaceProcessingModeValues.Preserve });
+                footerPara.AppendChild(runPageInstr);
+                
+                var runPageEnd = new Run();
+                runPageEnd.AppendChild(new FieldChar { FieldCharType = FieldCharValues.End });
+                footerPara.AppendChild(runPageEnd);
+                
+                // " di "
+                var runDi = new Run();
+                var runDiProps = new RunProperties();
+                runDiProps.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
+                runDiProps.AppendChild(new FontSize { Val = "18" });
+                runDi.AppendChild(runDiProps);
+                runDi.AppendChild(new Text(" di ") { Space = SpaceProcessingModeValues.Preserve });
+                footerPara.AppendChild(runDi);
+                
+                // Campo NUMPAGES (totale pagine)
+                var runNumPagesField = new Run();
+                var runNumPagesFieldProps = new RunProperties();
+                runNumPagesFieldProps.AppendChild(new RunFonts { Ascii = "Arial", HighAnsi = "Arial" });
+                runNumPagesFieldProps.AppendChild(new FontSize { Val = "18" });
+                runNumPagesField.AppendChild(runNumPagesFieldProps);
+                runNumPagesField.AppendChild(new FieldChar { FieldCharType = FieldCharValues.Begin });
+                footerPara.AppendChild(runNumPagesField);
+                
+                var runNumPagesInstr = new Run();
+                runNumPagesInstr.AppendChild(new FieldCode(" NUMPAGES ") { Space = SpaceProcessingModeValues.Preserve });
+                footerPara.AppendChild(runNumPagesInstr);
+                
+                var runNumPagesEnd = new Run();
+                runNumPagesEnd.AppendChild(new FieldChar { FieldCharType = FieldCharValues.End });
+                footerPara.AppendChild(runNumPagesEnd);
+                
+                footer.AppendChild(footerPara);
+                footerPart.Footer = footer;
 
-                // Imposta margini pagina
+                // Imposta margini pagina e collega il footer
                 var sectionProperties = new SectionProperties();
                 var pageMargin = new PageMargin
                 {
@@ -907,6 +979,11 @@ namespace StudioCG.Web.Services
                     Left = 1440
                 };
                 sectionProperties.AppendChild(pageMargin);
+                
+                // Collega il footer alla sezione
+                var footerReference = new FooterReference { Type = HeaderFooterValues.Default, Id = footerId };
+                sectionProperties.AppendChild(footerReference);
+                
                 body.AppendChild(sectionProperties);
 
                 mainPart.Document.Save();
