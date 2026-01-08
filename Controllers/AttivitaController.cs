@@ -788,8 +788,25 @@ namespace StudioCG.Web.Controllers
                 {
                     string valore;
                     
+                    // Se è un campo cliente, recupera il valore dalla proprietà del cliente
+                    if (campo.FieldType == AttivitaFieldType.CampoCliente && ca.Cliente != null && !string.IsNullOrEmpty(campo.CampoClienteRif))
+                    {
+                        var prop = ca.Cliente.GetType().GetProperty(campo.CampoClienteRif);
+                        if (prop != null)
+                        {
+                            var val = prop.GetValue(ca.Cliente);
+                            if (val is DateTime dtVal)
+                                valore = dtVal.ToString("dd/MM/yyyy");
+                            else
+                                valore = val?.ToString() ?? "";
+                        }
+                        else
+                        {
+                            valore = "";
+                        }
+                    }
                     // Se è un campo calcolato, calcola il valore
-                    if (campo.IsCalculated)
+                    else if (campo.IsCalculated)
                     {
                         valore = FormulaCalculatorService.CalcolaPerClienteAttivita(campo, ca, campi) ?? "";
                     }
