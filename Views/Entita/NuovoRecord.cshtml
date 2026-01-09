@@ -22,30 +22,48 @@
         </a>
     </div>
 
-    <form asp-action="CreaRecord" method="post">
-        <input type="hidden" name="EntitaDinamicaId" value="@entita?.Id" />
-        
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Informazioni Base</h5>
+    @if (entita?.CollegataACliente == true && clienti.Any())
+    {
+        <!-- Toggle Modalità -->
+        <div class="card mb-3 border-info">
+            <div class="card-body py-2">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="toggleMultiSelezione" onchange="toggleModalita()">
+                    <label class="form-check-label" for="toggleMultiSelezione">
+                        <i class="fas fa-users me-1"></i><strong>Multi-selezione clienti</strong> 
+                        <small class="text-muted">(crea un record per ogni cliente selezionato)</small>
+                    </label>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    @if (entita?.CollegataACliente == true)
-                    {
+        </div>
+    }
+
+    <!-- FORM SINGOLO (default) -->
+    <div id="formSingolo">
+        <form asp-action="CreaRecord" method="post">
+            <input type="hidden" name="EntitaDinamicaId" value="@entita?.Id" />
+            
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Informazioni Base</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        @if (entita?.CollegataACliente == true)
+                        {
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Cliente</label>
+                                <select name="ClienteId" class="form-select">
+                                    <option value="">-- Nessun Cliente --</option>
+                                    @foreach (var c in clienti)
+                                    {
+                                        if (c.Id == clienteId) { <option value="@c.Id" selected>@c.RagioneSociale</option> }
+                                        else { <option value="@c.Id">@c.RagioneSociale</option> }
+                                    }
+                                </select>
+                            </div>
+                        }
                         <div class="col-md-4 mb-3">
-                            <label class="form-label">Cliente</label>
-                            <select name="ClienteId" class="form-select">
-                                <option value="">-- Nessun Cliente --</option>
-                                @foreach (var c in clienti)
-                                {
-                                    if (c.Id == clienteId) { <option value="@c.Id" selected>@c.RagioneSociale</option> }
-                                    else { <option value="@c.Id">@c.RagioneSociale</option> }
-                                }
-                            </select>
-                        </div>
-                    }
-                    <div class="col-md-4 mb-3">
                         <label class="form-label">Titolo / Riferimento</label>
                         <input type="text" name="Titolo" class="form-control" placeholder="Identificativo del record" />
                     </div>
@@ -181,13 +199,90 @@
             </div>
         </div>
 
-        <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save me-1"></i>Salva
-            </button>
-            <a asp-action="Dati" asp-route-id="@entita?.Id" class="btn btn-outline-secondary">Annulla</a>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-1"></i>Salva
+                </button>
+                <a asp-action="Dati" asp-route-id="@entita?.Id" class="btn btn-outline-secondary">Annulla</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- FORM MULTI-SELEZIONE (nascosto di default) -->
+    @if (entita?.CollegataACliente == true && clienti.Any())
+    {
+        <div id="formMulti" style="display: none;">
+            <form asp-action="AggiungiRecordMultipli" method="post">
+                <input type="hidden" name="entitaId" value="@entita?.Id" />
+                
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-users me-2"></i>Seleziona Clienti</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Ricerca e selezione rapida -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                    <input type="text" id="searchClientiMulti" class="form-control" placeholder="Cerca cliente...">
+                                </div>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="selezionaTuttiMulti()">
+                                    <i class="fas fa-check-double me-1"></i>Tutti
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="deselezionaTuttiMulti()">
+                                    <i class="fas fa-times me-1"></i>Nessuno
+                                </button>
+                                <span class="badge bg-primary ms-2" id="contatoreMulti">0 selezionati</span>
+                            </div>
+                        </div>
+
+                        <!-- Lista clienti -->
+                        <div style="max-height: 400px; overflow-y: auto;" class="border rounded">
+                            <table class="table table-hover table-sm mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th style="width: 40px;"></th>
+                                        <th>Ragione Sociale</th>
+                                        <th>P.IVA / CF</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var c in clienti)
+                                    {
+                                        <tr class="cliente-row-multi">
+                                            <td class="text-center">
+                                                <input type="checkbox" class="form-check-input cliente-check-multi" 
+                                                       name="clienteIds" value="@c.Id"
+                                                       style="width: 18px; height: 18px; cursor: pointer;"
+                                                       data-nome="@c.RagioneSociale.ToLower()" />
+                                            </td>
+                                            <td style="cursor: pointer;" onclick="toggleCheckMulti(this)">
+                                                <strong>@c.RagioneSociale</strong>
+                                            </td>
+                                            <td><code class="small">@(c.PartitaIVA ?? c.CodiceFiscale)</code></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        <small class="text-muted mt-2 d-block">
+                            <i class="fas fa-info-circle me-1"></i>Verrà creato un record per ogni cliente selezionato
+                        </small>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-plus me-1"></i>Crea Record per Clienti Selezionati
+                    </button>
+                    <a asp-action="Dati" asp-route-id="@entita?.Id" class="btn btn-outline-secondary">Annulla</a>
+                </div>
+            </form>
         </div>
-    </form>
+    }
 </div>
 
 @section Scripts {
@@ -274,5 +369,57 @@
         
         // Calcola anche immediatamente
         ricalcolaCampiCalcolati();
+
+        // ========== TOGGLE MODALITÀ SINGOLO/MULTI ==========
+        
+        function toggleModalita() {
+            var isMulti = document.getElementById('toggleMultiSelezione')?.checked;
+            var formSingolo = document.getElementById('formSingolo');
+            var formMulti = document.getElementById('formMulti');
+            
+            if (formSingolo) formSingolo.style.display = isMulti ? 'none' : 'block';
+            if (formMulti) formMulti.style.display = isMulti ? 'block' : 'none';
+        }
+
+        // ========== MULTI-SELEZIONE CLIENTI ==========
+        
+        function selezionaTuttiMulti() {
+            document.querySelectorAll('.cliente-row-multi:not([style*="display: none"]) .cliente-check-multi').forEach(cb => cb.checked = true);
+            aggiornaContatoreMulti();
+        }
+
+        function deselezionaTuttiMulti() {
+            document.querySelectorAll('.cliente-check-multi').forEach(cb => cb.checked = false);
+            aggiornaContatoreMulti();
+        }
+
+        function toggleCheckMulti(td) {
+            var cb = td.parentElement.querySelector('.cliente-check-multi');
+            cb.checked = !cb.checked;
+            aggiornaContatoreMulti();
+        }
+
+        function aggiornaContatoreMulti() {
+            var count = document.querySelectorAll('.cliente-check-multi:checked').length;
+            var el = document.getElementById('contatoreMulti');
+            if (el) el.textContent = count + ' selezionati';
+        }
+
+        // Ricerca clienti
+        var searchMulti = document.getElementById('searchClientiMulti');
+        if (searchMulti) {
+            searchMulti.addEventListener('input', function() {
+                var filtro = this.value.toLowerCase();
+                document.querySelectorAll('.cliente-row-multi').forEach(row => {
+                    var nome = row.querySelector('.cliente-check-multi').getAttribute('data-nome');
+                    row.style.display = nome.includes(filtro) ? '' : 'none';
+                });
+            });
+        }
+
+        // Click su checkbox aggiorna contatore
+        document.querySelectorAll('.cliente-check-multi').forEach(cb => {
+            cb.addEventListener('change', aggiornaContatoreMulti);
+        });
     </script>
 }

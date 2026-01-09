@@ -221,9 +221,13 @@
                                 @foreach (var campo in campiInLista.Take(5))
                                 {
                                     var colWidth = campo.ColumnWidth > 0 ? $"width: {campo.ColumnWidth}px; min-width: {campo.ColumnWidth}px;" : "";
-                                    <th style="@colWidth">
+                                    <th style="@colWidth text-align: center;">
                                         @campo.Label
-                                        @if (campo.IsCalculated)
+                                        @if (campo.TipoCampo == "campocliente")
+                                        {
+                                            <i class="fas fa-user text-success ms-1" title="Campo Cliente: @campo.CampoClienteRif"></i>
+                                        }
+                                        else if (campo.IsCalculated)
                                         {
                                             <i class="fas fa-calculator text-warning ms-1" title="Calcolato"></i>
                                         }
@@ -288,8 +292,33 @@
                                         var valore = record.Valori.FirstOrDefault(v => v.CampoEntitaId == campo.Id)?.Valore ?? "";
                                         var cellWidth = campo.ColumnWidth > 0 ? $"width: {campo.ColumnWidth}px; max-width: {campo.ColumnWidth}px;" : "";
                                         var inputWidth = campo.ColumnWidth > 0 ? $"width: {campo.ColumnWidth - 10}px;" : "width: 100%; min-width: 80px;";
-                                        <td style="@cellWidth" class="p-1">
-                                            @if (campo.IsCalculated)
+                                        <td style="@cellWidth text-align: center;" class="p-1">
+                                            @if (campo.TipoCampo == "campocliente")
+                                            {
+                                                // Campo Cliente: mostra valore automatico dal cliente (sola lettura)
+                                                var valoreCampoCliente = "-";
+                                                if (record.Cliente != null && !string.IsNullOrEmpty(campo.CampoClienteRif))
+                                                {
+                                                    var prop = record.Cliente.GetType().GetProperty(campo.CampoClienteRif);
+                                                    if (prop != null)
+                                                    {
+                                                        var val = prop.GetValue(record.Cliente);
+                                                        if (val != null)
+                                                        {
+                                                            if (val is DateTime dtVal)
+                                                                valoreCampoCliente = dtVal.ToString("dd/MM/yyyy");
+                                                            else
+                                                                valoreCampoCliente = val.ToString() ?? "-";
+                                                        }
+                                                    }
+                                                }
+                                                <span class="badge bg-light text-dark border"
+                                                      style="font-size: 0.85rem;"
+                                                      title="@campo.CampoClienteRif dal cliente">
+                                                    <i class="fas fa-user text-success me-1"></i>@valoreCampoCliente
+                                                </span>
+                                            }
+                                            else if (campo.IsCalculated)
                                             {
                                                 var valoreCalcolato = FormulaCalculatorService.CalcolaPerRecordEntita(campo, record, tuttiCampi);
                                                 <span class="calculated-field badge bg-light text-dark border"

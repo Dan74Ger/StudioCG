@@ -266,8 +266,21 @@ namespace StudioCG.Web.Controllers
                 return RedirectToAction(nameof(Configura), new { id = campo.EntitaDinamicaId });
             }
 
+            // Gestione Campo Cliente
+            if (campo.TipoCampo == "campocliente")
+            {
+                if (string.IsNullOrEmpty(campo.CampoClienteRif))
+                {
+                    TempData["Error"] = "Seleziona un campo del cliente.";
+                    return RedirectToAction(nameof(Configura), new { id = campo.EntitaDinamicaId });
+                }
+                // I campi cliente sono sempre non obbligatori (sola lettura)
+                campo.IsRequired = false;
+                campo.IsCalculated = false;
+                campo.Formula = null;
+            }
             // Validazione formula per campi calcolati
-            if (campo.IsCalculated)
+            else if (campo.IsCalculated)
             {
                 var campiEsistenti = await _context.CampiEntita
                     .Where(c => c.EntitaDinamicaId == campo.EntitaDinamicaId && c.IsActive)
@@ -283,6 +296,11 @@ namespace StudioCG.Web.Controllers
                 // I campi calcolati sono sempre decimali e non obbligatori
                 campo.TipoCampo = "decimal";
                 campo.IsRequired = false;
+                campo.CampoClienteRif = null;
+            }
+            else
+            {
+                campo.CampoClienteRif = null;
             }
 
             var maxOrder = await _context.CampiEntita
@@ -306,7 +324,8 @@ namespace StudioCG.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditCampo(int id, string label, string tipoCampo, bool isRequired,
             bool showInList, bool useAsFilter, string? options, string? defaultValue, string? placeholder,
-            int colWidth, bool isCalculated, string? formula, int columnWidth = 0, bool isDataScadenza = false)
+            int colWidth, bool isCalculated, string? formula, int columnWidth = 0, bool isDataScadenza = false,
+            string? campoClienteRif = null)
         {
             var campo = await _context.CampiEntita.FindAsync(id);
             if (campo == null)
@@ -315,8 +334,20 @@ namespace StudioCG.Web.Controllers
                 return RedirectToAction(nameof(Gestione));
             }
 
+            // Gestione Campo Cliente
+            if (tipoCampo == "campocliente")
+            {
+                if (string.IsNullOrEmpty(campoClienteRif))
+                {
+                    TempData["Error"] = "Seleziona un campo del cliente.";
+                    return RedirectToAction(nameof(Configura), new { id = campo.EntitaDinamicaId });
+                }
+                isRequired = false;
+                isCalculated = false;
+                formula = null;
+            }
             // Validazione formula per campi calcolati
-            if (isCalculated)
+            else if (isCalculated)
             {
                 var campiEsistenti = await _context.CampiEntita
                     .Where(c => c.EntitaDinamicaId == campo.EntitaDinamicaId && c.IsActive && c.Id != id)
@@ -332,6 +363,11 @@ namespace StudioCG.Web.Controllers
                 // I campi calcolati sono sempre decimali e non obbligatori
                 tipoCampo = "decimal";
                 isRequired = false;
+                campoClienteRif = null;
+            }
+            else
+            {
+                campoClienteRif = null;
             }
 
             campo.Label = label;
@@ -346,6 +382,7 @@ namespace StudioCG.Web.Controllers
             campo.IsCalculated = isCalculated;
             campo.Formula = isCalculated ? formula : null;
             campo.ColumnWidth = columnWidth;
+            campo.CampoClienteRif = tipoCampo == "campocliente" ? campoClienteRif : null;
             // Data scadenza solo per campi di tipo date
             campo.IsDataScadenza = tipoCampo == "date" && isDataScadenza;
 

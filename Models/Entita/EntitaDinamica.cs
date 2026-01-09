@@ -159,6 +159,14 @@ namespace StudioCG.Web.Models.Entita
         [Display(Name = "Data Scadenza")]
         public bool IsDataScadenza { get; set; } = false;
 
+        /// <summary>
+        /// Riferimento al campo del cliente (per TipoCampo = "campocliente").
+        /// Es: "CodiceFiscale", "PartitaIVA", "Indirizzo", "CodiceAteco", etc.
+        /// </summary>
+        [StringLength(50)]
+        [Display(Name = "Campo Cliente")]
+        public string? CampoClienteRif { get; set; }
+
         // Navigation
         [ForeignKey("EntitaDinamicaId")]
         public virtual EntitaDinamica? EntitaDinamica { get; set; }

@@ -175,6 +175,10 @@
                                                 {
                                                     <span class="badge bg-warning text-dark"><i class="fas fa-calculator me-1"></i>Calcolato</span>
                                                 }
+                                                else if (campo.TipoCampo == "campocliente")
+                                                {
+                                                    <span class="badge bg-success"><i class="fas fa-user me-1"></i>@campo.CampoClienteRif</span>
+                                                }
                                                 else
                                                 {
                                                     var tipoIcon = campo.TipoCampo switch {
@@ -213,10 +217,35 @@
                                                             <div class="mb-3"><label class="form-label">Etichetta</label><input type="text" name="label" class="form-control" value="@campo.Label" required /></div>
                                                             <div class="mb-3">
                                                                 <label class="form-label">Tipo</label>
-                                                                <select name="tipoCampo" class="form-select">
-                                                                    @foreach (var t in new[] { ("text","Testo"), ("textarea","Testo Lungo"), ("number","Numero"), ("decimal","Decimale"), ("date","Data"), ("datetime","Data/Ora"), ("checkbox","Checkbox"), ("dropdown","Dropdown"), ("email","Email"), ("phone","Telefono"), ("url","URL") })
+                                                                <select name="tipoCampo" class="form-select" id="editTipoCampo-@campo.Id" onchange="toggleCampoClienteEdit(@campo.Id)">
+                                                                    @foreach (var t in new[] { ("text","📝 Testo"), ("textarea","📄 Testo Lungo"), ("number","🔢 Numero"), ("decimal","💰 Decimale"), ("date","📅 Data"), ("datetime","📅⏰ Data/Ora"), ("checkbox","☑️ Checkbox"), ("dropdown","📋 Dropdown"), ("email","✉️ Email"), ("phone","📞 Telefono"), ("url","🌐 URL"), ("campocliente","👤 Campo Cliente") })
                                                                     {
                                                                         if (campo.TipoCampo == t.Item1) { <option value="@t.Item1" selected>@t.Item2</option> } else { <option value="@t.Item1">@t.Item2</option> }
+                                                                    }
+                                                                </select>
+                                                            </div>
+                                                            <!-- Selezione Campo Cliente per modifica -->
+                                                            <div class="mb-3" id="campoClienteEditContainer-@campo.Id" style="display: @(campo.TipoCampo == "campocliente" ? "block" : "none");">
+                                                                <label class="form-label">Campo del Cliente</label>
+                                                                <select name="campoClienteRif" class="form-select">
+                                                                    <option value="">-- Seleziona --</option>
+                                                                    @{
+                                                                        var campiCliente = new[] {
+                                                                            ("Dati Anagrafici", new[] { ("RagioneSociale", "Ragione Sociale"), ("CodiceFiscale", "Codice Fiscale"), ("PartitaIVA", "Partita IVA"), ("TipoSoggetto", "Tipo Soggetto") }),
+                                                                            ("Indirizzo", new[] { ("Indirizzo", "Indirizzo"), ("Citta", "Città"), ("Provincia", "Provincia"), ("CAP", "CAP") }),
+                                                                            ("Contatti", new[] { ("Email", "Email"), ("PEC", "PEC"), ("Telefono", "Telefono") }),
+                                                                            ("Altri Dati", new[] { ("CodiceAteco", "Codice Ateco"), ("Note", "Note") }),
+                                                                            ("Documento", new[] { ("DocumentoNumero", "Numero Doc"), ("DocumentoRilasciatoDa", "Rilasciato da"), ("DocumentoDataRilascio", "Data Rilascio"), ("DocumentoScadenza", "Scadenza Doc") })
+                                                                        };
+                                                                    }
+                                                                    @foreach (var (group, opts) in campiCliente)
+                                                                    {
+                                                                        <optgroup label="@group">
+                                                                            @foreach (var (val, lbl) in opts)
+                                                                            {
+                                                                                <option value="@val" selected="@(campo.CampoClienteRif == val)">@lbl</option>
+                                                                            }
+                                                                        </optgroup>
                                                                     }
                                                                 </select>
                                                             </div>
@@ -343,7 +372,43 @@
                             <option value="email">✉️ Email</option>
                             <option value="phone">📞 Telefono</option>
                             <option value="url">🌐 URL</option>
+                            <option value="campocliente">👤 Campo Cliente (auto)</option>
                         </select>
+                    </div>
+                    <!-- Selezione Campo Cliente -->
+                    <div class="mb-3" id="campoClienteContainer" style="display:none;">
+                        <label class="form-label">Campo del Cliente *</label>
+                        <select name="CampoClienteRif" class="form-select" id="newCampoClienteRif">
+                            <option value="">-- Seleziona Campo --</option>
+                            <optgroup label="Dati Anagrafici">
+                                <option value="RagioneSociale">Ragione Sociale</option>
+                                <option value="CodiceFiscale">Codice Fiscale</option>
+                                <option value="PartitaIVA">Partita IVA</option>
+                                <option value="TipoSoggetto">Tipo Soggetto</option>
+                            </optgroup>
+                            <optgroup label="Indirizzo">
+                                <option value="Indirizzo">Indirizzo</option>
+                                <option value="Citta">Città</option>
+                                <option value="Provincia">Provincia</option>
+                                <option value="CAP">CAP</option>
+                            </optgroup>
+                            <optgroup label="Contatti">
+                                <option value="Email">Email</option>
+                                <option value="PEC">PEC</option>
+                                <option value="Telefono">Telefono</option>
+                            </optgroup>
+                            <optgroup label="Altri Dati">
+                                <option value="CodiceAteco">Codice Ateco</option>
+                                <option value="Note">Note</option>
+                            </optgroup>
+                            <optgroup label="Documento Identità">
+                                <option value="DocumentoNumero">Numero Documento</option>
+                                <option value="DocumentoRilasciatoDa">Rilasciato da</option>
+                                <option value="DocumentoDataRilascio">Data Rilascio</option>
+                                <option value="DocumentoScadenza">Scadenza Documento</option>
+                            </optgroup>
+                        </select>
+                        <small class="text-muted">Mostrerà automaticamente il valore dal cliente associato (sola lettura)</small>
                     </div>
                     <div class="mb-3" id="optionsContainer" style="display:none;"><label class="form-label">Opzioni (separate da |)</label><input type="text" name="Options" class="form-control" placeholder="Opz1|Opz2|Opz3" /></div>
                     <div class="mb-3"><label class="form-label">Placeholder</label><input type="text" name="Placeholder" class="form-control" /></div>
@@ -436,7 +501,24 @@ document.getElementById('newCampoTipo').addEventListener('change', function() {
     document.getElementById('optionsContainer').style.display = this.value === 'dropdown' ? 'block' : 'none';
     // Mostra/nascondi opzione data scadenza
     document.getElementById('newScadenzaContainer').style.display = this.value === 'date' ? 'block' : 'none';
+    // Mostra/nascondi selezione campo cliente
+    var campoClienteContainer = document.getElementById('campoClienteContainer');
+    var campoClienteSelect = document.getElementById('newCampoClienteRif');
+    if (this.value === 'campocliente') {
+        campoClienteContainer.style.display = 'block';
+        campoClienteSelect.required = true;
+    } else {
+        campoClienteContainer.style.display = 'none';
+        campoClienteSelect.required = false;
+    }
 });
+
+// Toggle campo cliente nel modal di modifica
+function toggleCampoClienteEdit(campoId) {
+    var select = document.getElementById('editTipoCampo-' + campoId);
+    var container = document.getElementById('campoClienteEditContainer-' + campoId);
+    container.style.display = select.value === 'campocliente' ? 'block' : 'none';
+}
 
 // Toggle formula per nuovo campo
 function toggleNewFormulaEntita() {
