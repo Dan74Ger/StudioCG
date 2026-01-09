@@ -1,0 +1,204 @@
+@model List<StudioCG.Web.Controllers.BackupFileInfo>
+@{
+    ViewData["Title"] = "Sistema - Backup Database";
+}
+
+<div class="row">
+    <div class="col-12">
+        <!-- Card Backup -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-0"><i class="fas fa-database me-2"></i>Backup Database</h5>
+                    <small class="text-muted">Esegui backup manuali del database StudioCG</small>
+                </div>
+                <form asp-action="BackupDatabase" method="post" class="d-inline">
+                    <button type="submit" class="btn btn-success btn-lg" onclick="return confirmBackup()">
+                        <i class="fas fa-download me-2"></i>Esegui Backup Ora
+                    </button>
+                </form>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Percorso backup:</strong> <code>c:\inetpub\backupdatabase</code><br/>
+                    <small class="text-muted">I backup vengono salvati con formato: StudioCG_YYYYMMDD_HHMMSS.bak</small>
+                </div>
+
+                @if (Model.Any())
+                {
+                    <h6 class="mb-3"><i class="fas fa-list me-2"></i>Backup Disponibili (@Model.Count)</h6>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-file-archive me-1"></i>Nome File</th>
+                                    <th><i class="fas fa-calendar me-1"></i>Data Creazione</th>
+                                    <th><i class="fas fa-weight me-1"></i>Dimensione</th>
+                                    <th class="text-end" style="width: 200px;">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var backup in Model)
+                                {
+                                    <tr>
+                                        <td>
+                                            <i class="fas fa-file-archive text-warning me-2"></i>
+                                            <strong>@backup.FileName</strong>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">
+                                                @backup.CreatedAt.ToString("dd/MM/yyyy")
+                                            </span>
+                                            <span class="text-muted">@backup.CreatedAt.ToString("HH:mm:ss")</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">@backup.SizeFormatted</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="btn-group">
+                                                <a asp-action="DownloadBackup" asp-route-fileName="@backup.FileName" 
+                                                   class="btn btn-sm btn-outline-primary" title="Scarica">
+                                                    <i class="fas fa-download"></i>
+                                                </a>
+                                                <form asp-action="DeleteBackup" method="post" class="d-inline" 
+                                                      onsubmit="return confirmDelete('@backup.FileName')">
+                                                    <input type="hidden" name="fileName" value="@backup.FileName" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Elimina">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Riepilogo -->
+                    <div class="row mt-3">
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center py-2">
+                                    <h4 class="mb-0 text-primary">@Model.Count</h4>
+                                    <small class="text-muted">Backup totali</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center py-2">
+                                    @{
+                                        var totalSize = Model.Sum(b => b.Size);
+                                        var totalSizeFormatted = FormatFileSize(totalSize);
+                                    }
+                                    <h4 class="mb-0 text-info">@totalSizeFormatted</h4>
+                                    <small class="text-muted">Spazio totale</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center py-2">
+                                    @{
+                                        var lastBackup = Model.FirstOrDefault();
+                                    }
+                                    @if (lastBackup != null)
+                                    {
+                                        <h4 class="mb-0 text-success">@lastBackup.CreatedAt.ToString("dd/MM HH:mm")</h4>
+                                        <small class="text-muted">Ultimo backup</small>
+                                    }
+                                    else
+                                    {
+                                        <h4 class="mb-0 text-warning">-</h4>
+                                        <small class="text-muted">Nessun backup</small>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">Nessun backup presente</h5>
+                        <p class="text-muted">Clicca su "Esegui Backup Ora" per creare il primo backup manuale.</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Card Info Sistema -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-cog me-2"></i>Informazioni Sistema</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr>
+                                <th class="border-0"><i class="fas fa-server me-2 text-primary"></i>Server</th>
+                                <td class="border-0">@Environment.MachineName</td>
+                            </tr>
+                            <tr>
+                                <th><i class="fas fa-clock me-2 text-info"></i>Data/Ora Server</th>
+                                <td>@DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                            </tr>
+                            <tr>
+                                <th><i class="fas fa-code me-2 text-success"></i>Ambiente</th>
+                                <td>
+                                    @if (ViewContext.HttpContext.Request.Host.Host.Contains("localhost"))
+                                    {
+                                        <span class="badge bg-warning">Development</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success">Production</span>
+                                    }
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="alert alert-warning mb-0">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Nota:</strong> Oltre ai backup manuali, è attivo un backup schedulato automatico tramite Windows Task Scheduler.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@functions {
+    private static string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+        int order = 0;
+        double size = bytes;
+        
+        while (size >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            size = size / 1024;
+        }
+
+        return $"{size:0.##} {sizes[order]}";
+    }
+}
+
+@section Scripts {
+    <script>
+        function confirmBackup() {
+            return confirm('Vuoi eseguire un backup del database adesso?\n\nQuesta operazione potrebbe richiedere alcuni secondi.');
+        }
+
+        function confirmDelete(fileName) {
+            return confirm('Sei sicuro di voler eliminare il backup "' + fileName + '"?\n\nQuesta operazione non può essere annullata.');
+        }
+    </script>
+}
