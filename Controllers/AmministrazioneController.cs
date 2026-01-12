@@ -4021,6 +4021,7 @@ namespace StudioCG.Web.Controllers
                         Importo = fattura.Importo,
                         DataScadenza = new DateTime(annoA, fattura.DataScadenza.Month, Math.Min(fattura.DataScadenza.Day, DateTime.DaysInMonth(annoA, fattura.DataScadenza.Month))),
                         ScadenzaFatturazioneId = null,
+                        FatturazioneSeparata = fattura.FatturazioneSeparata, // Mantiene il flag separata
                         Note = $"Copiato da anno {annoDa}",
                         CreatedAt = DateTime.Now
                     };
@@ -4089,6 +4090,7 @@ namespace StudioCG.Web.Controllers
                         Importo = bilancio.Importo,
                         DataScadenza = new DateTime(annoA, bilancio.DataScadenza.Month, Math.Min(bilancio.DataScadenza.Day, DateTime.DaysInMonth(annoA, bilancio.DataScadenza.Month))),
                         ScadenzaFatturazioneId = null,
+                        FatturazioneSeparata = bilancio.FatturazioneSeparata, // Mantiene il flag separata
                         Note = $"Copiato da anno {annoDa}",
                         CreatedAt = DateTime.Now
                     };
