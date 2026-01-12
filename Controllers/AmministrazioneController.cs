@@ -2098,6 +2098,28 @@ namespace StudioCG.Web.Controllers
                 tuttiIncassiAnno.Where(i => i.IncassoFattura!.DataIncasso.Month == m).Sum(i => i.Importo)
             ).ToList();
 
+            // ==========================================
+            // FATTURE DA INCASSARE PER MESE (basato su DataFattura)
+            // ==========================================
+            var fattureDaIncassare = await _context.ScadenzeFatturazione
+                .Include(s => s.Cliente)
+                .Include(s => s.SpesePratiche)
+                .Include(s => s.FattureCloud)
+                .Include(s => s.BilanciCEE)
+                .Include(s => s.AccessiClienti)
+                .Where(s => s.Anno == annoCorrente && s.NumeroFattura.HasValue &&
+                       (s.StatoIncasso == StatoIncasso.DaIncassare || s.StatoIncasso == StatoIncasso.ParzialmenteIncassata))
+                .ToListAsync();
+
+            // Calcola importi da incassare per mese (basato su DataFattura)
+            var daIncassarePerMese = Enumerable.Range(1, 12).Select(m =>
+                fattureDaIncassare
+                    .Where(f => f.DataFattura.HasValue && f.DataFattura.Value.Month == m)
+                    .Sum(f => f.ResiduoDaIncassare) // Per DaIncassare = TotaleScadenza, per Parziale = Residuo
+            ).ToList();
+
+            var totaleDaIncassare = fattureDaIncassare.Sum(f => f.ResiduoDaIncassare);
+
             ViewBag.AnnoSelezionato = annoCorrente;
             ViewBag.MeseSelezionato = meseCorrente;
             ViewBag.Progressivo = progressivo;
@@ -2108,9 +2130,80 @@ namespace StudioCG.Web.Controllers
             ViewBag.GridMensile = gridMensile;
             ViewBag.TotaliMensili = totaliMensili;
             ViewBag.TotaleAnnuo = tuttiIncassiAnno.Sum(i => i.Importo);
+            ViewBag.DaIncassarePerMese = daIncassarePerMese;
+            ViewBag.TotaleDaIncassare = totaleDaIncassare;
             ViewData["Title"] = "Report Professionisti";
             
             return View();
+        }
+
+        // GET: /Amministrazione/GetDettaglioIncassiProfessionista
+        [HttpGet]
+        public async Task<IActionResult> GetDettaglioIncassiProfessionista(int professionistaId, int mese, int anno)
+        {
+            var incassi = await _context.IncassiProfessionisti
+                .Include(ip => ip.IncassoFattura)
+                    .ThenInclude(i => i!.ScadenzaFatturazione)
+                        .ThenInclude(s => s!.Cliente)
+                .Where(ip => ip.UtenteId == professionistaId 
+                    && ip.IncassoFattura!.DataIncasso.Month == mese
+                    && ip.IncassoFattura!.ScadenzaFatturazione!.Anno == anno)
+                .OrderByDescending(ip => ip.IncassoFattura!.DataIncasso)
+                .Select(ip => new {
+                    dataIncasso = ip.IncassoFattura!.DataIncasso.ToString("dd/MM/yyyy"),
+                    importo = ip.Importo,
+                    numeroFattura = ip.IncassoFattura!.ScadenzaFatturazione!.NumeroFattura,
+                    dataFattura = ip.IncassoFattura!.ScadenzaFatturazione!.DataFattura.HasValue 
+                        ? ip.IncassoFattura!.ScadenzaFatturazione!.DataFattura.Value.ToString("dd/MM/yyyy") 
+                        : "-",
+                    cliente = ip.IncassoFattura!.ScadenzaFatturazione!.Cliente!.RagioneSociale
+                })
+                .ToListAsync();
+
+            return Json(incassi);
+        }
+
+        // GET: /Amministrazione/GetFattureDaIncassareMese
+        [HttpGet]
+        public async Task<IActionResult> GetFattureDaIncassareMese(int mese, int anno)
+        {
+            var fatture = await _context.ScadenzeFatturazione
+                .Include(s => s.Cliente)
+                .Include(s => s.MandatoCliente)
+                .Include(s => s.SpesePratiche)
+                .Include(s => s.FattureCloud)
+                .Include(s => s.BilanciCEE)
+                .Include(s => s.AccessiClienti)
+                .Include(s => s.Incassi)!
+                    .ThenInclude(i => i.SuddivisioneProfessionisti)!
+                        .ThenInclude(p => p.Utente)
+                .Where(s => s.Anno == anno && s.NumeroFattura.HasValue &&
+                       s.DataFattura.HasValue && s.DataFattura.Value.Month == mese &&
+                       (s.StatoIncasso == StatoIncasso.DaIncassare || s.StatoIncasso == StatoIncasso.ParzialmenteIncassata))
+                .OrderBy(s => s.DataFattura)
+                .ThenBy(s => s.Cliente!.RagioneSociale)
+                .ToListAsync();
+
+            var result = fatture.Select(s => new {
+                numeroFattura = s.NumeroFatturaFormattato,
+                dataFattura = s.DataFattura.HasValue ? s.DataFattura.Value.ToString("dd/MM/yyyy") : "-",
+                cliente = s.Cliente!.RagioneSociale,
+                importoFattura = s.TotaleScadenza,
+                importoIncassato = s.TotaleIncassato,
+                residuo = s.ResiduoDaIncassare,
+                stato = s.StatoIncasso == StatoIncasso.ParzialmenteIncassata ? "Parziale" : "DaIncassare",
+                incassiParziali = s.Incassi?.OrderBy(i => i.DataIncasso).Select(i => new {
+                    data = i.DataIncasso.ToString("dd/MM/yyyy"),
+                    importo = i.ImportoIncassato,
+                    note = i.Note,
+                    professionisti = i.SuddivisioneProfessionisti?.Select(p => new {
+                        nome = $"{p.Utente?.Nome} {p.Utente?.Cognome}",
+                        importo = p.Importo
+                    }).ToList()
+                }).ToList()
+            }).ToList();
+
+            return Json(result);
         }
 
         // GET: /Amministrazione/ExportReportProfessionisti
@@ -2178,6 +2271,25 @@ namespace StudioCG.Web.Controllers
             var totaliMensili = Enumerable.Range(1, 12).Select(m =>
                 tuttiIncassiAnno.Where(i => i.IncassoFattura!.DataIncasso.Month == m).Sum(i => i.Importo)
             ).ToList();
+
+            // Fatture da incassare per mese (basato su DataFattura)
+            var fattureDaIncassare = await _context.ScadenzeFatturazione
+                .Include(s => s.MandatoCliente)
+                .Include(s => s.SpesePratiche)
+                .Include(s => s.FattureCloud)
+                .Include(s => s.BilanciCEE)
+                .Include(s => s.AccessiClienti)
+                .Include(s => s.Incassi)
+                .Where(s => s.Anno == annoCorrente && s.NumeroFattura.HasValue &&
+                       (s.StatoIncasso == StatoIncasso.DaIncassare || s.StatoIncasso == StatoIncasso.ParzialmenteIncassata))
+                .ToListAsync();
+
+            var daIncassarePerMese = Enumerable.Range(1, 12).Select(m =>
+                fattureDaIncassare
+                    .Where(f => f.DataFattura.HasValue && f.DataFattura.Value.Month == m)
+                    .Sum(f => f.ResiduoDaIncassare)
+            ).ToList();
+            var totaleDaIncassare = fattureDaIncassare.Sum(f => f.ResiduoDaIncassare);
 
             // Crea workbook Excel
             using var workbook = new XLWorkbook();
@@ -2304,8 +2416,8 @@ namespace StudioCG.Web.Controllers
                 row++;
             }
             
-            // Riga totali mese
-            wsMensile.Cell(row, 1).Value = "TOTALE MESE";
+            // Riga totali incassati
+            wsMensile.Cell(row, 1).Value = "TOTALE INCASSATO";
             wsMensile.Cell(row, 1).Style.Font.Bold = true;
             for (int m = 0; m < 12; m++)
             {
@@ -2319,6 +2431,33 @@ namespace StudioCG.Web.Controllers
             wsMensile.Range(row, 1, row, 14).Style.Fill.BackgroundColor = XLColor.FromHtml("#17a2b8");
             wsMensile.Range(row, 1, row, 14).Style.Font.FontColor = XLColor.White;
             
+            // Riga Da Incassare (dopo totale incassato)
+            if (totaleDaIncassare > 0)
+            {
+                row++;
+                wsMensile.Cell(row, 1).Value = "⏳ DA INCASSARE";
+                wsMensile.Cell(row, 1).Style.Font.Bold = true;
+                for (int m = 0; m < 12; m++)
+                {
+                    var valDaInc = daIncassarePerMese[m];
+                    if (valDaInc > 0)
+                    {
+                        wsMensile.Cell(row, m + 2).Value = valDaInc;
+                        wsMensile.Cell(row, m + 2).Style.NumberFormat.Format = "#,##0";
+                    }
+                    else
+                    {
+                        wsMensile.Cell(row, m + 2).Value = "-";
+                        wsMensile.Cell(row, m + 2).Style.Font.FontColor = XLColor.Gray;
+                    }
+                }
+                wsMensile.Cell(row, 14).Value = totaleDaIncassare;
+                wsMensile.Cell(row, 14).Style.NumberFormat.Format = "€ #,##0.00";
+                wsMensile.Range(row, 1, row, 14).Style.Font.Bold = true;
+                wsMensile.Range(row, 1, row, 14).Style.Fill.BackgroundColor = XLColor.FromHtml("#ffc107"); // Warning yellow
+                wsMensile.Range(row, 1, row, 14).Style.Font.FontColor = XLColor.Black;
+            }
+            
             wsMensile.Columns().AdjustToContents();
             
             // Export
@@ -2327,6 +2466,393 @@ namespace StudioCG.Web.Controllers
             stream.Position = 0;
             
             var fileName = $"Report_Professionisti_{(progressivo ? "Progressivo_" : "")}{mesi[meseCorrente]}_{annoCorrente}.xlsx";
+            return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        }
+
+        // GET: /Amministrazione/ExportReportProfessionistiDettagliato
+        public async Task<IActionResult> ExportReportProfessionistiDettagliato(int? anno)
+        {
+            var annoCorrente = anno ?? await GetAnnoCorrenteFatturazione();
+            var mesi = new[] { "", "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", 
+                              "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre" };
+            var mesiBrevi = new[] { "", "Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic" };
+
+            // Carica tutti gli incassi dell'anno con dettagli completi
+            var tuttiIncassi = await _context.IncassiProfessionisti
+                .Include(ip => ip.IncassoFattura)
+                    .ThenInclude(i => i!.ScadenzaFatturazione)
+                        .ThenInclude(s => s!.Cliente)
+                .Include(ip => ip.Utente)
+                .Where(ip => ip.IncassoFattura!.ScadenzaFatturazione!.Anno == annoCorrente)
+                .OrderBy(ip => ip.Utente!.Cognome)
+                .ThenBy(ip => ip.Utente!.Nome)
+                .ThenBy(ip => ip.IncassoFattura!.DataIncasso.Month)
+                .ThenBy(ip => ip.IncassoFattura!.DataIncasso)
+                .ToListAsync();
+
+            // Raggruppa per professionista
+            var professionistiConIncassi = tuttiIncassi
+                .GroupBy(i => new { i.UtenteId, Nome = i.Utente?.Nome, Cognome = i.Utente?.Cognome })
+                .OrderBy(g => g.Key.Cognome)
+                .ThenBy(g => g.Key.Nome)
+                .ToList();
+
+            // Fatture da incassare per mese (basato su DataFattura)
+            var fattureDaIncassare = await _context.ScadenzeFatturazione
+                .Include(s => s.Cliente)
+                .Include(s => s.MandatoCliente)
+                .Include(s => s.SpesePratiche)
+                .Include(s => s.FattureCloud)
+                .Include(s => s.BilanciCEE)
+                .Include(s => s.AccessiClienti)
+                .Include(s => s.Incassi)
+                .Where(s => s.Anno == annoCorrente && s.NumeroFattura.HasValue &&
+                       (s.StatoIncasso == StatoIncasso.DaIncassare || s.StatoIncasso == StatoIncasso.ParzialmenteIncassata))
+                .ToListAsync();
+
+            var daIncassarePerMese = Enumerable.Range(1, 12).Select(m =>
+                fattureDaIncassare
+                    .Where(f => f.DataFattura.HasValue && f.DataFattura.Value.Month == m)
+                    .Sum(f => f.ResiduoDaIncassare)
+            ).ToArray();
+            var totaleDaIncassare = fattureDaIncassare.Sum(f => f.ResiduoDaIncassare);
+
+            using var workbook = new XLWorkbook();
+
+            // === FOGLIO RIEPILOGO ===
+            var wsRiepilogo = workbook.Worksheets.Add("Riepilogo");
+            wsRiepilogo.Cell("A1").Value = $"Report Dettagliato Professionisti - Anno {annoCorrente}";
+            wsRiepilogo.Cell("A1").Style.Font.Bold = true;
+            wsRiepilogo.Cell("A1").Style.Font.FontSize = 16;
+            wsRiepilogo.Range("A1:N1").Merge();
+
+            // Header griglia mensile
+            wsRiepilogo.Cell("A3").Value = "Professionista";
+            for (int m = 1; m <= 12; m++)
+            {
+                wsRiepilogo.Cell(3, m + 1).Value = mesiBrevi[m];
+            }
+            wsRiepilogo.Cell(3, 14).Value = "TOTALE";
+            wsRiepilogo.Range(3, 1, 3, 14).Style.Font.Bold = true;
+            wsRiepilogo.Range(3, 1, 3, 14).Style.Fill.BackgroundColor = XLColor.FromHtml("#343a40");
+            wsRiepilogo.Range(3, 1, 3, 14).Style.Font.FontColor = XLColor.White;
+
+            int row = 4;
+            var totaliMensili = new decimal[12];
+            
+            foreach (var prof in professionistiConIncassi)
+            {
+                var nomeProf = $"{prof.Key.Nome} {prof.Key.Cognome}";
+                wsRiepilogo.Cell(row, 1).Value = nomeProf;
+                
+                decimal totaleProf = 0;
+                for (int m = 1; m <= 12; m++)
+                {
+                    var totMese = prof.Where(i => i.IncassoFattura!.DataIncasso.Month == m).Sum(i => i.Importo);
+                    if (totMese > 0)
+                    {
+                        wsRiepilogo.Cell(row, m + 1).Value = totMese;
+                        wsRiepilogo.Cell(row, m + 1).Style.NumberFormat.Format = "#,##0";
+                    }
+                    else
+                    {
+                        wsRiepilogo.Cell(row, m + 1).Value = "-";
+                        wsRiepilogo.Cell(row, m + 1).Style.Font.FontColor = XLColor.Gray;
+                    }
+                    totaleProf += totMese;
+                    totaliMensili[m - 1] += totMese;
+                }
+                
+                wsRiepilogo.Cell(row, 14).Value = totaleProf;
+                wsRiepilogo.Cell(row, 14).Style.NumberFormat.Format = "€ #,##0.00";
+                wsRiepilogo.Cell(row, 14).Style.Font.Bold = true;
+                
+                if (row % 2 == 0)
+                    wsRiepilogo.Range(row, 1, row, 14).Style.Fill.BackgroundColor = XLColor.FromHtml("#f8f9fa");
+                
+                row++;
+            }
+
+            // Riga totali incassati
+            wsRiepilogo.Cell(row, 1).Value = "TOTALE INCASSATO";
+            wsRiepilogo.Cell(row, 1).Style.Font.Bold = true;
+            for (int m = 0; m < 12; m++)
+            {
+                wsRiepilogo.Cell(row, m + 2).Value = totaliMensili[m];
+                wsRiepilogo.Cell(row, m + 2).Style.NumberFormat.Format = "#,##0";
+            }
+            wsRiepilogo.Cell(row, 14).Value = totaliMensili.Sum();
+            wsRiepilogo.Cell(row, 14).Style.NumberFormat.Format = "€ #,##0.00";
+            wsRiepilogo.Range(row, 1, row, 14).Style.Font.Bold = true;
+            wsRiepilogo.Range(row, 1, row, 14).Style.Fill.BackgroundColor = XLColor.FromHtml("#17a2b8");
+            wsRiepilogo.Range(row, 1, row, 14).Style.Font.FontColor = XLColor.White;
+            
+            // Riga Da Incassare (dopo totale incassato)
+            if (totaleDaIncassare > 0)
+            {
+                row++;
+                wsRiepilogo.Cell(row, 1).Value = "⏳ DA INCASSARE";
+                wsRiepilogo.Cell(row, 1).Style.Font.Bold = true;
+                for (int m = 0; m < 12; m++)
+                {
+                    var valDaInc = daIncassarePerMese[m];
+                    if (valDaInc > 0)
+                    {
+                        wsRiepilogo.Cell(row, m + 2).Value = valDaInc;
+                        wsRiepilogo.Cell(row, m + 2).Style.NumberFormat.Format = "#,##0";
+                    }
+                    else
+                    {
+                        wsRiepilogo.Cell(row, m + 2).Value = "-";
+                        wsRiepilogo.Cell(row, m + 2).Style.Font.FontColor = XLColor.Gray;
+                    }
+                }
+                wsRiepilogo.Cell(row, 14).Value = totaleDaIncassare;
+                wsRiepilogo.Cell(row, 14).Style.NumberFormat.Format = "€ #,##0.00";
+                wsRiepilogo.Range(row, 1, row, 14).Style.Font.Bold = true;
+                wsRiepilogo.Range(row, 1, row, 14).Style.Fill.BackgroundColor = XLColor.FromHtml("#ffc107"); // Warning yellow
+                wsRiepilogo.Range(row, 1, row, 14).Style.Font.FontColor = XLColor.Black;
+            }
+            
+            wsRiepilogo.Columns().AdjustToContents();
+
+            // === FOGLIO PER OGNI PROFESSIONISTA ===
+            foreach (var prof in professionistiConIncassi)
+            {
+                var nomeProf = $"{prof.Key.Nome} {prof.Key.Cognome}";
+                // Limita nome foglio a 31 caratteri (limite Excel)
+                var nomeFoglio = nomeProf.Length > 31 ? nomeProf.Substring(0, 31) : nomeProf;
+                // Rimuovi caratteri non validi per i nomi dei fogli
+                nomeFoglio = new string(nomeFoglio.Where(c => c != ':' && c != '\\' && c != '/' && c != '?' && c != '*' && c != '[' && c != ']').ToArray());
+                
+                var ws = workbook.Worksheets.Add(nomeFoglio);
+                
+                ws.Cell("A1").Value = $"Dettaglio Incassi - {nomeProf} - Anno {annoCorrente}";
+                ws.Cell("A1").Style.Font.Bold = true;
+                ws.Cell("A1").Style.Font.FontSize = 14;
+                ws.Range("A1:F1").Merge();
+
+                int currentRow = 3;
+
+                // Per ogni mese
+                for (int m = 1; m <= 12; m++)
+                {
+                    var incassiMese = prof
+                        .Where(i => i.IncassoFattura!.DataIncasso.Month == m)
+                        .OrderBy(i => i.IncassoFattura!.DataIncasso)
+                        .ToList();
+
+                    if (incassiMese.Any())
+                    {
+                        // Header mese
+                        ws.Cell(currentRow, 1).Value = mesi[m].ToUpper();
+                        ws.Cell(currentRow, 1).Style.Font.Bold = true;
+                        ws.Cell(currentRow, 1).Style.Font.FontSize = 12;
+                        ws.Cell(currentRow, 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#0d6efd");
+                        ws.Cell(currentRow, 1).Style.Font.FontColor = XLColor.White;
+                        ws.Range(currentRow, 1, currentRow, 6).Merge();
+                        ws.Range(currentRow, 1, currentRow, 6).Style.Fill.BackgroundColor = XLColor.FromHtml("#0d6efd");
+                        currentRow++;
+
+                        // Header colonne
+                        ws.Cell(currentRow, 1).Value = "Data Incasso";
+                        ws.Cell(currentRow, 2).Value = "Importo";
+                        ws.Cell(currentRow, 3).Value = "N° Fattura";
+                        ws.Cell(currentRow, 4).Value = "Data Fattura";
+                        ws.Cell(currentRow, 5).Value = "Cliente";
+                        ws.Range(currentRow, 1, currentRow, 5).Style.Font.Bold = true;
+                        ws.Range(currentRow, 1, currentRow, 5).Style.Fill.BackgroundColor = XLColor.FromHtml("#e9ecef");
+                        currentRow++;
+
+                        decimal totaleMese = 0;
+                        foreach (var inc in incassiMese)
+                        {
+                            ws.Cell(currentRow, 1).Value = inc.IncassoFattura!.DataIncasso.ToString("dd/MM/yyyy");
+                            ws.Cell(currentRow, 2).Value = inc.Importo;
+                            ws.Cell(currentRow, 2).Style.NumberFormat.Format = "€ #,##0.00";
+                            ws.Cell(currentRow, 3).Value = inc.IncassoFattura.ScadenzaFatturazione?.NumeroFattura?.ToString() ?? "-";
+                            ws.Cell(currentRow, 4).Value = inc.IncassoFattura.ScadenzaFatturazione?.DataFattura?.ToString("dd/MM/yyyy") ?? "-";
+                            ws.Cell(currentRow, 5).Value = inc.IncassoFattura.ScadenzaFatturazione?.Cliente?.RagioneSociale ?? "-";
+                            
+                            totaleMese += inc.Importo;
+                            currentRow++;
+                        }
+
+                        // Subtotale mese
+                        ws.Cell(currentRow, 1).Value = $"Totale {mesi[m]}";
+                        ws.Cell(currentRow, 1).Style.Font.Bold = true;
+                        ws.Cell(currentRow, 2).Value = totaleMese;
+                        ws.Cell(currentRow, 2).Style.NumberFormat.Format = "€ #,##0.00";
+                        ws.Cell(currentRow, 2).Style.Font.Bold = true;
+                        ws.Range(currentRow, 1, currentRow, 5).Style.Fill.BackgroundColor = XLColor.FromHtml("#d4edda");
+                        currentRow += 2;
+                    }
+                }
+
+                // Totale annuo professionista
+                var totaleAnnuoProf = prof.Sum(i => i.Importo);
+                currentRow++;
+                ws.Cell(currentRow, 1).Value = "TOTALE ANNO";
+                ws.Cell(currentRow, 1).Style.Font.Bold = true;
+                ws.Cell(currentRow, 1).Style.Font.FontSize = 12;
+                ws.Cell(currentRow, 2).Value = totaleAnnuoProf;
+                ws.Cell(currentRow, 2).Style.NumberFormat.Format = "€ #,##0.00";
+                ws.Cell(currentRow, 2).Style.Font.Bold = true;
+                ws.Cell(currentRow, 2).Style.Font.FontSize = 12;
+                ws.Range(currentRow, 1, currentRow, 5).Style.Fill.BackgroundColor = XLColor.FromHtml("#17a2b8");
+                ws.Range(currentRow, 1, currentRow, 5).Style.Font.FontColor = XLColor.White;
+
+                ws.Columns().AdjustToContents();
+            }
+
+            // === FOGLIO TUTTI I DETTAGLI ===
+            var wsTutti = workbook.Worksheets.Add("Tutti i Dettagli");
+            wsTutti.Cell("A1").Value = $"Elenco Completo Incassi - Anno {annoCorrente}";
+            wsTutti.Cell("A1").Style.Font.Bold = true;
+            wsTutti.Cell("A1").Style.Font.FontSize = 14;
+            wsTutti.Range("A1:F1").Merge();
+
+            // Header
+            wsTutti.Cell("A3").Value = "Mese";
+            wsTutti.Cell("B3").Value = "Professionista";
+            wsTutti.Cell("C3").Value = "Data Incasso";
+            wsTutti.Cell("D3").Value = "Importo";
+            wsTutti.Cell("E3").Value = "N° Fattura";
+            wsTutti.Cell("F3").Value = "Data Fattura";
+            wsTutti.Cell("G3").Value = "Cliente";
+            wsTutti.Range("A3:G3").Style.Font.Bold = true;
+            wsTutti.Range("A3:G3").Style.Fill.BackgroundColor = XLColor.FromHtml("#343a40");
+            wsTutti.Range("A3:G3").Style.Font.FontColor = XLColor.White;
+
+            row = 4;
+            foreach (var inc in tuttiIncassi.OrderBy(i => i.IncassoFattura!.DataIncasso.Month).ThenBy(i => i.IncassoFattura!.DataIncasso))
+            {
+                var meseInc = inc.IncassoFattura!.DataIncasso.Month;
+                wsTutti.Cell(row, 1).Value = mesi[meseInc];
+                wsTutti.Cell(row, 2).Value = $"{inc.Utente?.Nome} {inc.Utente?.Cognome}";
+                wsTutti.Cell(row, 3).Value = inc.IncassoFattura.DataIncasso.ToString("dd/MM/yyyy");
+                wsTutti.Cell(row, 4).Value = inc.Importo;
+                wsTutti.Cell(row, 4).Style.NumberFormat.Format = "€ #,##0.00";
+                wsTutti.Cell(row, 5).Value = inc.IncassoFattura.ScadenzaFatturazione?.NumeroFattura?.ToString() ?? "-";
+                wsTutti.Cell(row, 6).Value = inc.IncassoFattura.ScadenzaFatturazione?.DataFattura?.ToString("dd/MM/yyyy") ?? "-";
+                wsTutti.Cell(row, 7).Value = inc.IncassoFattura.ScadenzaFatturazione?.Cliente?.RagioneSociale ?? "-";
+                
+                if (row % 2 == 0)
+                    wsTutti.Range(row, 1, row, 7).Style.Fill.BackgroundColor = XLColor.FromHtml("#f8f9fa");
+                
+                row++;
+            }
+
+            // Totale finale
+            wsTutti.Cell(row, 1).Value = "TOTALE";
+            wsTutti.Cell(row, 1).Style.Font.Bold = true;
+            wsTutti.Cell(row, 4).Value = tuttiIncassi.Sum(i => i.Importo);
+            wsTutti.Cell(row, 4).Style.NumberFormat.Format = "€ #,##0.00";
+            wsTutti.Cell(row, 4).Style.Font.Bold = true;
+            wsTutti.Range(row, 1, row, 7).Style.Fill.BackgroundColor = XLColor.FromHtml("#17a2b8");
+            wsTutti.Range(row, 1, row, 7).Style.Font.FontColor = XLColor.White;
+
+            wsTutti.Columns().AdjustToContents();
+
+            // === FOGLIO FATTURE DA INCASSARE ===
+            if (totaleDaIncassare > 0)
+            {
+                var wsDaIncassare = workbook.Worksheets.Add("Fatture Da Incassare");
+                wsDaIncassare.Cell("A1").Value = $"Fatture Da Incassare - Anno {annoCorrente}";
+                wsDaIncassare.Cell("A1").Style.Font.Bold = true;
+                wsDaIncassare.Cell("A1").Style.Font.FontSize = 16;
+                wsDaIncassare.Range("A1:G1").Merge();
+                
+                wsDaIncassare.Cell("A2").Value = $"Totale da incassare: {totaleDaIncassare:C}";
+                wsDaIncassare.Cell("A2").Style.Font.Bold = true;
+                wsDaIncassare.Cell("A2").Style.Font.FontColor = XLColor.Red;
+                
+                // Header
+                wsDaIncassare.Cell("A4").Value = "Mese Fatt.";
+                wsDaIncassare.Cell("B4").Value = "N° Fattura";
+                wsDaIncassare.Cell("C4").Value = "Data Fattura";
+                wsDaIncassare.Cell("D4").Value = "Cliente";
+                wsDaIncassare.Cell("E4").Value = "Importo Fattura";
+                wsDaIncassare.Cell("F4").Value = "Già Incassato";
+                wsDaIncassare.Cell("G4").Value = "Da Incassare";
+                wsDaIncassare.Cell("H4").Value = "Stato";
+                wsDaIncassare.Range("A4:H4").Style.Font.Bold = true;
+                wsDaIncassare.Range("A4:H4").Style.Fill.BackgroundColor = XLColor.FromHtml("#ffc107");
+                wsDaIncassare.Range("A4:H4").Style.Font.FontColor = XLColor.Black;
+                
+                // Carica fatture da incassare con dettagli
+                var fattureDaIncassareDettaglio = await _context.ScadenzeFatturazione
+                    .Include(s => s.Cliente)
+                    .Include(s => s.MandatoCliente)
+                    .Include(s => s.SpesePratiche)
+                    .Include(s => s.FattureCloud)
+                    .Include(s => s.BilanciCEE)
+                    .Include(s => s.AccessiClienti)
+                    .Include(s => s.Incassi)
+                    .Where(s => s.Anno == annoCorrente && s.NumeroFattura.HasValue &&
+                           (s.StatoIncasso == StatoIncasso.DaIncassare || s.StatoIncasso == StatoIncasso.ParzialmenteIncassata))
+                    .OrderBy(s => s.DataFattura)
+                    .ThenBy(s => s.Cliente!.RagioneSociale)
+                    .ToListAsync();
+                
+                row = 5;
+                foreach (var fat in fattureDaIncassareDettaglio)
+                {
+                    var meseFattura = fat.DataFattura?.Month ?? 0;
+                    var statoStr = fat.StatoIncasso == StatoIncasso.ParzialmenteIncassata ? "Parziale" : "Da Incassare";
+                    
+                    wsDaIncassare.Cell(row, 1).Value = meseFattura > 0 ? mesi[meseFattura] : "-";
+                    wsDaIncassare.Cell(row, 2).Value = fat.NumeroFatturaFormattato;
+                    wsDaIncassare.Cell(row, 3).Value = fat.DataFattura?.ToString("dd/MM/yyyy") ?? "-";
+                    wsDaIncassare.Cell(row, 4).Value = fat.Cliente?.RagioneSociale ?? "-";
+                    wsDaIncassare.Cell(row, 5).Value = fat.TotaleScadenza;
+                    wsDaIncassare.Cell(row, 5).Style.NumberFormat.Format = "€ #,##0.00";
+                    wsDaIncassare.Cell(row, 6).Value = fat.TotaleIncassato;
+                    wsDaIncassare.Cell(row, 6).Style.NumberFormat.Format = "€ #,##0.00";
+                    wsDaIncassare.Cell(row, 6).Style.Font.FontColor = XLColor.Green;
+                    wsDaIncassare.Cell(row, 7).Value = fat.ResiduoDaIncassare;
+                    wsDaIncassare.Cell(row, 7).Style.NumberFormat.Format = "€ #,##0.00";
+                    wsDaIncassare.Cell(row, 7).Style.Font.Bold = true;
+                    wsDaIncassare.Cell(row, 7).Style.Font.FontColor = XLColor.Red;
+                    wsDaIncassare.Cell(row, 8).Value = statoStr;
+                    
+                    // Colore riga in base allo stato
+                    if (fat.StatoIncasso == StatoIncasso.ParzialmenteIncassata)
+                    {
+                        wsDaIncassare.Range(row, 1, row, 8).Style.Fill.BackgroundColor = XLColor.FromHtml("#cff4fc"); // Info light
+                    }
+                    else if (row % 2 == 0)
+                    {
+                        wsDaIncassare.Range(row, 1, row, 8).Style.Fill.BackgroundColor = XLColor.FromHtml("#fff3cd"); // Warning light
+                    }
+                    
+                    row++;
+                }
+                
+                // Riga totale
+                wsDaIncassare.Cell(row, 1).Value = "TOTALE";
+                wsDaIncassare.Cell(row, 1).Style.Font.Bold = true;
+                wsDaIncassare.Cell(row, 5).Value = fattureDaIncassareDettaglio.Sum(f => f.TotaleScadenza);
+                wsDaIncassare.Cell(row, 5).Style.NumberFormat.Format = "€ #,##0.00";
+                wsDaIncassare.Cell(row, 5).Style.Font.Bold = true;
+                wsDaIncassare.Cell(row, 6).Value = fattureDaIncassareDettaglio.Sum(f => f.TotaleIncassato);
+                wsDaIncassare.Cell(row, 6).Style.NumberFormat.Format = "€ #,##0.00";
+                wsDaIncassare.Cell(row, 6).Style.Font.Bold = true;
+                wsDaIncassare.Cell(row, 7).Value = fattureDaIncassareDettaglio.Sum(f => f.ResiduoDaIncassare);
+                wsDaIncassare.Cell(row, 7).Style.NumberFormat.Format = "€ #,##0.00";
+                wsDaIncassare.Cell(row, 7).Style.Font.Bold = true;
+                wsDaIncassare.Range(row, 1, row, 8).Style.Fill.BackgroundColor = XLColor.FromHtml("#dc3545");
+                wsDaIncassare.Range(row, 1, row, 8).Style.Font.FontColor = XLColor.White;
+                
+                wsDaIncassare.Columns().AdjustToContents();
+            }
+
+            // Export
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            stream.Position = 0;
+
+            var fileName = $"Report_Professionisti_Dettagliato_{annoCorrente}.xlsx";
             return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
 

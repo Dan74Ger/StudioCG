@@ -47,8 +47,8 @@
     }
     <div class="row g-3 mb-4">
         <div class="col-md-4">
-            <a asp-action="Incassi" asp-route-anno="@annoSelezionato" asp-route-stato="1"
-               class="card text-decoration-none @(statoSelezionato == 1 ? "border-3 border-warning" : "")">
+            <a asp-action="Incassi" asp-route-anno="@annoSelezionato" asp-route-stato="0"
+               class="card text-decoration-none @(statoSelezionato == 0 ? "border-3 border-warning" : "")">
                 <div class="card-body bg-warning bg-opacity-10">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
@@ -62,8 +62,8 @@
             </a>
         </div>
         <div class="col-md-4">
-            <a asp-action="Incassi" asp-route-anno="@annoSelezionato" asp-route-stato="2"
-               class="card text-decoration-none @(statoSelezionato == 2 ? "border-3 border-info" : "")">
+            <a asp-action="Incassi" asp-route-anno="@annoSelezionato" asp-route-stato="1"
+               class="card text-decoration-none @(statoSelezionato == 1 ? "border-3 border-info" : "")">
                 <div class="card-body bg-info bg-opacity-10">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
@@ -77,8 +77,8 @@
             </a>
         </div>
         <div class="col-md-4">
-            <a asp-action="Incassi" asp-route-anno="@annoSelezionato" asp-route-stato="3"
-               class="card text-decoration-none @(statoSelezionato == 3 ? "border-3 border-success" : "")">
+            <a asp-action="Incassi" asp-route-anno="@annoSelezionato" asp-route-stato="2"
+               class="card text-decoration-none @(statoSelezionato == 2 ? "border-3 border-success" : "")">
                 <div class="card-body bg-success bg-opacity-10">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
@@ -114,9 +114,9 @@
                     <label class="form-label small text-muted">Stato</label>
                     <select name="stato" class="form-select form-select-sm">
                         <option value="">-- Tutti --</option>
-                        <option value="1" selected="@(statoSelezionato == 1)">Da Incassare</option>
-                        <option value="2" selected="@(statoSelezionato == 2)">Parzialmente Incassate</option>
-                        <option value="3" selected="@(statoSelezionato == 3)">Incassate</option>
+                        <option value="0" selected="@(statoSelezionato == 0)">Da Incassare</option>
+                        <option value="1" selected="@(statoSelezionato == 1)">Parzialmente Incassate</option>
+                        <option value="2" selected="@(statoSelezionato == 2)">Incassate</option>
                     </select>
                 </div>
                 <div class="col-md-4">
@@ -251,7 +251,9 @@
                                                         data-fattura="@fat.NumeroFatturaFormattato"
                                                         data-cliente="@fat.Cliente?.RagioneSociale"
                                                         data-importo="@fat.TotaleScadenza.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
-                                                        data-residuo="@fat.ResiduoDaIncassare.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)">
+                                                        data-incassato="@fat.TotaleIncassato.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                        data-residuo="@fat.ResiduoDaIncassare.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                        data-incassi='@(fat.Incassi?.Any() == true ? System.Text.Json.JsonSerializer.Serialize(fat.Incassi.Select(i => new { data = i.DataIncasso.ToString("dd/MM/yyyy"), importo = i.ImportoIncassato, note = i.Note, professionisti = i.SuddivisioneProfessionisti.Select(p => new { nome = p.Utente?.Nome + " " + p.Utente?.Cognome, importo = p.Importo }) })) : "[]")'>
                                                     <i class="fas fa-coins"></i>
                                                 </button>
                                             }
@@ -349,10 +351,45 @@
                         </div>
                         <div class="col-md-6 text-end">
                             <div>Importo Fattura: <strong id="incImporto"></strong></div>
+                            <div>Già Incassato: <span class="text-success" id="incGiaIncassato"></span></div>
                             <div>Residuo da Incassare: <span class="text-danger fw-bold" id="incResiduo"></span></div>
                         </div>
                     </div>
+                    
+                    <!-- Storico Incassi Precedenti -->
+                    <div id="storicoIncassiPrecedenti" class="mb-3" style="display: none;">
+                        <div class="card border-info">
+                            <div class="card-header bg-info bg-opacity-10 py-2">
+                                <h6 class="mb-0 text-info"><i class="fas fa-history me-2"></i>Incassi Precedenti</h6>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped mb-0">
+                                        <thead class="bg-light">
+                                            <tr>
+                                                <th>Data</th>
+                                                <th class="text-end">Importo</th>
+                                                <th>Note</th>
+                                                <th>Professionisti</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tabellaIncassiPrecedenti">
+                                        </tbody>
+                                        <tfoot class="bg-light">
+                                            <tr class="fw-bold">
+                                                <td>Totale</td>
+                                                <td class="text-end text-success" id="totaleIncassiPrecedenti"></td>
+                                                <td colspan="2"></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <hr>
+                    <h6 class="text-success"><i class="fas fa-plus-circle me-2"></i>Nuovo Incasso</h6>
                     
                     <div class="row">
                         <div class="col-md-6 mb-3">
@@ -468,9 +505,42 @@
         document.getElementById('incCliente').textContent = btn.getAttribute('data-cliente');
         document.getElementById('incImporto').textContent = formatCurrency(parseFloat(btn.getAttribute('data-importo')));
         
+        var incassato = parseFloat(btn.getAttribute('data-incassato')) || 0;
+        document.getElementById('incGiaIncassato').textContent = formatCurrency(incassato);
+        
         residuoCorrente = parseFloat(btn.getAttribute('data-residuo'));
         document.getElementById('incResiduo').textContent = formatCurrency(residuoCorrente);
         document.getElementById('incImportoInput').value = residuoCorrente.toFixed(2).replace('.', ',');
+        
+        // Mostra storico incassi precedenti se presenti
+        var incassiPrecedenti = JSON.parse(btn.getAttribute('data-incassi') || '[]');
+        var storicoDiv = document.getElementById('storicoIncassiPrecedenti');
+        var tabellaBody = document.getElementById('tabellaIncassiPrecedenti');
+        var totaleSpan = document.getElementById('totaleIncassiPrecedenti');
+        
+        if (incassiPrecedenti.length > 0) {
+            var html = '';
+            var totale = 0;
+            incassiPrecedenti.forEach(function(inc) {
+                totale += inc.importo;
+                var profs = inc.professionisti.map(function(p) { 
+                    return '<span class="badge bg-primary me-1">' + p.nome + '</span> ' + formatCurrency(p.importo);
+                }).join('<br>');
+                if (!profs) profs = '<span class="text-muted">-</span>';
+                
+                html += '<tr>';
+                html += '<td><i class="fas fa-calendar-day text-muted me-1"></i>' + inc.data + '</td>';
+                html += '<td class="text-end text-success fw-bold">' + formatCurrency(inc.importo) + '</td>';
+                html += '<td>' + (inc.note || '<span class="text-muted">-</span>') + '</td>';
+                html += '<td>' + profs + '</td>';
+                html += '</tr>';
+            });
+            tabellaBody.innerHTML = html;
+            totaleSpan.textContent = formatCurrency(totale);
+            storicoDiv.style.display = 'block';
+        } else {
+            storicoDiv.style.display = 'none';
+        }
         
         // Reset professionisti
         document.querySelectorAll('.prof-check').forEach(function(cb) {
