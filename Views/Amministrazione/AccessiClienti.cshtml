@@ -211,7 +211,15 @@
                                         <span class="badge bg-info">@acc.TotaleOre.ToString("0.00") h</span>
                                     </td>
                                     <td class="text-end">@acc.TariffaOraria.ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
-                                    <td class="text-end fw-bold">@acc.TotaleImporto.ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                    <td class="text-end fw-bold">
+                                        @acc.TotaleImporto.ToString("C", new System.Globalization.CultureInfo("it-IT"))
+                                        @if (acc.FatturazioneSeparata)
+                                        {
+                                            <span class="badge bg-warning text-dark ms-1" title="Fatturazione Separata">
+                                                <i class="fas fa-file-invoice"></i> Sep.
+                                            </span>
+                                        }
+                                    </td>
                                     <td>
                                         @if (acc.ScadenzaFatturazione != null)
                                         {
@@ -240,7 +248,9 @@
                                                     data-orafinepomeriggio="@acc.OraFinePomeriggio?.ToString(@"hh\:mm")"
                                                     data-tariffaoraria="@acc.TariffaOraria.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
                                                     data-scadenzaid="@acc.ScadenzaFatturazioneId"
-                                                    data-note="@acc.Note">
+                                                    data-datascadenza="@(acc.ScadenzaFatturazione?.DataScadenza.ToString("yyyy-MM-dd") ?? acc.Data.ToString("yyyy-MM-dd"))"
+                                                    data-note="@acc.Note"
+                                                    data-fattseparata="@acc.FatturazioneSeparata.ToString().ToLower()">
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                             <form asp-action="DeleteAccessoCliente" method="post" class="d-inline"
@@ -381,6 +391,20 @@
                         <label class="form-label">Note</label>
                         <textarea name="note" class="form-control" rows="2" maxlength="500"></textarea>
                     </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" name="fatturazioneSeparata" value="true" class="form-check-input" id="chkFattSeparataNuovo">
+                            <label class="form-check-label" for="chkFattSeparataNuovo">
+                                <i class="fas fa-file-invoice text-warning me-1"></i>Fatturazione Separata
+                            </label>
+                            <small class="form-text text-muted d-block">Se selezionato, questo accesso verrà fatturato come riga singola separata</small>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="dataScadenzaSeparataContainer" style="display: none;">
+                        <label class="form-label">Data Scadenza Fatturazione <span class="text-danger">*</span></label>
+                        <input type="date" name="dataScadenzaSeparata" id="dataScadenzaSeparataNuovo" class="form-control">
+                        <small class="form-text text-muted">Data della scadenza per la fatturazione separata</small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
@@ -488,6 +512,20 @@
                         <label class="form-label">Note</label>
                         <textarea name="note" id="editNote" class="form-control" rows="2" maxlength="500"></textarea>
                     </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" name="fatturazioneSeparata" value="true" class="form-check-input" id="editFattSeparata">
+                            <label class="form-check-label" for="editFattSeparata">
+                                <i class="fas fa-file-invoice text-warning me-1"></i>Fatturazione Separata
+                            </label>
+                            <small class="form-text text-muted d-block">Se selezionato, questo accesso verrà fatturato come riga singola separata</small>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="editDataScadenzaSeparataContainer" style="display: none;">
+                        <label class="form-label">Data Scadenza Fatturazione <span class="text-danger">*</span></label>
+                        <input type="date" name="dataScadenzaSeparata" id="editDataScadenzaSeparata" class="form-control">
+                        <small class="form-text text-muted">Data della scadenza per la fatturazione separata</small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
@@ -586,31 +624,80 @@
                     var opt = document.createElement('option');
                     opt.value = scad.id;
                     opt.textContent = scad.dataScadenza + ' - ' + scad.stato;
+                    opt.setAttribute('data-datascadenza', scad.dataScadenzaISO);
                     selectScadenza.appendChild(opt);
                 });
             });
     });
 
-    // Mostra/Nascondi campo data nuova scadenza (nuovo)
+    // Mostra/Nascondi campo data nuova scadenza (nuovo) + aggiorna data accesso
     document.getElementById('selectScadenzaNuovo').addEventListener('change', function() {
         var container = document.getElementById('nuovaScadenzaContainer');
         var dataInput = document.getElementById('dataNuovaScadenza');
+        var dataAccessoInput = document.querySelector('#modalNuovo input[name="data"]');
+        
         if (this.value === 'NUOVA') {
             container.style.display = 'block';
             dataInput.required = true;
         } else {
             container.style.display = 'none';
             dataInput.required = false;
+            
+            // Aggiorna data accesso con data della scadenza selezionata
+            var selectedOption = this.options[this.selectedIndex];
+            var dataScadenza = selectedOption.getAttribute('data-datascadenza');
+            if (dataScadenza && dataAccessoInput) {
+                dataAccessoInput.value = dataScadenza;
+            }
         }
     });
 
-    // Mostra/Nascondi campo data nuova scadenza (modifica)
+    // Mostra/Nascondi campo data nuova scadenza (modifica) + aggiorna data accesso
     document.getElementById('editScadenzaId').addEventListener('change', function() {
         var container = document.getElementById('editNuovaScadenzaContainer');
         var dataInput = document.getElementById('editDataNuovaScadenza');
+        var dataAccessoInput = document.getElementById('editData');
+        
         if (this.value === 'NUOVA') {
             container.style.display = 'block';
             dataInput.required = true;
+        } else {
+            container.style.display = 'none';
+            dataInput.required = false;
+            
+            // Aggiorna data accesso con data della scadenza selezionata
+            var selectedOption = this.options[this.selectedIndex];
+            var dataScadenza = selectedOption.getAttribute('data-datascadenza');
+            if (dataScadenza && dataAccessoInput) {
+                dataAccessoInput.value = dataScadenza;
+            }
+        }
+    });
+
+    // Mostra/Nascondi campo data scadenza separata (nuovo)
+    document.getElementById('chkFattSeparataNuovo').addEventListener('change', function() {
+        var container = document.getElementById('dataScadenzaSeparataContainer');
+        var dataInput = document.getElementById('dataScadenzaSeparataNuovo');
+        if (this.checked) {
+            container.style.display = 'block';
+            dataInput.required = true;
+            dataInput.value = new Date().toISOString().split('T')[0];
+        } else {
+            container.style.display = 'none';
+            dataInput.required = false;
+        }
+    });
+    
+    // Mostra/Nascondi campo data scadenza separata (modifica)
+    document.getElementById('editFattSeparata').addEventListener('change', function() {
+        var container = document.getElementById('editDataScadenzaSeparataContainer');
+        var dataInput = document.getElementById('editDataScadenzaSeparata');
+        if (this.checked) {
+            container.style.display = 'block';
+            dataInput.required = true;
+            if (!dataInput.value) {
+                dataInput.value = new Date().toISOString().split('T')[0];
+            }
         } else {
             container.style.display = 'none';
             dataInput.required = false;
@@ -622,6 +709,7 @@
         var btn = event.relatedTarget;
         var clienteId = btn.getAttribute('data-clienteid');
         var scadenzaId = btn.getAttribute('data-scadenzaid');
+        var isFattSeparata = btn.getAttribute('data-fattseparata') === 'true';
         
         document.getElementById('editId').value = btn.getAttribute('data-id');
         document.getElementById('editClienteId').value = clienteId;
@@ -633,6 +721,19 @@
         document.getElementById('editOraFinePomeriggio').value = btn.getAttribute('data-orafinepomeriggio') || '';
         document.getElementById('editTariffa').value = btn.getAttribute('data-tariffaoraria').replace('.', ',');
         document.getElementById('editNote').value = btn.getAttribute('data-note') || '';
+        document.getElementById('editFattSeparata').checked = isFattSeparata;
+        
+        // Mostra/Nascondi campo data scadenza separata
+        var containerSep = document.getElementById('editDataScadenzaSeparataContainer');
+        var dataInputSep = document.getElementById('editDataScadenzaSeparata');
+        if (isFattSeparata) {
+            containerSep.style.display = 'block';
+            dataInputSep.required = true;
+            dataInputSep.value = btn.getAttribute('data-datascadenza') || btn.getAttribute('data-data');
+        } else {
+            containerSep.style.display = 'none';
+            dataInputSep.required = false;
+        }
 
         // Calcola ore
         calcolaOreEdit();
@@ -648,6 +749,7 @@
                     var opt = document.createElement('option');
                     opt.value = scad.id;
                     opt.textContent = scad.dataScadenza + ' - ' + scad.stato;
+                    opt.setAttribute('data-datascadenza', scad.dataScadenzaISO);
                     if (scad.id == scadenzaId) opt.selected = true;
                     selectScadenza.appendChild(opt);
                 });

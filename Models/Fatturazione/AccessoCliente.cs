@@ -58,6 +58,9 @@ namespace StudioCG.Web.Models.Fatturazione
         [StringLength(500)]
         public string? Note { get; set; }
 
+        [Display(Name = "Fatturazione Separata")]
+        public bool FatturazioneSeparata { get; set; } = false;
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? UpdatedAt { get; set; }
 

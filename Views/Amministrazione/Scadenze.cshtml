@@ -226,17 +226,23 @@
                                         }
                                     </td>
                                     <td class="text-end">
-                                        @if (scad.TotaleSpese > 0)
-                                        {
-                                            <span class="text-info">+@scad.TotaleSpese.ToString("C", new System.Globalization.CultureInfo("it-IT"))</span>
-                                            
+                                        @{
                                             var countSpese = scad.SpesePratiche?.Count ?? 0;
                                             var countAccessi = scad.AccessiClienti?.Count ?? 0;
                                             var countCloud = scad.FattureCloud?.Count ?? 0;
                                             var countBilanci = scad.BilanciCEE?.Count ?? 0;
                                             var countExtra = countSpese + countAccessi + countCloud + countBilanci;
-
-                                            <span class="badge bg-info ms-1" title="Numero voci extra (Spese Pratiche + Accessi + Cloud + Bilanci)">@countExtra</span>
+                                        }
+                                        @if (scad.TotaleSpese > 0)
+                                        {
+                                            <span class="@(scad.HaVociSeparate ? "text-warning fw-bold" : "text-info")">
+                                                +@scad.TotaleSpese.ToString("C", new System.Globalization.CultureInfo("it-IT"))
+                                            </span>
+                                            @if (scad.HaVociSeparate)
+                                            {
+                                                <span class="badge bg-warning text-dark ms-1" title="Scadenza con fatturazione separata">@scad.NumeroVociSeparate sep.</span>
+                                            }
+                                            <span class="badge bg-info ms-1" title="Numero voci extra totali">@countExtra</span>
                                             <button type="button" class="btn btn-sm btn-link p-0 ms-1" 
                                                     onclick="mostraDettaglioSpese(@scad.Id)"
                                                     title="Vedi dettaglio spese extra">
@@ -733,8 +739,10 @@
                 // Spese Pratiche
                 if (data.spesePratiche && data.spesePratiche.length > 0) {
                     data.spesePratiche.forEach(spesa => {
-                        var row = `<tr>
-                            <td><i class="fas fa-file-invoice text-primary me-2"></i>Spesa Pratica</td>
+                        var sepBadge = spesa.fatturazioneSeparata ? '<span class="badge bg-warning text-dark ms-1">Sep.</span>' : '';
+                        var rowClass = spesa.fatturazioneSeparata ? 'table-warning' : '';
+                        var row = `<tr class="${rowClass}">
+                            <td><i class="fas fa-file-invoice text-primary me-2"></i>Spesa Pratica ${sepBadge}</td>
                             <td>${spesa.descrizione}</td>
                             <td class="text-end">${formatCurrency(spesa.importo)}</td>
                         </tr>`;
@@ -746,8 +754,10 @@
                 // Accessi Clienti
                 if (data.accessiClienti && data.accessiClienti.length > 0) {
                     data.accessiClienti.forEach(accesso => {
-                        var row = `<tr>
-                            <td><i class="fas fa-clock text-success me-2"></i>Accesso Cliente</td>
+                        var sepBadge = accesso.fatturazioneSeparata ? '<span class="badge bg-warning text-dark ms-1">Sep.</span>' : '';
+                        var rowClass = accesso.fatturazioneSeparata ? 'table-warning' : '';
+                        var row = `<tr class="${rowClass}">
+                            <td><i class="fas fa-clock text-success me-2"></i>Accesso Cliente ${sepBadge}</td>
                             <td>${accesso.ore}h × ${formatCurrency(accesso.tariffa)}/h (${accesso.data})</td>
                             <td class="text-end">${formatCurrency(accesso.importo)}</td>
                         </tr>`;
@@ -759,8 +769,10 @@
                 // Fatture Cloud
                 if (data.fattureCloud && data.fattureCloud.length > 0) {
                     data.fattureCloud.forEach(fc => {
-                        var row = `<tr>
-                            <td><i class="fas fa-cloud text-info me-2"></i>Fatture in Cloud</td>
+                        var sepBadge = fc.fatturazioneSeparata ? '<span class="badge bg-warning text-dark ms-1">Sep.</span>' : '';
+                        var rowClass = fc.fatturazioneSeparata ? 'table-warning' : '';
+                        var row = `<tr class="${rowClass}">
+                            <td><i class="fas fa-cloud text-info me-2"></i>Fatture in Cloud ${sepBadge}</td>
                             <td>Servizio annuale</td>
                             <td class="text-end">${formatCurrency(fc.importo)}</td>
                         </tr>`;
@@ -772,8 +784,10 @@
                 // Bilanci CEE
                 if (data.bilanciCEE && data.bilanciCEE.length > 0) {
                     data.bilanciCEE.forEach(bil => {
-                        var row = `<tr>
-                            <td><i class="fas fa-balance-scale text-warning me-2"></i>Bilancio CEE</td>
+                        var sepBadge = bil.fatturazioneSeparata ? '<span class="badge bg-warning text-dark ms-1">Sep.</span>' : '';
+                        var rowClass = bil.fatturazioneSeparata ? 'table-warning' : '';
+                        var row = `<tr class="${rowClass}">
+                            <td><i class="fas fa-balance-scale text-warning me-2"></i>Bilancio CEE ${sepBadge}</td>
                             <td>Bilancio annuale</td>
                             <td class="text-end">${formatCurrency(bil.importo)}</td>
                         </tr>`;

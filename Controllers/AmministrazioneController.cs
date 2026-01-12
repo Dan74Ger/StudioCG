@@ -364,6 +364,7 @@ namespace StudioCG.Web.Controllers
                 {
                     id = s.Id,
                     dataScadenza = s.DataScadenza.ToString("dd/MM/yyyy"),
+                    dataScadenzaISO = s.DataScadenza.ToString("yyyy-MM-dd"), // formato ISO per campo date HTML
                     stato = s.Stato.ToString()
                 })
                 .ToListAsync();
@@ -393,7 +394,8 @@ namespace StudioCG.Web.Controllers
                 {
                     descrizione = sp.Descrizione,
                     importo = sp.Importo,
-                    data = sp.Data.ToString("dd/MM/yyyy")
+                    data = sp.Data.ToString("dd/MM/yyyy"),
+                    fatturazioneSeparata = sp.FatturazioneSeparata
                 }).ToList(),
 
                 accessiClienti = scadenza.AccessiClienti?.Select(ac => new
@@ -401,17 +403,20 @@ namespace StudioCG.Web.Controllers
                     ore = ac.TotaleOre,
                     tariffa = ac.TariffaOraria,
                     importo = ac.TotaleImporto,
-                    data = ac.Data.ToString("dd/MM/yyyy")
+                    data = ac.Data.ToString("dd/MM/yyyy"),
+                    fatturazioneSeparata = ac.FatturazioneSeparata
                 }).ToList(),
 
                 fattureCloud = scadenza.FattureCloud?.Select(fc => new
                 {
-                    importo = fc.Importo
+                    importo = fc.Importo,
+                    fatturazioneSeparata = fc.FatturazioneSeparata
                 }).ToList(),
 
                 bilanciCEE = scadenza.BilanciCEE?.Select(b => new
                 {
-                    importo = b.Importo
+                    importo = b.Importo,
+                    fatturazioneSeparata = b.FatturazioneSeparata
                 }).ToList()
             };
 
@@ -422,32 +427,53 @@ namespace StudioCG.Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateSpesaPratica(int clienteId, string? scadenzaFatturazioneId, 
-            string descrizione, string importo, DateTime data, int anno, DateTime? dataNuovaScadenza)
+            string descrizione, string importo, DateTime data, int anno, DateTime? dataNuovaScadenza, bool fatturazioneSeparata = false, DateTime? dataScadenzaSeparata = null)
         {
             try
             {
-                // Parsing importo (gestisce sia virgola che punto)
                 var importoDecimal = decimal.Parse(importo.Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture);
+                var cliente = await _context.Clienti.FindAsync(clienteId);
 
-                // Ottieni l'utente corrente
                 var username = User.Identity?.Name;
                 var utente = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
 
-                // LOGICA DI COLLEGAMENTO SCADENZA
                 int? scadenzaFinalId = null;
                 bool scadenzaCreataAutomaticamente = false;
 
-                // Se l'utente ha selezionato "NUOVA" → crea nuova scadenza (anche senza mandato)
-                if (scadenzaFatturazioneId == "NUOVA" && dataNuovaScadenza.HasValue)
+                // Se FATTURAZIONE SEPARATA → crea sempre una scadenza dedicata
+                if (fatturazioneSeparata)
+                {
+                    var dataScadenzaEffettiva = dataScadenzaSeparata ?? data; // Usa la data scadenza specificata o la data della spesa
+                    var scadenzaSeparata = new ScadenzaFatturazione
+                    {
+                        ClienteId = clienteId,
+                        MandatoClienteId = null,
+                        DataScadenza = dataScadenzaEffettiva,
+                        Anno = anno,
+                        Stato = StatoScadenza.Aperta,
+                        ImportoMandato = 0,
+                        RimborsoSpese = 0,
+                        Note = $"Spesa Pratica (fatturazione separata) - {descrizione} - {cliente?.RagioneSociale}",
+                        CreatedAt = DateTime.Now,
+                        UpdatedAt = DateTime.Now
+                    };
+
+                    _context.ScadenzeFatturazione.Add(scadenzaSeparata);
+                    await _context.SaveChangesAsync();
+
+                    scadenzaFinalId = scadenzaSeparata.Id;
+                    scadenzaCreataAutomaticamente = true;
+                }
+                else if (scadenzaFatturazioneId == "NUOVA" && dataNuovaScadenza.HasValue)
                 {
                     var nuovaScadenza = new ScadenzaFatturazione
                     {
                         ClienteId = clienteId,
-                        MandatoClienteId = null, // Scadenza libera, senza mandato
+                        MandatoClienteId = null,
                         DataScadenza = dataNuovaScadenza.Value,
                         Anno = anno,
                         Stato = StatoScadenza.Aperta,
-                        ImportoMandato = 0, // L'importo viene dalle spese/ft cloud/bilanci
+                        ImportoMandato = 0,
                         RimborsoSpese = 0,
                         Note = $"Scadenza creata per: {descrizione}",
                         CreatedAt = DateTime.Now,
@@ -462,7 +488,6 @@ namespace StudioCG.Web.Controllers
                 }
                 else if (!string.IsNullOrEmpty(scadenzaFatturazioneId) && int.TryParse(scadenzaFatturazioneId, out int scadenzaId) && scadenzaId > 0)
                 {
-                    // Scadenza selezionata manualmente → verifica che sia aperta
                     var scadenza = await _context.ScadenzeFatturazione.FindAsync(scadenzaId);
                     if (scadenza == null || scadenza.Stato != StatoScadenza.Aperta)
                     {
@@ -471,7 +496,6 @@ namespace StudioCG.Web.Controllers
                     }
                     scadenzaFinalId = scadenzaId;
                 }
-                // Se nessuna scadenza selezionata → la spesa resta senza scadenza (verrà mostrata comunque)
 
                 var spesa = new SpesaPratica
                 {
@@ -481,6 +505,7 @@ namespace StudioCG.Web.Controllers
                     Importo = importoDecimal,
                     Data = data,
                     UtenteId = utente?.Id,
+                    FatturazioneSeparata = fatturazioneSeparata,
                     CreatedAt = DateTime.Now,
                     UpdatedAt = DateTime.Now
                 };
@@ -488,7 +513,11 @@ namespace StudioCG.Web.Controllers
                 _context.SpesePratiche.Add(spesa);
                 await _context.SaveChangesAsync();
 
-                if (scadenzaCreataAutomaticamente)
+                if (fatturazioneSeparata)
+                {
+                    TempData["Success"] = "Spesa creata con scadenza SEPARATA dedicata.";
+                }
+                else if (scadenzaCreataAutomaticamente)
                 {
                     TempData["Success"] = "Spesa creata e collegata a nuova scadenza automatica in Fatturazione.";
                 }
@@ -513,12 +542,13 @@ namespace StudioCG.Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateSpesaPratica(int id, string? scadenzaFatturazioneId, 
-            string descrizione, string importo, DateTime data, int anno, DateTime? dataNuovaScadenza)
+            string descrizione, string importo, DateTime data, int anno, DateTime? dataNuovaScadenza, bool fatturazioneSeparata = false, DateTime? dataScadenzaSeparata = null)
         {
             try
             {
                 var spesa = await _context.SpesePratiche
                     .Include(s => s.ScadenzaFatturazione)
+                    .Include(s => s.Cliente)
                     .FirstOrDefaultAsync(s => s.Id == id);
 
                 if (spesa == null)
@@ -527,16 +557,52 @@ namespace StudioCG.Web.Controllers
                     return RedirectToAction(nameof(SpesePratiche), new { anno });
                 }
 
-                // Le spese pratiche sono SEMPRE modificabili
                 int? scadenzaFinalId = null;
+                bool scadenzaSeparataCreata = false;
 
-                // Se l'utente ha selezionato "NUOVA" → crea nuova scadenza (anche senza mandato)
-                if (scadenzaFatturazioneId == "NUOVA" && dataNuovaScadenza.HasValue)
+                // Se FATTURAZIONE SEPARATA → verifica se è già su scadenza dedicata
+                if (fatturazioneSeparata)
+                {
+                    var scadenzaAttuale = spesa.ScadenzaFatturazione;
+                    bool giaSuScadenzaDedicata = scadenzaAttuale != null 
+                        && scadenzaAttuale.MandatoClienteId == null 
+                        && scadenzaAttuale.ImportoMandato == 0
+                        && scadenzaAttuale.RimborsoSpese == 0;
+
+                    if (!giaSuScadenzaDedicata)
+                    {
+                        var dataScadenzaEffettiva = dataScadenzaSeparata ?? data;
+                        var scadenzaSeparata = new ScadenzaFatturazione
+                        {
+                            ClienteId = spesa.ClienteId,
+                            MandatoClienteId = null,
+                            DataScadenza = dataScadenzaEffettiva,
+                            Anno = anno,
+                            Stato = StatoScadenza.Aperta,
+                            ImportoMandato = 0,
+                            RimborsoSpese = 0,
+                            Note = $"Spesa Pratica (fatturazione separata) - {descrizione} - {spesa.Cliente?.RagioneSociale}",
+                            CreatedAt = DateTime.Now,
+                            UpdatedAt = DateTime.Now
+                        };
+
+                        _context.ScadenzeFatturazione.Add(scadenzaSeparata);
+                        await _context.SaveChangesAsync();
+
+                        scadenzaFinalId = scadenzaSeparata.Id;
+                        scadenzaSeparataCreata = true;
+                    }
+                    else
+                    {
+                        scadenzaFinalId = spesa.ScadenzaFatturazioneId;
+                    }
+                }
+                else if (scadenzaFatturazioneId == "NUOVA" && dataNuovaScadenza.HasValue)
                 {
                     var nuovaScadenza = new ScadenzaFatturazione
                     {
                         ClienteId = spesa.ClienteId,
-                        MandatoClienteId = null, // Scadenza libera
+                        MandatoClienteId = null,
                         DataScadenza = dataNuovaScadenza.Value,
                         Anno = anno,
                         Stato = StatoScadenza.Aperta,
@@ -569,10 +635,19 @@ namespace StudioCG.Web.Controllers
                 spesa.Descrizione = descrizione;
                 spesa.Importo = importoDecimal;
                 spesa.Data = data;
+                spesa.FatturazioneSeparata = fatturazioneSeparata;
                 spesa.UpdatedAt = DateTime.Now;
 
                 await _context.SaveChangesAsync();
-                TempData["Success"] = "Spesa pratica aggiornata con successo.";
+                
+                if (scadenzaSeparataCreata)
+                {
+                    TempData["Success"] = "Spesa spostata su scadenza SEPARATA dedicata.";
+                }
+                else
+                {
+                    TempData["Success"] = "Spesa pratica aggiornata con successo.";
+                }
             }
             catch (Exception ex)
             {
@@ -715,14 +790,43 @@ namespace StudioCG.Web.Controllers
         public async Task<IActionResult> CreateAccessoCliente(int clienteId, string scadenzaFatturazioneId, 
             DateTime data, string? oraInizioMattina, string? oraFineMattina,
             string? oraInizioPomeriggio, string? oraFinePomeriggio,
-            string tariffaOraria, string? note, int anno, DateTime? dataNuovaScadenza)
+            string tariffaOraria, string? note, int anno, DateTime? dataNuovaScadenza, bool fatturazioneSeparata = false, DateTime? dataScadenzaSeparata = null)
         {
             try
             {
+                var tariffaDecimal = decimal.Parse(tariffaOraria.Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture);
+                var cliente = await _context.Clienti.FindAsync(clienteId);
+
+                var username = User.Identity?.Name;
+                var utente = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+
                 int scadenzaId;
+                bool scadenzaSeparataCreata = false;
                 
-                // Se è richiesta una nuova scadenza, la creiamo
-                if (scadenzaFatturazioneId == "NUOVA")
+                // Se FATTURAZIONE SEPARATA → crea sempre una scadenza dedicata
+                if (fatturazioneSeparata)
+                {
+                    var dataScadenzaEffettiva = dataScadenzaSeparata ?? data; // Usa la data scadenza specificata o la data dell'accesso
+                    var scadenzaSeparata = new ScadenzaFatturazione
+                    {
+                        ClienteId = clienteId,
+                        MandatoClienteId = null,
+                        Anno = anno,
+                        DataScadenza = dataScadenzaEffettiva,
+                        ImportoMandato = 0,
+                        RimborsoSpese = 0,
+                        Stato = StatoScadenza.Aperta,
+                        Note = $"Accesso Cliente (fatturazione separata) - {cliente?.RagioneSociale}",
+                        CreatedAt = DateTime.Now,
+                        UpdatedAt = DateTime.Now
+                    };
+                    
+                    _context.ScadenzeFatturazione.Add(scadenzaSeparata);
+                    await _context.SaveChangesAsync();
+                    scadenzaId = scadenzaSeparata.Id;
+                    scadenzaSeparataCreata = true;
+                }
+                else if (scadenzaFatturazioneId == "NUOVA")
                 {
                     if (!dataNuovaScadenza.HasValue)
                     {
@@ -735,7 +839,7 @@ namespace StudioCG.Web.Controllers
                         ClienteId = clienteId,
                         Anno = anno,
                         DataScadenza = dataNuovaScadenza.Value,
-                        ImportoMandato = 0, // Verrà calcolato dal totale degli accessi
+                        ImportoMandato = 0,
                         Stato = StatoScadenza.Aperta,
                         CreatedAt = DateTime.Now,
                         UpdatedAt = DateTime.Now
@@ -750,17 +854,15 @@ namespace StudioCG.Web.Controllers
                     scadenzaId = int.Parse(scadenzaFatturazioneId);
                 }
                 
-                var scadenza = await _context.ScadenzeFatturazione.FindAsync(scadenzaId);
-                if (scadenza == null || scadenza.Stato != StatoScadenza.Aperta)
+                if (!fatturazioneSeparata)
                 {
-                    TempData["Error"] = "La scadenza selezionata non è disponibile.";
-                    return RedirectToAction(nameof(AccessiClienti), new { anno });
+                    var scadenza = await _context.ScadenzeFatturazione.FindAsync(scadenzaId);
+                    if (scadenza == null || scadenza.Stato != StatoScadenza.Aperta)
+                    {
+                        TempData["Error"] = "La scadenza selezionata non è disponibile.";
+                        return RedirectToAction(nameof(AccessiClienti), new { anno });
+                    }
                 }
-
-                var tariffaDecimal = decimal.Parse(tariffaOraria.Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture);
-
-                var username = User.Identity?.Name;
-                var utente = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
 
                 var accesso = new AccessoCliente
                 {
@@ -774,6 +876,7 @@ namespace StudioCG.Web.Controllers
                     TariffaOraria = tariffaDecimal,
                     Note = note,
                     UtenteId = utente?.Id,
+                    FatturazioneSeparata = fatturazioneSeparata,
                     CreatedAt = DateTime.Now,
                     UpdatedAt = DateTime.Now
                 };
@@ -781,7 +884,14 @@ namespace StudioCG.Web.Controllers
                 _context.AccessiClienti.Add(accesso);
                 await _context.SaveChangesAsync();
 
-                TempData["Success"] = $"Accesso registrato: {accesso.TotaleOre:0.00} ore = {accesso.TotaleImporto:C}";
+                if (scadenzaSeparataCreata)
+                {
+                    TempData["Success"] = $"Accesso registrato con scadenza SEPARATA: {accesso.TotaleOre:0.00} ore = {accesso.TotaleImporto:C}";
+                }
+                else
+                {
+                    TempData["Success"] = $"Accesso registrato: {accesso.TotaleOre:0.00} ore = {accesso.TotaleImporto:C}";
+                }
             }
             catch (Exception ex)
             {
@@ -797,11 +907,14 @@ namespace StudioCG.Web.Controllers
         public async Task<IActionResult> UpdateAccessoCliente(int id, string scadenzaFatturazioneId, 
             DateTime data, string? oraInizioMattina, string? oraFineMattina,
             string? oraInizioPomeriggio, string? oraFinePomeriggio,
-            string tariffaOraria, string? note, int anno, DateTime? dataNuovaScadenza)
+            string tariffaOraria, string? note, int anno, DateTime? dataNuovaScadenza, bool fatturazioneSeparata = false, DateTime? dataScadenzaSeparata = null)
         {
             try
             {
-                var accesso = await _context.AccessiClienti.FindAsync(id);
+                var accesso = await _context.AccessiClienti
+                    .Include(a => a.Cliente)
+                    .Include(a => a.ScadenzaFatturazione)
+                    .FirstOrDefaultAsync(a => a.Id == id);
 
                 if (accesso == null)
                 {
@@ -809,12 +922,47 @@ namespace StudioCG.Web.Controllers
                     return RedirectToAction(nameof(AccessiClienti), new { anno });
                 }
 
-                // Gli accessi clienti sono SEMPRE modificabili
-
                 int scadenzaId;
+                bool scadenzaSeparataCreata = false;
                 
-                // Se è richiesta una nuova scadenza, la creiamo
-                if (scadenzaFatturazioneId == "NUOVA")
+                // Se FATTURAZIONE SEPARATA → verifica se è già su scadenza dedicata
+                if (fatturazioneSeparata)
+                {
+                    var scadenzaAttuale = accesso.ScadenzaFatturazione;
+                    bool giaSuScadenzaDedicata = scadenzaAttuale != null 
+                        && scadenzaAttuale.MandatoClienteId == null 
+                        && scadenzaAttuale.ImportoMandato == 0
+                        && scadenzaAttuale.RimborsoSpese == 0;
+
+                    if (!giaSuScadenzaDedicata)
+                    {
+                        var dataScadenzaEffettiva = dataScadenzaSeparata ?? data;
+                        var scadenzaSeparata = new ScadenzaFatturazione
+                        {
+                            ClienteId = accesso.ClienteId,
+                            MandatoClienteId = null,
+                            Anno = anno,
+                            DataScadenza = dataScadenzaEffettiva,
+                            ImportoMandato = 0,
+                            RimborsoSpese = 0,
+                            Stato = StatoScadenza.Aperta,
+                            Note = $"Accesso Cliente (fatturazione separata) - {accesso.Cliente?.RagioneSociale}",
+                            CreatedAt = DateTime.Now,
+                            UpdatedAt = DateTime.Now
+                        };
+                        
+                        _context.ScadenzeFatturazione.Add(scadenzaSeparata);
+                        await _context.SaveChangesAsync();
+                        scadenzaId = scadenzaSeparata.Id;
+                        scadenzaSeparataCreata = true;
+                    }
+                    else
+                    {
+                        scadenzaId = accesso.ScadenzaFatturazioneId;
+                        scadenzaSeparataCreata = true; // Non serve validare, è già su scadenza dedicata
+                    }
+                }
+                else if (scadenzaFatturazioneId == "NUOVA")
                 {
                     if (!dataNuovaScadenza.HasValue)
                     {
@@ -842,11 +990,14 @@ namespace StudioCG.Web.Controllers
                     scadenzaId = int.Parse(scadenzaFatturazioneId);
                 }
 
-                var nuovaScadenza = await _context.ScadenzeFatturazione.FindAsync(scadenzaId);
-                if (nuovaScadenza == null || nuovaScadenza.Stato != StatoScadenza.Aperta)
+                if (!scadenzaSeparataCreata)
                 {
-                    TempData["Error"] = "La scadenza selezionata non è disponibile.";
-                    return RedirectToAction(nameof(AccessiClienti), new { anno });
+                    var nuovaScadenza = await _context.ScadenzeFatturazione.FindAsync(scadenzaId);
+                    if (nuovaScadenza == null || nuovaScadenza.Stato != StatoScadenza.Aperta)
+                    {
+                        TempData["Error"] = "La scadenza selezionata non è disponibile.";
+                        return RedirectToAction(nameof(AccessiClienti), new { anno });
+                    }
                 }
 
                 accesso.ScadenzaFatturazioneId = scadenzaId;
@@ -857,10 +1008,19 @@ namespace StudioCG.Web.Controllers
                 accesso.OraFinePomeriggio = string.IsNullOrEmpty(oraFinePomeriggio) ? null : TimeSpan.Parse(oraFinePomeriggio);
                 accesso.TariffaOraria = decimal.Parse(tariffaOraria.Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture);
                 accesso.Note = note;
+                accesso.FatturazioneSeparata = fatturazioneSeparata;
                 accesso.UpdatedAt = DateTime.Now;
 
                 await _context.SaveChangesAsync();
-                TempData["Success"] = $"Accesso aggiornato: {accesso.TotaleOre:0.00} ore = {accesso.TotaleImporto:C}";
+                
+                if (scadenzaSeparataCreata)
+                {
+                    TempData["Success"] = $"Accesso spostato su scadenza SEPARATA: {accesso.TotaleOre:0.00} ore = {accesso.TotaleImporto:C}";
+                }
+                else
+                {
+                    TempData["Success"] = $"Accesso aggiornato: {accesso.TotaleOre:0.00} ore = {accesso.TotaleImporto:C}";
+                }
             }
             catch (Exception ex)
             {
@@ -1043,58 +1203,83 @@ namespace StudioCG.Web.Controllers
         // POST: /Amministrazione/CreateFatturaCloud
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateFatturaCloud(int clienteId, int? scadenzaFatturazioneId, string importo, DateTime dataScadenza, int anno)
+        public async Task<IActionResult> CreateFatturaCloud(int clienteId, int? scadenzaFatturazioneId, string importo, DateTime dataScadenza, int anno, bool fatturazioneSeparata = false)
         {
             try
             {
                 var importoDecimal = decimal.Parse(importo.Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture);
+                var cliente = await _context.Clienti.FindAsync(clienteId);
 
-                // LOGICA AUTOMATICA: cerca o crea scadenza
-                int? scadenzaFinalId = scadenzaFatturazioneId;
+                int? scadenzaFinalId = null;
                 bool scadenzaCreataAutomaticamente = false;
 
-                if (!scadenzaFinalId.HasValue || scadenzaFinalId.Value == 0)
+                // Se FATTURAZIONE SEPARATA → crea sempre una scadenza dedicata
+                if (fatturazioneSeparata)
                 {
-                    // 1. Cerca scadenza esistente APERTA con la stessa data
-                    var scadenzaEsistente = await _context.ScadenzeFatturazione
-                        .Where(s => s.ClienteId == clienteId 
-                                 && s.DataScadenza.Date == dataScadenza.Date 
-                                 && s.Stato == StatoScadenza.Aperta
-                                 && s.Anno == anno)
-                        .OrderByDescending(s => s.Id)
-                        .FirstOrDefaultAsync();
+                    var scadenzaSeparata = new ScadenzaFatturazione
+                    {
+                        ClienteId = clienteId,
+                        MandatoClienteId = null,
+                        DataScadenza = dataScadenza,
+                        Anno = anno,
+                        Stato = StatoScadenza.Aperta,
+                        ImportoMandato = 0,
+                        RimborsoSpese = 0,
+                        Note = $"Fattura in Cloud (fatturazione separata) - {cliente?.RagioneSociale}",
+                        CreatedAt = DateTime.Now,
+                        UpdatedAt = DateTime.Now
+                    };
 
-                    if (scadenzaEsistente != null)
+                    _context.ScadenzeFatturazione.Add(scadenzaSeparata);
+                    await _context.SaveChangesAsync();
+
+                    scadenzaFinalId = scadenzaSeparata.Id;
+                    scadenzaCreataAutomaticamente = true;
+                }
+                else
+                {
+                    scadenzaFinalId = scadenzaFatturazioneId;
+
+                    if (!scadenzaFinalId.HasValue || scadenzaFinalId.Value == 0)
                     {
-                        scadenzaFinalId = scadenzaEsistente.Id;
-                    }
-                    else
-                    {
-                        // 2. Crea nuova scadenza automaticamente (anche senza mandato)
-                        // Cerca mandato se esiste, altrimenti crea scadenza libera
-                        var mandato = await _context.MandatiClienti
-                            .Where(m => m.ClienteId == clienteId && m.Anno == anno && m.IsActive)
+                        var scadenzaEsistente = await _context.ScadenzeFatturazione
+                            .Where(s => s.ClienteId == clienteId 
+                                     && s.DataScadenza.Date == dataScadenza.Date 
+                                     && s.Stato == StatoScadenza.Aperta
+                                     && s.Anno == anno)
+                            .OrderByDescending(s => s.Id)
                             .FirstOrDefaultAsync();
 
-                        var nuovaScadenza = new ScadenzaFatturazione
+                        if (scadenzaEsistente != null)
                         {
-                            ClienteId = clienteId,
-                            MandatoClienteId = mandato?.Id, // null se non c'è mandato
-                            DataScadenza = dataScadenza,
-                            Anno = anno,
-                            Stato = StatoScadenza.Aperta,
-                            ImportoMandato = 0,
-                            RimborsoSpese = 0,
-                            Note = "Scadenza creata automaticamente per Fattura in Cloud",
-                            CreatedAt = DateTime.Now,
-                            UpdatedAt = DateTime.Now
-                        };
+                            scadenzaFinalId = scadenzaEsistente.Id;
+                        }
+                        else
+                        {
+                            var mandato = await _context.MandatiClienti
+                                .Where(m => m.ClienteId == clienteId && m.Anno == anno && m.IsActive)
+                                .FirstOrDefaultAsync();
 
-                        _context.ScadenzeFatturazione.Add(nuovaScadenza);
-                        await _context.SaveChangesAsync();
+                            var nuovaScadenza = new ScadenzaFatturazione
+                            {
+                                ClienteId = clienteId,
+                                MandatoClienteId = mandato?.Id,
+                                DataScadenza = dataScadenza,
+                                Anno = anno,
+                                Stato = StatoScadenza.Aperta,
+                                ImportoMandato = 0,
+                                RimborsoSpese = 0,
+                                Note = "Scadenza creata automaticamente per Fattura in Cloud",
+                                CreatedAt = DateTime.Now,
+                                UpdatedAt = DateTime.Now
+                            };
 
-                        scadenzaFinalId = nuovaScadenza.Id;
-                        scadenzaCreataAutomaticamente = true;
+                            _context.ScadenzeFatturazione.Add(nuovaScadenza);
+                            await _context.SaveChangesAsync();
+
+                            scadenzaFinalId = nuovaScadenza.Id;
+                            scadenzaCreataAutomaticamente = true;
+                        }
                     }
                 }
 
@@ -1105,6 +1290,7 @@ namespace StudioCG.Web.Controllers
                     ScadenzaFatturazioneId = scadenzaFinalId,
                     DataScadenza = dataScadenza,
                     Importo = importoDecimal,
+                    FatturazioneSeparata = fatturazioneSeparata,
                     CreatedAt = DateTime.Now,
                     UpdatedAt = DateTime.Now
                 };
@@ -1112,7 +1298,11 @@ namespace StudioCG.Web.Controllers
                 _context.FattureCloud.Add(fc);
                 await _context.SaveChangesAsync();
 
-                if (scadenzaCreataAutomaticamente)
+                if (fatturazioneSeparata)
+                {
+                    TempData["Success"] = "Fattura in Cloud aggiunta con scadenza SEPARATA dedicata.";
+                }
+                else if (scadenzaCreataAutomaticamente)
                 {
                     TempData["Success"] = "Fattura in Cloud aggiunta e collegata a nuova scadenza automatica.";
                 }
@@ -1136,11 +1326,14 @@ namespace StudioCG.Web.Controllers
         // POST: /Amministrazione/UpdateFatturaCloud
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateFatturaCloud(int id, string importo, int anno)
+        public async Task<IActionResult> UpdateFatturaCloud(int id, string importo, int anno, bool fatturazioneSeparata = false, DateTime? dataScadenzaSeparata = null)
         {
             try
             {
-                var fc = await _context.FattureCloud.FindAsync(id);
+                var fc = await _context.FattureCloud
+                    .Include(x => x.Cliente)
+                    .Include(x => x.ScadenzaFatturazione)
+                    .FirstOrDefaultAsync(x => x.Id == id);
 
                 if (fc == null)
                 {
@@ -1148,13 +1341,93 @@ namespace StudioCG.Web.Controllers
                     return RedirectToAction(nameof(FattureCloud), new { anno });
                 }
 
-                // Fatture Cloud sono SEMPRE modificabili
-
                 fc.Importo = decimal.Parse(importo.Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture);
                 fc.UpdatedAt = DateTime.Now;
 
+                // Gestione scadenza separata
+                if (fatturazioneSeparata)
+                {
+                    // Verifica se è già su una scadenza dedicata (senza mandato e senza rimborso)
+                    var scadenzaAttuale = fc.ScadenzaFatturazione;
+                    bool giaSuScadenzaDedicata = scadenzaAttuale != null 
+                        && scadenzaAttuale.MandatoClienteId == null 
+                        && scadenzaAttuale.ImportoMandato == 0
+                        && scadenzaAttuale.RimborsoSpese == 0;
+
+                    if (!giaSuScadenzaDedicata)
+                    {
+                        var dataScadenzaEffettiva = dataScadenzaSeparata ?? fc.DataScadenza;
+                        var scadenzaSeparata = new ScadenzaFatturazione
+                        {
+                            ClienteId = fc.ClienteId,
+                            MandatoClienteId = null,
+                            DataScadenza = dataScadenzaEffettiva,
+                            Anno = anno,
+                            Stato = StatoScadenza.Aperta,
+                            ImportoMandato = 0,
+                            RimborsoSpese = 0,
+                            Note = $"Fattura in Cloud (fatturazione separata) - {fc.Cliente?.RagioneSociale}",
+                            CreatedAt = DateTime.Now,
+                            UpdatedAt = DateTime.Now
+                        };
+
+                        _context.ScadenzeFatturazione.Add(scadenzaSeparata);
+                        await _context.SaveChangesAsync();
+
+                        fc.ScadenzaFatturazioneId = scadenzaSeparata.Id;
+                        TempData["Success"] = "Fattura in Cloud spostata su scadenza SEPARATA dedicata.";
+                    }
+                    else
+                    {
+                        TempData["Success"] = "Importo aggiornato con successo.";
+                    }
+                }
+                else if (fc.FatturazioneSeparata && !fatturazioneSeparata)
+                {
+                    var scadenzaEsistente = await _context.ScadenzeFatturazione
+                        .Where(s => s.ClienteId == fc.ClienteId 
+                                 && s.DataScadenza.Date == fc.DataScadenza.Date 
+                                 && s.Stato == StatoScadenza.Aperta
+                                 && s.Anno == anno
+                                 && s.Id != fc.ScadenzaFatturazioneId)
+                        .OrderByDescending(s => s.Id)
+                        .FirstOrDefaultAsync();
+
+                    if (scadenzaEsistente != null)
+                    {
+                        fc.ScadenzaFatturazioneId = scadenzaEsistente.Id;
+                        TempData["Success"] = "Fattura in Cloud spostata su scadenza esistente.";
+                    }
+                    else
+                    {
+                        var nuovaScadenza = new ScadenzaFatturazione
+                        {
+                            ClienteId = fc.ClienteId,
+                            MandatoClienteId = null,
+                            DataScadenza = fc.DataScadenza,
+                            Anno = anno,
+                            Stato = StatoScadenza.Aperta,
+                            ImportoMandato = 0,
+                            RimborsoSpese = 0,
+                            Note = "Scadenza creata per Fattura in Cloud",
+                            CreatedAt = DateTime.Now,
+                            UpdatedAt = DateTime.Now
+                        };
+
+                        _context.ScadenzeFatturazione.Add(nuovaScadenza);
+                        await _context.SaveChangesAsync();
+
+                        fc.ScadenzaFatturazioneId = nuovaScadenza.Id;
+                        TempData["Success"] = "Fattura in Cloud spostata su nuova scadenza.";
+                    }
+                }
+                else
+                {
+                    TempData["Success"] = "Importo aggiornato con successo.";
+                }
+
+                fc.FatturazioneSeparata = fatturazioneSeparata;
                 await _context.SaveChangesAsync();
-                TempData["Success"] = "Importo aggiornato con successo.";
             }
             catch (Exception ex)
             {
@@ -1222,57 +1495,84 @@ namespace StudioCG.Web.Controllers
         // POST: /Amministrazione/CreateBilancioCEE
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateBilancioCEE(int clienteId, int? scadenzaFatturazioneId, string importo, DateTime dataScadenza, int anno)
+        public async Task<IActionResult> CreateBilancioCEE(int clienteId, int? scadenzaFatturazioneId, string importo, DateTime dataScadenza, int anno, bool fatturazioneSeparata = false)
         {
             try
             {
                 var importoDecimal = decimal.Parse(importo.Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture);
+                var cliente = await _context.Clienti.FindAsync(clienteId);
 
-                // LOGICA AUTOMATICA: cerca o crea scadenza
-                int? scadenzaFinalId = scadenzaFatturazioneId;
+                int? scadenzaFinalId = null;
                 bool scadenzaCreataAutomaticamente = false;
 
-                if (!scadenzaFinalId.HasValue || scadenzaFinalId.Value == 0)
+                // Se FATTURAZIONE SEPARATA → crea sempre una scadenza dedicata
+                if (fatturazioneSeparata)
                 {
-                    // 1. Cerca scadenza esistente APERTA con la stessa data
-                    var scadenzaEsistente = await _context.ScadenzeFatturazione
-                        .Where(s => s.ClienteId == clienteId 
-                                 && s.DataScadenza.Date == dataScadenza.Date 
-                                 && s.Stato == StatoScadenza.Aperta
-                                 && s.Anno == anno)
-                        .OrderByDescending(s => s.Id)
-                        .FirstOrDefaultAsync();
+                    var scadenzaSeparata = new ScadenzaFatturazione
+                    {
+                        ClienteId = clienteId,
+                        MandatoClienteId = null,
+                        DataScadenza = dataScadenza,
+                        Anno = anno,
+                        Stato = StatoScadenza.Aperta,
+                        ImportoMandato = 0,
+                        RimborsoSpese = 0,
+                        Note = $"Bilancio CEE (fatturazione separata) - {cliente?.RagioneSociale}",
+                        CreatedAt = DateTime.Now,
+                        UpdatedAt = DateTime.Now
+                    };
 
-                    if (scadenzaEsistente != null)
+                    _context.ScadenzeFatturazione.Add(scadenzaSeparata);
+                    await _context.SaveChangesAsync();
+
+                    scadenzaFinalId = scadenzaSeparata.Id;
+                    scadenzaCreataAutomaticamente = true;
+                }
+                else
+                {
+                    // Comportamento normale: cerca o crea scadenza
+                    scadenzaFinalId = scadenzaFatturazioneId;
+
+                    if (!scadenzaFinalId.HasValue || scadenzaFinalId.Value == 0)
                     {
-                        scadenzaFinalId = scadenzaEsistente.Id;
-                    }
-                    else
-                    {
-                        // 2. Crea nuova scadenza automaticamente (anche senza mandato)
-                        var mandato = await _context.MandatiClienti
-                            .Where(m => m.ClienteId == clienteId && m.Anno == anno && m.IsActive)
+                        var scadenzaEsistente = await _context.ScadenzeFatturazione
+                            .Where(s => s.ClienteId == clienteId 
+                                     && s.DataScadenza.Date == dataScadenza.Date 
+                                     && s.Stato == StatoScadenza.Aperta
+                                     && s.Anno == anno)
+                            .OrderByDescending(s => s.Id)
                             .FirstOrDefaultAsync();
 
-                        var nuovaScadenza = new ScadenzaFatturazione
+                        if (scadenzaEsistente != null)
                         {
-                            ClienteId = clienteId,
-                            MandatoClienteId = mandato?.Id, // null se non c'è mandato
-                            DataScadenza = dataScadenza,
-                            Anno = anno,
-                            Stato = StatoScadenza.Aperta,
-                            ImportoMandato = 0,
-                            RimborsoSpese = 0,
-                            Note = "Scadenza creata automaticamente per Bilancio CEE",
-                            CreatedAt = DateTime.Now,
-                            UpdatedAt = DateTime.Now
-                        };
+                            scadenzaFinalId = scadenzaEsistente.Id;
+                        }
+                        else
+                        {
+                            var mandato = await _context.MandatiClienti
+                                .Where(m => m.ClienteId == clienteId && m.Anno == anno && m.IsActive)
+                                .FirstOrDefaultAsync();
 
-                        _context.ScadenzeFatturazione.Add(nuovaScadenza);
-                        await _context.SaveChangesAsync();
+                            var nuovaScadenza = new ScadenzaFatturazione
+                            {
+                                ClienteId = clienteId,
+                                MandatoClienteId = mandato?.Id,
+                                DataScadenza = dataScadenza,
+                                Anno = anno,
+                                Stato = StatoScadenza.Aperta,
+                                ImportoMandato = 0,
+                                RimborsoSpese = 0,
+                                Note = "Scadenza creata automaticamente per Bilancio CEE",
+                                CreatedAt = DateTime.Now,
+                                UpdatedAt = DateTime.Now
+                            };
 
-                        scadenzaFinalId = nuovaScadenza.Id;
-                        scadenzaCreataAutomaticamente = true;
+                            _context.ScadenzeFatturazione.Add(nuovaScadenza);
+                            await _context.SaveChangesAsync();
+
+                            scadenzaFinalId = nuovaScadenza.Id;
+                            scadenzaCreataAutomaticamente = true;
+                        }
                     }
                 }
 
@@ -1283,6 +1583,7 @@ namespace StudioCG.Web.Controllers
                     ScadenzaFatturazioneId = scadenzaFinalId,
                     DataScadenza = dataScadenza,
                     Importo = importoDecimal,
+                    FatturazioneSeparata = fatturazioneSeparata,
                     CreatedAt = DateTime.Now,
                     UpdatedAt = DateTime.Now
                 };
@@ -1290,7 +1591,11 @@ namespace StudioCG.Web.Controllers
                 _context.BilanciCEE.Add(b);
                 await _context.SaveChangesAsync();
 
-                if (scadenzaCreataAutomaticamente)
+                if (fatturazioneSeparata)
+                {
+                    TempData["Success"] = "Bilancio CEE aggiunto con scadenza SEPARATA dedicata.";
+                }
+                else if (scadenzaCreataAutomaticamente)
                 {
                     TempData["Success"] = "Bilancio CEE aggiunto e collegato a nuova scadenza automatica.";
                 }
@@ -1314,11 +1619,14 @@ namespace StudioCG.Web.Controllers
         // POST: /Amministrazione/UpdateBilancioCEE
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateBilancioCEE(int id, string importo, int anno)
+        public async Task<IActionResult> UpdateBilancioCEE(int id, string importo, int anno, bool fatturazioneSeparata = false, DateTime? dataScadenzaSeparata = null)
         {
             try
             {
-                var b = await _context.BilanciCEE.FindAsync(id);
+                var b = await _context.BilanciCEE
+                    .Include(x => x.Cliente)
+                    .Include(x => x.ScadenzaFatturazione)
+                    .FirstOrDefaultAsync(x => x.Id == id);
 
                 if (b == null)
                 {
@@ -1326,13 +1634,95 @@ namespace StudioCG.Web.Controllers
                     return RedirectToAction(nameof(BilanciCEE), new { anno });
                 }
 
-                // Bilanci CEE sono SEMPRE modificabili
-
                 b.Importo = decimal.Parse(importo.Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture);
                 b.UpdatedAt = DateTime.Now;
 
+                // Gestione scadenza separata
+                if (fatturazioneSeparata)
+                {
+                    // Verifica se è già su una scadenza dedicata (senza mandato e senza rimborso)
+                    var scadenzaAttuale = b.ScadenzaFatturazione;
+                    bool giaSuScadenzaDedicata = scadenzaAttuale != null 
+                        && scadenzaAttuale.MandatoClienteId == null 
+                        && scadenzaAttuale.ImportoMandato == 0
+                        && scadenzaAttuale.RimborsoSpese == 0;
+
+                    if (!giaSuScadenzaDedicata)
+                    {
+                        // Crea nuova scadenza dedicata
+                        var dataScadenzaEffettiva = dataScadenzaSeparata ?? b.DataScadenza;
+                        var scadenzaSeparata = new ScadenzaFatturazione
+                        {
+                            ClienteId = b.ClienteId,
+                            MandatoClienteId = null,
+                            DataScadenza = dataScadenzaEffettiva,
+                            Anno = anno,
+                            Stato = StatoScadenza.Aperta,
+                            ImportoMandato = 0,
+                            RimborsoSpese = 0,
+                            Note = $"Bilancio CEE (fatturazione separata) - {b.Cliente?.RagioneSociale}",
+                            CreatedAt = DateTime.Now,
+                            UpdatedAt = DateTime.Now
+                        };
+
+                        _context.ScadenzeFatturazione.Add(scadenzaSeparata);
+                        await _context.SaveChangesAsync();
+
+                        b.ScadenzaFatturazioneId = scadenzaSeparata.Id;
+                        TempData["Success"] = "Bilancio spostato su scadenza SEPARATA dedicata.";
+                    }
+                    else
+                    {
+                        TempData["Success"] = "Importo aggiornato con successo.";
+                    }
+                }
+                else if (b.FatturazioneSeparata && !fatturazioneSeparata)
+                {
+                    // Da separata → normale: cerca scadenza esistente o crea nuova
+                    var scadenzaEsistente = await _context.ScadenzeFatturazione
+                        .Where(s => s.ClienteId == b.ClienteId 
+                                 && s.DataScadenza.Date == b.DataScadenza.Date 
+                                 && s.Stato == StatoScadenza.Aperta
+                                 && s.Anno == anno
+                                 && s.Id != b.ScadenzaFatturazioneId)
+                        .OrderByDescending(s => s.Id)
+                        .FirstOrDefaultAsync();
+
+                    if (scadenzaEsistente != null)
+                    {
+                        b.ScadenzaFatturazioneId = scadenzaEsistente.Id;
+                        TempData["Success"] = "Bilancio spostato su scadenza esistente.";
+                    }
+                    else
+                    {
+                        var nuovaScadenza = new ScadenzaFatturazione
+                        {
+                            ClienteId = b.ClienteId,
+                            MandatoClienteId = null,
+                            DataScadenza = b.DataScadenza,
+                            Anno = anno,
+                            Stato = StatoScadenza.Aperta,
+                            ImportoMandato = 0,
+                            RimborsoSpese = 0,
+                            Note = "Scadenza creata per Bilancio CEE",
+                            CreatedAt = DateTime.Now,
+                            UpdatedAt = DateTime.Now
+                        };
+
+                        _context.ScadenzeFatturazione.Add(nuovaScadenza);
+                        await _context.SaveChangesAsync();
+
+                        b.ScadenzaFatturazioneId = nuovaScadenza.Id;
+                        TempData["Success"] = "Bilancio spostato su nuova scadenza.";
+                    }
+                }
+                else
+                {
+                    TempData["Success"] = "Importo aggiornato con successo.";
+                }
+
+                b.FatturazioneSeparata = fatturazioneSeparata;
                 await _context.SaveChangesAsync();
-                TempData["Success"] = "Importo aggiornato con successo.";
             }
             catch (Exception ex)
             {

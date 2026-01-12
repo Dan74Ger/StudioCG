@@ -76,7 +76,8 @@ namespace StudioCG.Web.Models.Fatturazione
         public virtual ICollection<BilancioCEE> BilanciCEE { get; set; } = new List<BilancioCEE>();
         public virtual ICollection<IncassoFattura> Incassi { get; set; } = new List<IncassoFattura>();
 
-        // Computed properties
+        // Computed properties - Totali NORMALI (escluse voci con FatturazioneSeparata)
+        // Totali TUTTE le spese collegate a questa scadenza (incluse quelle con fatturazione separata)
         [NotMapped]
         public decimal TotaleSpesePratiche => SpesePratiche?.Sum(s => s.Importo) ?? 0;
 
@@ -94,6 +95,21 @@ namespace StudioCG.Web.Models.Fatturazione
 
         [NotMapped]
         public decimal TotaleScadenza => ImportoMandato + RimborsoSpese + TotaleSpese;
+
+        // Conta quante voci hanno il flag FatturazioneSeparata (per mostrare badge)
+        [NotMapped]
+        public int NumeroVociSeparate => 
+            (SpesePratiche?.Count(s => s.FatturazioneSeparata) ?? 0) +
+            (AccessiClienti?.Count(a => a.FatturazioneSeparata) ?? 0) +
+            (FattureCloud?.Count(f => f.FatturazioneSeparata) ?? 0) +
+            (BilanciCEE?.Count(b => b.FatturazioneSeparata) ?? 0);
+
+        [NotMapped]
+        public bool HaVociSeparate => NumeroVociSeparate > 0;
+        
+        // Indica se questa è una scadenza dedicata (senza mandato e con solo voci separate)
+        [NotMapped]
+        public bool IsScadenzaDedicata => !MandatoClienteId.HasValue && ImportoMandato == 0 && RimborsoSpese == 0 && HaVociSeparate;
 
         [NotMapped]
         public decimal TotaleIncassato => Incassi?.Sum(i => i.ImportoIncassato) ?? 0;

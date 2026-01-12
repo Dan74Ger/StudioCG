@@ -191,7 +191,15 @@
                                     <td>
                                         <strong>@spesa.Cliente?.RagioneSociale</strong>
                                     </td>
-                                    <td>@spesa.Descrizione</td>
+                                    <td>
+                                        @spesa.Descrizione
+                                        @if (spesa.FatturazioneSeparata)
+                                        {
+                                            <span class="badge bg-warning text-dark ms-1" title="Fatturazione Separata">
+                                                <i class="fas fa-file-invoice"></i> Sep.
+                                            </span>
+                                        }
+                                    </td>
                                     <td class="text-end fw-bold">@spesa.Importo.ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
                                     <td>
                                         @if (spesa.ScadenzaFatturazione != null)
@@ -234,7 +242,9 @@
                                                     data-descrizione="@spesa.Descrizione"
                                                     data-importo="@spesa.Importo.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
                                                     data-data="@spesa.Data.ToString("yyyy-MM-dd")"
-                                                    data-scadenzaid="@spesa.ScadenzaFatturazioneId">
+                                                    data-scadenzaid="@spesa.ScadenzaFatturazioneId"
+                                                    data-datascadenza="@(spesa.ScadenzaFatturazione?.DataScadenza.ToString("yyyy-MM-dd") ?? spesa.Data.ToString("yyyy-MM-dd"))"
+                                                    data-fattseparata="@spesa.FatturazioneSeparata.ToString().ToLower()">
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                             <form asp-action="DeleteSpesaPratica" method="post" class="d-inline"
@@ -328,6 +338,20 @@
                                    value="@DateTime.Today.ToString("yyyy-MM-dd")">
                         </div>
                     </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" name="fatturazioneSeparata" value="true" class="form-check-input" id="chkFattSeparataNuovo">
+                            <label class="form-check-label" for="chkFattSeparataNuovo">
+                                <i class="fas fa-file-invoice text-warning me-1"></i>Fatturazione Separata
+                            </label>
+                            <small class="form-text text-muted d-block">Se selezionato, questa spesa verrà fatturata come riga singola separata</small>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="dataScadenzaSeparataContainer" style="display: none;">
+                        <label class="form-label">Data Scadenza Fatturazione <span class="text-danger">*</span></label>
+                        <input type="date" name="dataScadenzaSeparata" id="dataScadenzaSeparataNuovo" class="form-control">
+                        <small class="form-text text-muted">Data della scadenza per la fatturazione separata</small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
@@ -388,6 +412,20 @@
                             <input type="date" name="data" id="editData" class="form-control" required>
                         </div>
                     </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" name="fatturazioneSeparata" value="true" class="form-check-input" id="editFattSeparata">
+                            <label class="form-check-label" for="editFattSeparata">
+                                <i class="fas fa-file-invoice text-warning me-1"></i>Fatturazione Separata
+                            </label>
+                            <small class="form-text text-muted d-block">Se selezionato, questa spesa verrà fatturata come riga singola separata</small>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="editDataScadenzaSeparataContainer" style="display: none;">
+                        <label class="form-label">Data Scadenza Fatturazione <span class="text-danger">*</span></label>
+                        <input type="date" name="dataScadenzaSeparata" id="editDataScadenzaSeparata" class="form-control">
+                        <small class="form-text text-muted">Data della scadenza per la fatturazione separata</small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
@@ -420,16 +458,19 @@
                     var opt = document.createElement('option');
                     opt.value = scad.id;
                     opt.textContent = scad.dataScadenza + ' - ' + scad.stato;
+                    opt.setAttribute('data-datascadenza', scad.dataScadenzaISO); // data in formato ISO per il campo date
                     if (scad.id == scadenzaIdSelezionata) opt.selected = true;
                     selectElement.appendChild(opt);
                 });
             });
     }
     
-    // Gestione visibilità campo data nuova scadenza (nuovo)
+    // Gestione visibilità campo data nuova scadenza (nuovo) + aggiorna data spesa
     document.getElementById('selectScadenzaNuovo').addEventListener('change', function() {
         var container = document.getElementById('nuovaScadenzaContainer');
         var dataInput = document.getElementById('dataNuovaScadenza');
+        var dataSpesaInput = document.querySelector('#modalNuovaSpesa input[name="data"]');
+        
         if (this.value === 'NUOVA') {
             container.style.display = 'block';
             dataInput.required = true;
@@ -438,13 +479,22 @@
             container.style.display = 'none';
             dataInput.required = false;
             dataInput.value = '';
+            
+            // Aggiorna data spesa con data della scadenza selezionata
+            var selectedOption = this.options[this.selectedIndex];
+            var dataScadenza = selectedOption.getAttribute('data-datascadenza');
+            if (dataScadenza && dataSpesaInput) {
+                dataSpesaInput.value = dataScadenza;
+            }
         }
     });
     
-    // Gestione visibilità campo data nuova scadenza (modifica)
+    // Gestione visibilità campo data nuova scadenza (modifica) + aggiorna data spesa
     document.getElementById('editScadenzaId').addEventListener('change', function() {
         var container = document.getElementById('editNuovaScadenzaContainer');
         var dataInput = document.getElementById('editDataNuovaScadenza');
+        var dataSpesaInput = document.getElementById('editData');
+        
         if (this.value === 'NUOVA') {
             container.style.display = 'block';
             dataInput.required = true;
@@ -453,6 +503,13 @@
             container.style.display = 'none';
             dataInput.required = false;
             dataInput.value = '';
+            
+            // Aggiorna data spesa con data della scadenza selezionata
+            var selectedOption = this.options[this.selectedIndex];
+            var dataScadenza = selectedOption.getAttribute('data-datascadenza');
+            if (dataScadenza && dataSpesaInput) {
+                dataSpesaInput.value = dataScadenza;
+            }
         }
     });
     
@@ -466,11 +523,42 @@
         document.getElementById('dataNuovaScadenza').required = false;
     });
     
+    // Mostra/Nascondi campo data scadenza separata (nuovo)
+    document.getElementById('chkFattSeparataNuovo').addEventListener('change', function() {
+        var container = document.getElementById('dataScadenzaSeparataContainer');
+        var dataInput = document.getElementById('dataScadenzaSeparataNuovo');
+        if (this.checked) {
+            container.style.display = 'block';
+            dataInput.required = true;
+            dataInput.value = new Date().toISOString().split('T')[0];
+        } else {
+            container.style.display = 'none';
+            dataInput.required = false;
+        }
+    });
+    
+    // Mostra/Nascondi campo data scadenza separata (modifica)
+    document.getElementById('editFattSeparata').addEventListener('change', function() {
+        var container = document.getElementById('editDataScadenzaSeparataContainer');
+        var dataInput = document.getElementById('editDataScadenzaSeparata');
+        if (this.checked) {
+            container.style.display = 'block';
+            dataInput.required = true;
+            if (!dataInput.value) {
+                dataInput.value = new Date().toISOString().split('T')[0];
+            }
+        } else {
+            container.style.display = 'none';
+            dataInput.required = false;
+        }
+    });
+
     // Modal Modifica
     document.getElementById('modalEditSpesa').addEventListener('show.bs.modal', function(event) {
         var btn = event.relatedTarget;
         var clienteId = btn.getAttribute('data-clienteid');
         var scadenzaId = btn.getAttribute('data-scadenzaid');
+        var isFattSeparata = btn.getAttribute('data-fattseparata') === 'true';
         
         document.getElementById('editSpesaId').value = btn.getAttribute('data-id');
         document.getElementById('editClienteId').value = clienteId;
@@ -478,6 +566,19 @@
         document.getElementById('editDescrizione').value = btn.getAttribute('data-descrizione');
         document.getElementById('editImporto').value = btn.getAttribute('data-importo').replace('.', ',');
         document.getElementById('editData').value = btn.getAttribute('data-data');
+        document.getElementById('editFattSeparata').checked = isFattSeparata;
+        
+        // Mostra/Nascondi campo data scadenza separata
+        var containerSep = document.getElementById('editDataScadenzaSeparataContainer');
+        var dataInputSep = document.getElementById('editDataScadenzaSeparata');
+        if (isFattSeparata) {
+            containerSep.style.display = 'block';
+            dataInputSep.required = true;
+            dataInputSep.value = btn.getAttribute('data-datascadenza') || btn.getAttribute('data-data');
+        } else {
+            containerSep.style.display = 'none';
+            dataInputSep.required = false;
+        }
         
         // Nascondi container nuova scadenza
         document.getElementById('editNuovaScadenzaContainer').style.display = 'none';

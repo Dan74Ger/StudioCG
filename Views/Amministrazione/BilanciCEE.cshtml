@@ -142,7 +142,15 @@
                                         <strong>@b.Cliente?.RagioneSociale</strong>
                                         <span class="badge bg-warning text-dark ms-2">SC</span>
                                     </td>
-                                    <td class="text-end fw-bold">@b.Importo.ToString("C", new System.Globalization.CultureInfo("it-IT"))</td>
+                                    <td class="text-end fw-bold">
+                                        @b.Importo.ToString("C", new System.Globalization.CultureInfo("it-IT"))
+                                        @if (b.FatturazioneSeparata)
+                                        {
+                                            <span class="badge bg-warning text-dark ms-1" title="Fatturazione Separata">
+                                                <i class="fas fa-file-invoice"></i> Sep.
+                                            </span>
+                                        }
+                                    </td>
                                     <td>
                                         @if (b.ScadenzaFatturazione != null)
                                         {
@@ -174,7 +182,9 @@
                                                     data-bs-toggle="modal" data-bs-target="#modalEdit"
                                                     data-id="@b.Id"
                                                     data-cliente="@b.Cliente?.RagioneSociale"
-                                                    data-importo="@b.Importo.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)">
+                                                    data-importo="@b.Importo.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                                    data-datascadenza="@(b.ScadenzaFatturazione?.DataScadenza.ToString("yyyy-MM-dd") ?? b.DataScadenza.ToString("yyyy-MM-dd"))"
+                                                    data-fattseparata="@b.FatturazioneSeparata.ToString().ToLower()">
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                             <form asp-action="DeleteBilancioCEE" method="post" class="d-inline"
@@ -258,6 +268,15 @@
                                    value="500,00" placeholder="0,00">
                         </div>
                     </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" name="fatturazioneSeparata" value="true" class="form-check-input" id="chkFattSeparataNuovo">
+                            <label class="form-check-label" for="chkFattSeparataNuovo">
+                                <i class="fas fa-file-invoice text-warning me-1"></i>Fatturazione Separata
+                            </label>
+                            <small class="form-text text-muted d-block">Se selezionato, questo bilancio verrà fatturato come riga singola separata</small>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
@@ -293,6 +312,20 @@
                             <input type="text" name="importo" id="editImporto" class="form-control" required>
                         </div>
                     </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" name="fatturazioneSeparata" value="true" class="form-check-input" id="editFattSeparata">
+                            <label class="form-check-label" for="editFattSeparata">
+                                <i class="fas fa-file-invoice text-warning me-1"></i>Fatturazione Separata
+                            </label>
+                            <small class="form-text text-muted d-block">Se selezionato, questo bilancio verrà fatturato come riga singola separata</small>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="editDataScadenzaSeparataContainer" style="display: none;">
+                        <label class="form-label">Data Scadenza Fatturazione <span class="text-danger">*</span></label>
+                        <input type="date" name="dataScadenzaSeparata" id="editDataScadenzaSeparata" class="form-control">
+                        <small class="form-text text-muted">Data della scadenza per la fatturazione separata</small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
@@ -326,18 +359,66 @@
                     var opt = document.createElement('option');
                     opt.value = scad.id;
                     opt.textContent = scad.dataScadenza + ' - ' + scad.stato;
+                    opt.setAttribute('data-datascadenza', scad.dataScadenzaISO);
                     // Default 31/03
                     if (scad.dataScadenza.includes('31/03')) opt.selected = true;
                     selectScadenza.appendChild(opt);
                 });
+                
+                // Aggiorna data scadenza nel form se selezionata automaticamente
+                var selectedOption = selectScadenza.options[selectScadenza.selectedIndex];
+                var dataScadenza = selectedOption.getAttribute('data-datascadenza');
+                if (dataScadenza) {
+                    document.querySelector('#modalNuovo input[name="dataScadenza"]').value = dataScadenza;
+                }
             });
     });
     
+    // Aggiorna data scadenza quando cambia selezione
+    document.getElementById('selectScadenzaNuovo').addEventListener('change', function() {
+        var selectedOption = this.options[this.selectedIndex];
+        var dataScadenza = selectedOption.getAttribute('data-datascadenza');
+        if (dataScadenza) {
+            document.querySelector('#modalNuovo input[name="dataScadenza"]').value = dataScadenza;
+        }
+    });
+    
+    // Mostra/Nascondi campo data scadenza separata (modifica)
+    document.getElementById('editFattSeparata').addEventListener('change', function() {
+        var container = document.getElementById('editDataScadenzaSeparataContainer');
+        var dataInput = document.getElementById('editDataScadenzaSeparata');
+        if (this.checked) {
+            container.style.display = 'block';
+            dataInput.required = true;
+            if (!dataInput.value) {
+                dataInput.value = new Date().toISOString().split('T')[0];
+            }
+        } else {
+            container.style.display = 'none';
+            dataInput.required = false;
+        }
+    });
+
     document.getElementById('modalEdit').addEventListener('show.bs.modal', function(event) {
         var btn = event.relatedTarget;
+        var isFattSeparata = btn.getAttribute('data-fattseparata') === 'true';
+        
         document.getElementById('editId').value = btn.getAttribute('data-id');
         document.getElementById('editCliente').value = btn.getAttribute('data-cliente');
         document.getElementById('editImporto').value = btn.getAttribute('data-importo').replace('.', ',');
+        document.getElementById('editFattSeparata').checked = isFattSeparata;
+        
+        // Mostra/Nascondi campo data scadenza separata
+        var containerSep = document.getElementById('editDataScadenzaSeparataContainer');
+        var dataInputSep = document.getElementById('editDataScadenzaSeparata');
+        if (isFattSeparata) {
+            containerSep.style.display = 'block';
+            dataInputSep.required = true;
+            dataInputSep.value = btn.getAttribute('data-datascadenza');
+        } else {
+            containerSep.style.display = 'none';
+            dataInputSep.required = false;
+        }
     });
 </script>
 }

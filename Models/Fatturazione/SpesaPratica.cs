@@ -44,6 +44,9 @@ namespace StudioCG.Web.Models.Fatturazione
         [DataType(DataType.Date)]
         public DateTime Data { get; set; } = DateTime.Today;
 
+        [Display(Name = "Fatturazione Separata")]
+        public bool FatturazioneSeparata { get; set; } = false;
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? UpdatedAt { get; set; }
     }
