@@ -1374,35 +1374,18 @@
     };
 
     // Funzione per parsare un valore formattato italiano (1.234 -> 1234)
-    // Supporta anche formule matematiche (es. 2.263+1000 -> 3263)
+    // Supporta anche formule matematiche (es. 2.263+775 -> 3038)
     // Formato italiano: punti = migliaia, virgole = decimali
     function parseItalianNumber(str) {
         if (!str || str.trim() === '') return 0;
         
-        // Se contiene operatori matematici, prova a valutare come formula
-        if (/[+\-*/]/.test(str)) {
-            try {
-                // FORMATO ITALIANO:
-                // 1. Rimuove punti delle migliaia (2.263 -> 2263)
-                // 2. Sostituisce virgole con punti decimali (2,5 -> 2.5)
-                let expr = str.replace(/\s/g, '');
-                expr = expr.replace(/\./g, '');  // Rimuove punti migliaia
-                expr = expr.replace(/,/g, '.');  // Virgole -> punti decimali
-                
-                // Verifica che contenga solo caratteri validi
-                if (/^[\d+\-*/().]+$/.test(expr)) {
-                    const result = new Function('return ' + expr)();
-                    if (!isNaN(result) && isFinite(result)) {
-                        return result;
-                    }
-                }
-            } catch (e) {
-                // Se fallisce, continua con il parsing normale
-            }
+        // Se contiene operatori di formula, usa evalFormula
+        if (hasFormulaOperators(str)) {
+            return evalFormula(str);
         }
         
-        // Parsing normale: rimuove punti delle migliaia e sostituisce virgola con punto
-        return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+        // Parsing normale: usa la funzione semplice
+        return parseSimpleItalianNumber(str);
     }
 
     // Funzione per formattare un numero in stile italiano (1234 -> 1.234)
@@ -1496,6 +1479,14 @@
         return input ? input.value : '';
     }
 
+    // Converte un singolo numero italiano in numero JS (senza ricorsione)
+    // "2.263" -> 2263, "523,60" -> 523.6, "-100" -> -100
+    function parseSimpleItalianNumber(str) {
+        if (!str || str.trim() === '') return 0;
+        // Rimuove punti delle migliaia, sostituisce virgola con punto decimale
+        return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+    }
+    
     // Valuta una formula matematica (supporta +, -, *, /)
     // Gestisce formato italiano: punti = migliaia, virgole = decimali
     function evalFormula(formulaStr) {
@@ -1504,32 +1495,60 @@
         // Rimuove spazi
         let expr = formulaStr.replace(/\s/g, '');
         
-        // FORMATO ITALIANO:
-        // 1. Prima rimuove i punti delle migliaia (2.263 -> 2263)
-        // 2. Poi sostituisce le virgole con punti per i decimali (2,5 -> 2.5)
-        expr = expr.replace(/\./g, '');  // Rimuove punti migliaia
-        expr = expr.replace(/,/g, '.');  // Virgole -> punti decimali
+        // FORMATO ITALIANO - Gestione intelligente punti e virgole:
+        // Tokenizza l'espressione: separa numeri e operatori
+        const tokens = [];
+        let currentNum = '';
         
-        // Verifica che contenga solo caratteri validi (numeri, operatori, punti decimali)
-        if (!/^[\d+\-*/().]+$/.test(expr)) {
-            // Se non è un'espressione valida, prova a parsare come numero
-            return parseItalianNumber(formulaStr);
+        for (let i = 0; i < expr.length; i++) {
+            const c = expr[i];
+            // Se è un operatore (ma non il - all'inizio o dopo un altro operatore)
+            if ((c === '+' || c === '*' || c === '/') || 
+                (c === '-' && currentNum !== '' && !currentNum.endsWith('e') && !currentNum.endsWith('E'))) {
+                if (currentNum !== '') {
+                    // Converte il numero in formato italiano (usa funzione semplice, no ricorsione)
+                    tokens.push(parseSimpleItalianNumber(currentNum).toString());
+                    currentNum = '';
+                }
+                tokens.push(c);
+            } else {
+                currentNum += c;
+            }
+        }
+        // Aggiungi l'ultimo numero
+        if (currentNum !== '') {
+            tokens.push(parseSimpleItalianNumber(currentNum).toString());
+        }
+        
+        // Ricostruisci l'espressione con numeri convertiti
+        const finalExpr = tokens.join('');
+        
+        // Verifica che contenga solo caratteri validi
+        if (!/^[-\d+*/().eE]+$/.test(finalExpr)) {
+            return parseSimpleItalianNumber(formulaStr);
         }
         
         try {
             // Usa Function per valutare l'espressione in modo sicuro
-            const result = new Function('return ' + expr)();
+            const result = new Function('return ' + finalExpr)();
             return isNaN(result) || !isFinite(result) ? 0 : result;
         } catch (e) {
             console.warn('Errore valutazione formula:', e);
-            return parseItalianNumber(formulaStr);
+            return parseSimpleItalianNumber(formulaStr);
         }
     }
 
-    // Verifica se una stringa contiene operatori matematici
+    // Verifica se una stringa contiene operatori matematici (non solo un numero negativo)
     function hasFormulaOperators(str) {
         if (!str) return false;
-        return /[+\-*/]/.test(str);
+        // Rimuove spazi
+        const s = str.replace(/\s/g, '');
+        // Controlla se c'è un + * o / (sempre operatori)
+        if (/[+*/]/.test(s)) return true;
+        // Controlla se c'è un - che non è all'inizio (quindi è sottrazione, non numero negativo)
+        // Esempio: "100-50" -> true, "-100" -> false
+        if (s.indexOf('-') > 0) return true;
+        return false;
     }
 
     // Inline save on blur + aggiornamento totali in tempo reale
@@ -1735,7 +1754,18 @@
         });
         
         inp.addEventListener('blur', async function () {
-            const numValue = parseItalianNumber(this.value);
+            // Supporto formule anche per celle banche
+            const inputValue = this.value.trim();
+            let numValue = 0;
+            
+            if (hasFormulaOperators(inputValue)) {
+                // È una formula - calcola il risultato
+                numValue = evalFormula(inputValue);
+            } else {
+                // È un numero semplice
+                numValue = parseItalianNumber(inputValue);
+            }
+            
             this.value = numValue === 0 ? '' : formatItalianNumber(numValue);
             
             const bancaId = this.getAttribute('data-bancaid');
