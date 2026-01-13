@@ -77,6 +77,13 @@ namespace StudioCG.Web.Models.Documenti
         [DataType(DataType.Date)]
         public DateTime? DataLimiteAntiriciclaggio { get; set; }
 
+        /// <summary>
+        /// Giorni dopo i quali un documento antiriciclaggio è considerato scaduto
+        /// Default: 1095 giorni (36 mesi / 3 anni)
+        /// </summary>
+        [Display(Name = "Giorni Scadenza Antiriciclaggio")]
+        public int GiorniScadenzaAntiriciclaggio { get; set; } = 1095;
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? UpdatedAt { get; set; }
     }

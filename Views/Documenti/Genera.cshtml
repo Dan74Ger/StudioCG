@@ -263,13 +263,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const salvaArchivioCheckbox = document.getElementById('salvaArchivio');
     const formGenera = document.getElementById('formGenera');
     
-    // Ricerca clienti
+    // Ricerca clienti (filtra in tempo reale)
     searchInput.addEventListener('input', function() {
         const search = this.value.toLowerCase();
         document.querySelectorAll('.cliente-item').forEach(item => {
             const nome = item.getAttribute('data-nome');
             item.style.display = nome.includes(search) ? '' : 'none';
         });
+    });
+    
+    // Invio nel campo ricerca: seleziona/deseleziona il primo cliente visibile
+    searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault(); // Evita submit del form
+            
+            // Trova il primo cliente visibile
+            const primoVisibile = document.querySelector('.cliente-item:not([style*="display: none"]) .cliente-checkbox');
+            if (primoVisibile) {
+                primoVisibile.checked = !primoVisibile.checked;
+                updateUI();
+                
+                // Pulisce la ricerca e mostra tutti
+                this.value = '';
+                document.querySelectorAll('.cliente-item').forEach(item => {
+                    item.style.display = '';
+                });
+            }
+        }
     });
     
     // Seleziona tutti (solo visibili)

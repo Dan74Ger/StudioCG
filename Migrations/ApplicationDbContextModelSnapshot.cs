@@ -51,7 +51,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("Anno")
                         .IsUnique();
 
-                    b.ToTable("AnnualitaFiscali");
+                    b.ToTable("AnnualitaFiscali", (string)null);
 
                     b.HasData(
                         new
@@ -95,7 +95,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("AttivitaTipoId", "AnnualitaFiscaleId")
                         .IsUnique();
 
-                    b.ToTable("AttivitaAnnuali");
+                    b.ToTable("AttivitaAnnuali", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.AttivitaCampo", b =>
@@ -149,7 +149,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("AttivitaTipoId");
 
-                    b.ToTable("AttivitaCampi");
+                    b.ToTable("AttivitaCampi", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.AttivitaPeriodiche.AttivitaPeriodica", b =>
@@ -207,7 +207,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("Nome")
                         .IsUnique();
 
-                    b.ToTable("AttivitaPeriodiche");
+                    b.ToTable("AttivitaPeriodiche", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.AttivitaPeriodiche.CampoPeriodico", b =>
@@ -298,7 +298,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("TipoPeriodoId", "Nome")
                         .IsUnique();
 
-                    b.ToTable("CampiPeriodici");
+                    b.ToTable("CampiPeriodici", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.AttivitaPeriodiche.ClienteAttivitaPeriodica", b =>
@@ -349,7 +349,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("TipoPeriodoId", "ClienteId", "AnnoFiscale")
                         .IsUnique();
 
-                    b.ToTable("ClientiAttivitaPeriodiche");
+                    b.ToTable("ClientiAttivitaPeriodiche", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.AttivitaPeriodiche.RegolaCampo", b =>
@@ -424,7 +424,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("CampoPeriodicoId");
 
-                    b.ToTable("RegoleCampi");
+                    b.ToTable("RegoleCampi", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.AttivitaPeriodiche.TipoPeriodo", b =>
@@ -488,7 +488,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("AttivitaPeriodicaId", "Nome")
                         .IsUnique();
 
-                    b.ToTable("TipiPeriodo");
+                    b.ToTable("TipiPeriodo", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.AttivitaPeriodiche.ValorePeriodo", b =>
@@ -524,7 +524,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("ClienteAttivitaPeriodicaId", "NumeroPeriodo")
                         .IsUnique();
 
-                    b.ToTable("ValoriPeriodi");
+                    b.ToTable("ValoriPeriodi", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.AttivitaTipo", b =>
@@ -559,7 +559,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AttivitaTipi");
+                    b.ToTable("AttivitaTipi", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.BudgetStudio.BancaBudget", b =>
@@ -593,7 +593,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("BancheBudget");
+                    b.ToTable("BancheBudget", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.BudgetStudio.BudgetSpesaMensile", b =>
@@ -641,7 +641,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("VoceSpesaBudgetId", "Anno", "Mese")
                         .IsUnique();
 
-                    b.ToTable("BudgetSpeseMensili");
+                    b.ToTable("BudgetSpeseMensili", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.BudgetStudio.MacroVoceBudget", b =>
@@ -679,7 +679,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("Codice")
                         .IsUnique();
 
-                    b.ToTable("MacroVociBudget");
+                    b.ToTable("MacroVociBudget", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.BudgetStudio.SaldoBancaMese", b =>
@@ -713,7 +713,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("BancaBudgetId", "Anno", "Mese")
                         .IsUnique();
 
-                    b.ToTable("SaldiBancheMese");
+                    b.ToTable("SaldiBancheMese", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.BudgetStudio.VoceSpesaBudget", b =>
@@ -760,7 +760,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("MacroVoceBudgetId");
 
-                    b.ToTable("VociSpesaBudget");
+                    b.ToTable("VociSpesaBudget", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.CampoCustomCliente", b =>
@@ -821,7 +821,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("Nome")
                         .IsUnique();
 
-                    b.ToTable("CampiCustomClienti");
+                    b.ToTable("CampiCustomClienti", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Cliente", b =>
@@ -909,7 +909,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Clienti");
+                    b.ToTable("Clienti", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.ClienteAttivita", b =>
@@ -953,7 +953,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("ClienteId", "AttivitaAnnualeId")
                         .IsUnique();
 
-                    b.ToTable("ClientiAttivita");
+                    b.ToTable("ClientiAttivita", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.ClienteAttivitaValore", b =>
@@ -980,7 +980,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("ClienteAttivitaId", "AttivitaCampoId")
                         .IsUnique();
 
-                    b.ToTable("ClientiAttivitaValori");
+                    b.ToTable("ClientiAttivitaValori", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.ClienteSoggetto", b =>
@@ -1059,7 +1059,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("ClienteId");
 
-                    b.ToTable("ClientiSoggetti");
+                    b.ToTable("ClientiSoggetti", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.ConfigurazioneMenuUtente", b =>
@@ -1089,7 +1089,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("UserId", "VoceMenuId")
                         .IsUnique();
 
-                    b.ToTable("ConfigurazioniMenuUtenti");
+                    b.ToTable("ConfigurazioniMenuUtenti", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Documenti.ClausolaDocumento", b =>
@@ -1134,7 +1134,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("Categoria");
 
-                    b.ToTable("ClausoleDocumenti");
+                    b.ToTable("ClausoleDocumenti", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Documenti.ConfigurazioneStudio", b =>
@@ -1219,7 +1219,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ConfigurazioniStudio");
+                    b.ToTable("ConfigurazioniStudio", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Documenti.DocumentoGenerato", b =>
@@ -1278,7 +1278,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("TemplateDocumentoId");
 
-                    b.ToTable("DocumentiGenerati");
+                    b.ToTable("DocumentiGenerati", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Documenti.TemplateDocumento", b =>
@@ -1335,7 +1335,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("Categoria");
 
-                    b.ToTable("TemplateDocumenti");
+                    b.ToTable("TemplateDocumenti", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.DynamicField", b =>
@@ -1385,7 +1385,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("DynamicPageId");
 
-                    b.ToTable("DynamicFields");
+                    b.ToTable("DynamicFields", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.DynamicFieldValue", b =>
@@ -1412,7 +1412,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("DynamicRecordId", "DynamicFieldId")
                         .IsUnique();
 
-                    b.ToTable("DynamicFieldValues");
+                    b.ToTable("DynamicFieldValues", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.DynamicPage", b =>
@@ -1461,7 +1461,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("TableName")
                         .IsUnique();
 
-                    b.ToTable("DynamicPages");
+                    b.ToTable("DynamicPages", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.DynamicRecord", b =>
@@ -1489,7 +1489,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("DynamicPageId");
 
-                    b.ToTable("DynamicRecords");
+                    b.ToTable("DynamicRecords", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Entita.CampoEntita", b =>
@@ -1570,7 +1570,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("EntitaDinamicaId", "Nome")
                         .IsUnique();
 
-                    b.ToTable("CampiEntita");
+                    b.ToTable("CampiEntita", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Entita.EntitaDinamica", b =>
@@ -1634,7 +1634,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("Nome")
                         .IsUnique();
 
-                    b.ToTable("EntitaDinamiche");
+                    b.ToTable("EntitaDinamiche", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Entita.RecordEntita", b =>
@@ -1680,7 +1680,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("StatoEntitaId");
 
-                    b.ToTable("RecordsEntita");
+                    b.ToTable("RecordsEntita", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Entita.StatoEntita", b =>
@@ -1730,7 +1730,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("EntitaDinamicaId", "Nome")
                         .IsUnique();
 
-                    b.ToTable("StatiEntita");
+                    b.ToTable("StatiEntita", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Entita.ValoreCampoEntita", b =>
@@ -1760,7 +1760,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("RecordEntitaId", "CampoEntitaId")
                         .IsUnique();
 
-                    b.ToTable("ValoriCampiEntita");
+                    b.ToTable("ValoriCampiEntita", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.AccessoCliente", b =>
@@ -1816,7 +1816,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("UtenteId");
 
-                    b.ToTable("AccessiClienti");
+                    b.ToTable("AccessiClienti", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.AnnoFatturazione", b =>
@@ -1848,7 +1848,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AnniFatturazione");
+                    b.ToTable("AnniFatturazione", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.BilancioCEE", b =>
@@ -1891,7 +1891,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("ClienteId", "Anno")
                         .IsUnique();
 
-                    b.ToTable("BilanciCEE");
+                    b.ToTable("BilanciCEE", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.ContatoreDocumento", b =>
@@ -1919,7 +1919,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("Anno", "TipoDocumento")
                         .IsUnique();
 
-                    b.ToTable("ContatoriDocumenti");
+                    b.ToTable("ContatoriDocumenti", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.FatturaCloud", b =>
@@ -1962,7 +1962,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("ClienteId", "Anno")
                         .IsUnique();
 
-                    b.ToTable("FattureCloud");
+                    b.ToTable("FattureCloud", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.IncassoFattura", b =>
@@ -1996,7 +1996,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("ScadenzaFatturazioneId");
 
-                    b.ToTable("IncassiFatture");
+                    b.ToTable("IncassiFatture", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.IncassoProfessionista", b =>
@@ -2028,7 +2028,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("UtenteId");
 
-                    b.ToTable("IncassiProfessionisti");
+                    b.ToTable("IncassiProfessionisti", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.MandatoCliente", b =>
@@ -2072,7 +2072,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("ClienteId", "Anno")
                         .IsUnique();
 
-                    b.ToTable("MandatiClienti");
+                    b.ToTable("MandatiClienti", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.ScadenzaFatturazione", b =>
@@ -2135,7 +2135,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("MandatoClienteId");
 
-                    b.ToTable("ScadenzeFatturazione");
+                    b.ToTable("ScadenzeFatturazione", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Fatturazione.SpesaPratica", b =>
@@ -2180,7 +2180,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("UtenteId");
 
-                    b.ToTable("SpesePratiche");
+                    b.ToTable("SpesePratiche", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.Permission", b =>
@@ -2224,7 +2224,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("PageUrl")
                         .IsUnique();
 
-                    b.ToTable("Permissions");
+                    b.ToTable("Permissions", (string)null);
 
                     b.HasData(
                         new
@@ -2595,7 +2595,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("AttivitaTipoId", "Nome")
                         .IsUnique();
 
-                    b.ToTable("StatiAttivitaTipo");
+                    b.ToTable("StatiAttivitaTipo", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.User", b =>
@@ -2647,7 +2647,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("Username")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
 
                     b.HasData(
                         new
@@ -2697,7 +2697,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("UserId", "PermissionId")
                         .IsUnique();
 
-                    b.ToTable("UserPermissions");
+                    b.ToTable("UserPermissions", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.ValoreCampoCustomCliente", b =>
@@ -2727,7 +2727,7 @@ namespace StudioCG.Web.Migrations
                     b.HasIndex("ClienteId", "CampoCustomClienteId")
                         .IsUnique();
 
-                    b.ToTable("ValoriCampiCustomClienti");
+                    b.ToTable("ValoriCampiCustomClienti", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.VoceMenu", b =>
@@ -2789,7 +2789,7 @@ namespace StudioCG.Web.Migrations
 
                     b.HasIndex("ParentId");
 
-                    b.ToTable("VociMenu");
+                    b.ToTable("VociMenu", (string)null);
                 });
 
             modelBuilder.Entity("StudioCG.Web.Models.AttivitaAnnuale", b =>

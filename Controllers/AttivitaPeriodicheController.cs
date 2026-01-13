@@ -514,7 +514,8 @@ namespace StudioCG.Web.Controllers
         [HttpPost]
         public async Task<IActionResult> AggiornaSezione(int id, string nome, string nomePlurale, 
             string? descrizione, string icona, string colore, bool collegataACliente,
-            int larghezzaColonnaCliente = 150, int larghezzaColonnaTitolo = 200)
+            int larghezzaColonnaCliente = 150, int larghezzaColonnaTitolo = 200,
+            bool colonnaPeriodoFissa = false)
         {
             var attivita = await _context.AttivitaPeriodiche.FindAsync(id);
             if (attivita == null)
@@ -531,6 +532,7 @@ namespace StudioCG.Web.Controllers
             attivita.CollegataACliente = collegataACliente;
             attivita.LarghezzaColonnaCliente = larghezzaColonnaCliente;
             attivita.LarghezzaColonnaTitolo = larghezzaColonnaTitolo;
+            attivita.ColonnaPeriodoFissa = colonnaPeriodoFissa;
 
             await _context.SaveChangesAsync();
 

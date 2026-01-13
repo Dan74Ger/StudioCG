@@ -112,3 +112,39 @@ select:disabled {
   background-color: #e9ecef !important;
   border-color: #6c757d !important;
 }
+
+/* ===== TABELLA CON PRIMA COLONNA FISSA (STICKY) ===== */
+.table-sticky-first-col {
+  position: relative;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table-sticky-first-col thead th:first-child,
+.table-sticky-first-col tbody td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background-color: #f8f9fa !important;
+  border-right: 3px solid #0d6efd !important;
+}
+
+.table-sticky-first-col thead th:first-child {
+  z-index: 3;
+  background-color: #dee2e6 !important;
+}
+
+/* Sfondo OPACO per righe dispari */
+.table-sticky-first-col tbody tr:nth-child(odd) td:first-child {
+  background-color: #ffffff !important;
+}
+
+/* Sfondo OPACO per righe pari */
+.table-sticky-first-col tbody tr:nth-child(even) td:first-child {
+  background-color: #f8f9fa !important;
+}
+
+/* Sfondo OPACO per hover */
+.table-sticky-first-col tbody tr:hover td:first-child {
+  background-color: #cfe2ff !important;
+}

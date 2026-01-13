@@ -491,7 +491,7 @@
                                 var largTotale = largPeriodo + campiPeriodo.Sum(c => c.ColumnWidth > 0 ? c.ColumnWidth : 100);
                             }
                             <div class="table-responsive">
-                                <table class="table table-sm table-bordered table-hover griglia-periodi mb-0" style="table-layout: fixed; width: @(largTotale)px; min-width: @(largTotale)px;">
+                                <table class="table table-sm table-bordered table-hover griglia-periodi mb-0 @(attivita?.ColonnaPeriodoFissa == true ? "table-sticky-first-col" : "")" style="table-layout: fixed; width: @(largTotale)px; min-width: @(largTotale)px;">
                                     <thead class="table-light">
                                         <tr>
                                             <th style="width: @(largPeriodo)px;">Periodo</th>

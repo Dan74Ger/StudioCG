@@ -52,6 +52,12 @@ namespace StudioCG.Web.Models.AttivitaPeriodiche
         [Display(Name = "Largh. Titolo (px)")]
         public int LarghezzaColonnaTitolo { get; set; } = 200;
 
+        /// <summary>
+        /// Se true, la prima colonna (Periodo) rimane fissa durante lo scroll orizzontale
+        /// </summary>
+        [Display(Name = "Colonna Periodo Fissa")]
+        public bool ColonnaPeriodoFissa { get; set; } = false;
+
         // Navigation
         public virtual ICollection<TipoPeriodo> TipiPeriodo { get; set; } = new List<TipoPeriodo>();
         public virtual ICollection<ClienteAttivitaPeriodica> ClientiAssociati { get; set; } = new List<ClienteAttivitaPeriodica>();

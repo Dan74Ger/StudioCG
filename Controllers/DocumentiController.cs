@@ -844,9 +844,10 @@ namespace StudioCG.Web.Controllers
         // GET: /Documenti/ControlloAntiriciclaggio
         public async Task<IActionResult> ControlloAntiriciclaggio(string? searchCliente, string? statoScadenza)
         {
-            // Carica configurazione per data limite impostata dall'utente
+            // Legge i giorni dalla configurazione (default 1095 = 36 mesi = 3 anni)
             var config = await _context.ConfigurazioniStudio.FirstOrDefaultAsync();
-            var dataLimite = config?.DataLimiteAntiriciclaggio ?? DateTime.Today;
+            var giorniScadenza = config?.GiorniScadenzaAntiriciclaggio ?? 1095;
+            var oggi = DateTime.Today;
 
             // Trova tutti i documenti antiriciclaggio (nuovi clienti e aggiornamento)
             var documentiAntiriciclaggio = await _context.DocumentiGenerati
@@ -865,15 +866,14 @@ namespace StudioCG.Web.Controllers
                     var docPiuRecente = g.OrderByDescending(d => d.GeneratoIl).First();
                     var dataGenerazione = docPiuRecente.GeneratoIl.Date;
                     
-                    // LOGICA SEMPLICE:
-                    // - Data documento PRIMA della data limite → SCADUTO (rosso)
-                    // - Data documento UGUALE o DOPO la data limite → OK (verde)
-                    var isScaduto = dataGenerazione < dataLimite;
+                    // NUOVA LOGICA:
+                    // - Calcola giorni trascorsi dalla generazione del documento
+                    // - SCADUTO se sono passati più di X giorni (configurabile)
+                    var giorniTrascorsi = (oggi - dataGenerazione).Days;
+                    var isScaduto = giorniTrascorsi > giorniScadenza;
                     
-                    // Giorni di differenza tra data documento e data limite
-                    // Negativo = documento generato PRIMA della data limite (scaduto)
-                    // Positivo = documento generato DOPO la data limite (ok)
-                    var giorniDifferenza = (dataGenerazione - dataLimite).Days;
+                    // Giorni rimanenti prima della scadenza (negativi = già scaduto da X giorni)
+                    var giorniAllaScadenza = giorniScadenza - giorniTrascorsi;
                     
                     return new ControlloAntiriciclaggioViewModel
                     {
@@ -883,7 +883,8 @@ namespace StudioCG.Web.Controllers
                         TipoDocumento = docPiuRecente.TemplateDocumento?.Nome ?? "N/D",
                         NomeFile = docPiuRecente.NomeFile,
                         DocumentoId = docPiuRecente.Id,
-                        GiorniDifferenza = giorniDifferenza,
+                        GiorniTrascorsi = giorniTrascorsi,
+                        GiorniAllaScadenza = giorniAllaScadenza,
                         IsScaduto = isScaduto,
                         TotaleDocumenti = g.Count()
                     };
@@ -912,46 +913,41 @@ namespace StudioCG.Web.Controllers
                 }
             }
 
-            // Ordina: prima scaduti, poi ok (per data documento)
+            // Ordina: prima scaduti (più vecchi prima), poi ok (più vecchi prima)
             clientiConAntiriciclaggio = clientiConAntiriciclaggio
                 .OrderByDescending(c => c.IsScaduto)
-                .ThenBy(c => c.DataUltimoDocumento)
+                .ThenByDescending(c => c.GiorniTrascorsi)
                 .ThenBy(c => c.NomeCliente)
                 .ToList();
 
-            // Statistiche
-            var tuttiClienti = documentiAntiriciclaggio
+            // Statistiche (ricalcola su tutti i clienti, non filtrati)
+            var tuttiClientiStats = documentiAntiriciclaggio
                 .GroupBy(d => d.ClienteId)
                 .Select(g => {
                     var docPiuRecente = g.OrderByDescending(d => d.GeneratoIl).First();
-                    var dataGen = docPiuRecente.GeneratoIl.Date;
-                    return dataGen < dataLimite; // true = scaduto
+                    var ggTrascorsi = (oggi - docPiuRecente.GeneratoIl.Date).Days;
+                    return ggTrascorsi > giorniScadenza; // true = scaduto
                 }).ToList();
 
-            ViewBag.TotaleScaduti = tuttiClienti.Count(isScaduto => isScaduto);
-            ViewBag.TotaleOk = tuttiClienti.Count(isScaduto => !isScaduto);
-            ViewBag.TotaleClienti = tuttiClienti.Count;
+            ViewBag.TotaleScaduti = tuttiClientiStats.Count(isScaduto => isScaduto);
+            ViewBag.TotaleOk = tuttiClientiStats.Count(isScaduto => !isScaduto);
+            ViewBag.TotaleClienti = tuttiClientiStats.Count;
+            ViewBag.GiorniScadenza = giorniScadenza;
 
-            ViewBag.DataLimite = dataLimite;
             ViewBag.SearchCliente = searchCliente;
             ViewBag.StatoScadenza = statoScadenza;
-            ViewBag.ConfigurazioneId = config?.Id;
 
             return View(clientiConAntiriciclaggio);
         }
 
-        // POST: /Documenti/SalvaDataLimiteAntiriciclaggio
+        // POST: /Documenti/SalvaGiorniScadenzaAntiriciclaggio
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SalvaDataLimiteAntiriciclaggio(string dataLimite)
+        public async Task<IActionResult> SalvaGiorniScadenzaAntiriciclaggio(int giorniScadenza)
         {
-            // Parsing della data con supporto per formati ISO (yyyy-MM-dd) e italiano (dd/MM/yyyy)
-            DateTime parsedDate;
-            if (!DateTime.TryParseExact(dataLimite, new[] { "yyyy-MM-dd", "dd/MM/yyyy" }, 
-                System.Globalization.CultureInfo.InvariantCulture, 
-                System.Globalization.DateTimeStyles.None, out parsedDate))
+            if (giorniScadenza < 1 || giorniScadenza > 9999)
             {
-                TempData["Error"] = $"Formato data non valido: {dataLimite}. Usa il formato gg/mm/aaaa.";
+                TempData["Error"] = "Inserisci un numero di giorni valido (1-9999).";
                 return RedirectToAction(nameof(ControlloAntiriciclaggio));
             }
 
@@ -961,19 +957,21 @@ namespace StudioCG.Web.Controllers
                 config = new ConfigurazioneStudio 
                 { 
                     NomeStudio = "Studio",
-                    DataLimiteAntiriciclaggio = parsedDate,
+                    GiorniScadenzaAntiriciclaggio = giorniScadenza,
                     CreatedAt = DateTime.Now
                 };
                 _context.ConfigurazioniStudio.Add(config);
             }
             else
             {
-                config.DataLimiteAntiriciclaggio = parsedDate;
+                config.GiorniScadenzaAntiriciclaggio = giorniScadenza;
                 config.UpdatedAt = DateTime.Now;
             }
 
             await _context.SaveChangesAsync();
-            TempData["Success"] = $"Data limite antiriciclaggio impostata: {parsedDate:dd/MM/yyyy}";
+            
+            var mesi = giorniScadenza / 30;
+            TempData["Success"] = $"Scadenza antiriciclaggio impostata: {giorniScadenza} giorni (~{mesi} mesi)";
             return RedirectToAction(nameof(ControlloAntiriciclaggio));
         }
 
@@ -1019,13 +1017,17 @@ namespace StudioCG.Web.Controllers
         public string NomeFile { get; set; } = string.Empty;
         public int DocumentoId { get; set; }
         /// <summary>
-        /// Differenza in giorni tra data documento e data limite
-        /// Negativo = documento generato PRIMA della data limite (SCADUTO - rosso)
-        /// Positivo o zero = documento generato UGUALE o DOPO la data limite (OK - verde)
+        /// Giorni trascorsi dalla generazione del documento
         /// </summary>
-        public int GiorniDifferenza { get; set; }
+        public int GiorniTrascorsi { get; set; }
         /// <summary>
-        /// True se data documento è PRIMA della data limite impostata
+        /// Giorni rimanenti prima della scadenza (1095 gg)
+        /// Positivo = mancano X giorni alla scadenza
+        /// Negativo = scaduto da X giorni
+        /// </summary>
+        public int GiorniAllaScadenza { get; set; }
+        /// <summary>
+        /// True se sono passati più di 1095 giorni (36 mesi) dalla generazione
         /// </summary>
         public bool IsScaduto { get; set; }
         public int TotaleDocumenti { get; set; }

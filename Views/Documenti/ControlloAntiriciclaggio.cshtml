@@ -1,7 +1,7 @@
 @model List<StudioCG.Web.Controllers.ControlloAntiriciclaggioViewModel>
 @{
     ViewData["Title"] = "Controllo Antiriciclaggio";
-    var dataLimite = ViewBag.DataLimite as DateTime? ?? DateTime.Today;
+    var giorniScadenza = ViewBag.GiorniScadenza as int? ?? 1095;
 }
 
 <div class="container-fluid">
@@ -44,34 +44,37 @@
         </div>
     }
 
-    <!-- Impostazione Data Limite -->
+    <!-- Impostazione Giorni Scadenza -->
     <div class="card mb-4 border-primary">
-        <div class="card-header bg-primary text-white">
-            <h6 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Impostazione Data Limite Antiriciclaggio</h6>
+        <div class="card-header bg-primary text-white py-2">
+            <h6 class="mb-0"><i class="fas fa-cog me-2"></i>Impostazione Scadenza Antiriciclaggio</h6>
         </div>
-        <div class="card-body">
-            <form asp-action="SalvaDataLimiteAntiriciclaggio" method="post" class="row g-3 align-items-end">
+        <div class="card-body py-3">
+            <form asp-action="SalvaGiorniScadenzaAntiriciclaggio" method="post">
                 @Html.AntiForgeryToken()
-                <div class="col-md-4">
-                    <label class="form-label"><strong>Data Limite</strong></label>
-                    <input type="date" name="dataLimite" class="form-control form-control-lg" 
-                           value="@dataLimite.ToString("yyyy-MM-dd")" required />
-                    <small class="text-muted">Documenti generati PRIMA di questa data saranno SCADUTI</small>
-                </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary btn-lg">
-                        <i class="fas fa-save me-1"></i>Salva Data
-                    </button>
-                </div>
-                <div class="col-md-6">
-                    <div class="alert alert-info mb-0 py-2">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <strong>Data limite attuale:</strong> <span class="fs-5">@dataLimite.ToString("dd/MM/yyyy")</span>
-                        <br>
-                        <small>
-                            • <span class="text-danger"><strong>SCADUTO</strong></span>: documento generato <strong>PRIMA</strong> del @dataLimite.ToString("dd/MM/yyyy")<br>
-                            • <span class="text-success"><strong>OK</strong></span>: documento generato <strong>UGUALE o DOPO</strong> il @dataLimite.ToString("dd/MM/yyyy")
-                        </small>
+                <div class="row align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label"><strong>Giorni per Scadenza</strong></label>
+                        <div class="input-group">
+                            <input type="number" name="giorniScadenza" class="form-control form-control-lg" 
+                                   value="@giorniScadenza" min="1" max="9999" required style="max-width: 150px;" />
+                            <span class="input-group-text">giorni</span>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-save me-1"></i>Salva
+                            </button>
+                        </div>
+                        <small class="text-muted">Es: 1095 giorni = 36 mesi = 3 anni</small>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="alert alert-info mb-0 py-2">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Regola attuale:</strong> Scadenza dopo <strong>@giorniScadenza giorni</strong> (~@(giorniScadenza / 30) mesi)
+                            <br>
+                            <small>
+                                • <span class="text-danger"><strong>SCADUTO</strong></span>: documento generato più di @giorniScadenza giorni fa<br>
+                                • <span class="text-success"><strong>OK</strong></span>: documento generato entro @giorniScadenza giorni
+                            </small>
+                        </div>
                     </div>
                 </div>
             </form>
@@ -152,8 +155,8 @@
                                 <th>Ultimo Documento</th>
                                 <th>Tipo</th>
                                 <th>Data Documento</th>
-                                <th>Confronto Data Limite</th>
-                                <th>Stato</th>
+                                <th class="text-center">Giorni Trascorsi</th>
+                                <th class="text-center">Scadenza</th>
                                 <th class="text-end">Azioni</th>
                             </tr>
                         </thead>
@@ -198,27 +201,26 @@
                                         <br><small class="text-muted">@item.DataUltimoDocumento.ToString("HH:mm")</small>
                                     </td>
                                     <td class="align-middle text-center">
-                                        @if (item.GiorniDifferenza < 0)
+                                        <span class="badge @(item.IsScaduto ? "bg-danger" : "bg-secondary") fs-6">
+                                            @item.GiorniTrascorsi gg
+                                        </span>
+                                        <br><small class="text-muted">dalla generazione</small>
+                                    </td>
+                                    <td class="align-middle text-center">
+                                        @if (item.IsScaduto)
                                         {
-                                            <span class="badge bg-danger fs-6">@item.GiorniDifferenza gg</span>
-                                            <br><small class="text-danger">prima del limite</small>
+                                            <span class="badge bg-danger fs-6">SCADUTO</span>
+                                            <br><small class="text-danger">da @Math.Abs(item.GiorniAllaScadenza) gg</small>
                                         }
-                                        else if (item.GiorniDifferenza == 0)
+                                        else if (item.GiorniAllaScadenza <= 90)
                                         {
-                                            <span class="badge bg-success fs-6">= Data Limite</span>
-                                            <br><small class="text-success">stesso giorno</small>
+                                            <span class="badge bg-warning text-dark fs-6">@item.GiorniAllaScadenza gg</span>
+                                            <br><small class="text-warning">⚠️ in scadenza</small>
                                         }
                                         else
                                         {
-                                            <span class="badge bg-success fs-6">+@item.GiorniDifferenza gg</span>
-                                            <br><small class="text-success">dopo il limite</small>
-                                        }
-                                    </td>
-                                    <td class="align-middle">
-                                        <span class="badge @badgeClass fs-6">@statoText</span>
-                                        @if (item.IsScaduto)
-                                        {
-                                            <br><small class="text-danger"><strong>Richiede aggiornamento!</strong></small>
+                                            <span class="badge bg-success fs-6">@item.GiorniAllaScadenza gg</span>
+                                            <br><small class="text-success">rimanenti</small>
                                         }
                                     </td>
                                     <td class="text-end align-middle">
