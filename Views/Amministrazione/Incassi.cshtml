@@ -424,27 +424,23 @@
 
                     <hr>
                     <h6><i class="fas fa-users me-2"></i>Suddivisione tra Professionisti</h6>
-                    <p class="text-muted small">Indica come suddividere l'incasso tra i professionisti dello studio</p>
+                    <p class="text-muted small">Inserisci liberamente gli importi per ogni professionista (lascia 0 o vuoto per escludere)</p>
                     
                     <div id="suddivisioneProfessionisti">
                         @foreach (var prof in professionisti)
                         {
-                            <div class="row mb-2 prof-row" data-profid="@prof.Id">
+                            <div class="row mb-2 align-items-center prof-row" data-profid="@prof.Id">
                                 <div class="col-md-6">
-                                    <div class="form-check">
-                                        <input class="form-check-input prof-check" type="checkbox" 
-                                               name="professionisti[@prof.Id].selezionato" 
-                                               id="prof_@prof.Id" onchange="aggiornaProf()">
-                                        <label class="form-check-label" for="prof_@prof.Id">
-                                            @prof.Nome @prof.Cognome
-                                        </label>
-                                    </div>
+                                    <label class="form-label mb-0 fw-medium" for="prof_@prof.Id">
+                                        <i class="fas fa-user text-primary me-1"></i>@prof.Nome @prof.Cognome
+                                    </label>
                                 </div>
                                 <div class="col-md-6">
-                                    <div class="input-group input-group-sm">
+                                    <div class="input-group">
                                         <span class="input-group-text">€</span>
-                                        <input type="text" name="professionisti[@prof.Id].importo" 
-                                               class="form-control prof-importo" disabled placeholder="0,00">
+                                        <input type="text" name="professionisti[@prof.Id].importo" id="prof_@prof.Id"
+                                               class="form-control prof-importo" placeholder="0,00"
+                                               oninput="calcolaTotaleSuddiviso()">
                                         <input type="hidden" name="professionisti[@prof.Id].utenteId" value="@prof.Id">
                                     </div>
                                 </div>
@@ -454,7 +450,7 @@
                     
                     <div class="alert alert-info mt-3" id="alertSuddivisione">
                         <i class="fas fa-info-circle me-2"></i>
-                        <span id="suddivisioneInfo">Seleziona i professionisti e inserisci gli importi</span>
+                        <span id="suddivisioneInfo">Inserisci gli importi per i professionisti</span>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -542,16 +538,13 @@
             storicoDiv.style.display = 'none';
         }
         
-        // Reset professionisti
-        document.querySelectorAll('.prof-check').forEach(function(cb) {
-            cb.checked = false;
-        });
+        // Reset tutti gli importi professionisti
         document.querySelectorAll('.prof-importo').forEach(function(input) {
             input.value = '';
-            input.disabled = true;
         });
+        
         document.getElementById('incassaTutto').checked = true;
-        aggiornaProf();
+        calcolaTotaleSuddiviso();
     });
 
     function incassaTuttoResiduo() {
@@ -560,56 +553,44 @@
         } else {
             document.getElementById('incImportoInput').value = '';
         }
-        aggiornaProf();
+        calcolaTotaleSuddiviso();
     }
 
-    function aggiornaProf() {
-        var checkedProfs = document.querySelectorAll('.prof-check:checked');
+    function calcolaTotaleSuddiviso() {
         var importoTotale = parseFloat(document.getElementById('incImportoInput').value.replace(',', '.')) || 0;
         
-        document.querySelectorAll('.prof-check').forEach(function(cb, idx) {
-            var row = cb.closest('.prof-row');
-            var inputImporto = row.querySelector('.prof-importo');
-            
-            if (cb.checked) {
-                inputImporto.disabled = false;
-                // Dividi equamente se più professionisti
-                if (checkedProfs.length > 0) {
-                    var quota = importoTotale / checkedProfs.length;
-                    inputImporto.value = quota.toFixed(2).replace('.', ',');
-                }
-            } else {
-                inputImporto.disabled = true;
-                inputImporto.value = '';
-            }
-        });
-        
-        // Calcola totale suddiviso
+        // Calcola totale suddiviso tra i professionisti
         var totaleSuddiviso = 0;
-        document.querySelectorAll('.prof-importo:not(:disabled)').forEach(function(input) {
-            totaleSuddiviso += parseFloat(input.value.replace(',', '.')) || 0;
+        var professionistiAssegnati = 0;
+        document.querySelectorAll('.prof-importo').forEach(function(input) {
+            var val = parseFloat(input.value.replace(',', '.')) || 0;
+            if (val > 0) {
+                totaleSuddiviso += val;
+                professionistiAssegnati++;
+            }
         });
         
         var diff = importoTotale - totaleSuddiviso;
         var alertDiv = document.getElementById('alertSuddivisione');
         var infoSpan = document.getElementById('suddivisioneInfo');
         
-        if (checkedProfs.length === 0) {
+        if (professionistiAssegnati === 0) {
             alertDiv.className = 'alert alert-warning mt-3';
-            infoSpan.textContent = 'Seleziona almeno un professionista';
+            infoSpan.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Inserisci gli importi per almeno un professionista';
         } else if (Math.abs(diff) > 0.01) {
             alertDiv.className = 'alert alert-danger mt-3';
-            infoSpan.textContent = 'Differenza: ' + formatCurrency(diff) + ' - Correggi gli importi';
+            if (diff > 0) {
+                infoSpan.innerHTML = '<i class="fas fa-times-circle me-2"></i>Mancano ancora <strong>' + formatCurrency(diff) + '</strong> da assegnare';
+            } else {
+                infoSpan.innerHTML = '<i class="fas fa-times-circle me-2"></i>Hai assegnato <strong>' + formatCurrency(-diff) + '</strong> in più!';
+            }
         } else {
             alertDiv.className = 'alert alert-success mt-3';
-            infoSpan.textContent = 'Suddivisione corretta: ' + formatCurrency(totaleSuddiviso);
+            infoSpan.innerHTML = '<i class="fas fa-check-circle me-2"></i>Suddivisione corretta: <strong>' + formatCurrency(totaleSuddiviso) + '</strong>';
         }
     }
 
-    document.getElementById('incImportoInput').addEventListener('input', aggiornaProf);
-    document.querySelectorAll('.prof-importo').forEach(function(input) {
-        input.addEventListener('input', aggiornaProf);
-    });
+    document.getElementById('incImportoInput').addEventListener('input', calcolaTotaleSuddiviso);
 </script>
 }
 

@@ -1909,17 +1909,15 @@ namespace StudioCG.Web.Controllers
                 _context.IncassiFatture.Add(incasso);
                 await _context.SaveChangesAsync();
 
-                // Suddivisione tra professionisti - leggi dal form
+                // Suddivisione tra professionisti - leggi dal form (importi liberi)
                 var professionistiIds = await _context.Users.Where(u => u.IsActive).Select(u => u.Id).ToListAsync();
                 foreach (var profId in professionistiIds)
                 {
-                    var selezionatoKey = $"professionisti[{profId}].selezionato";
                     var importoKey = $"professionisti[{profId}].importo";
-                    
-                    var isSelezionato = Request.Form.ContainsKey(selezionatoKey);
                     var importoProfStr = Request.Form[importoKey].FirstOrDefault();
                     
-                    if (isSelezionato && !string.IsNullOrEmpty(importoProfStr))
+                    // Verifica solo se l'importo è presente e > 0 (senza checkbox)
+                    if (!string.IsNullOrEmpty(importoProfStr))
                     {
                         var importoProfDecimal = decimal.Parse(importoProfStr.Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture);
                         if (importoProfDecimal > 0)
